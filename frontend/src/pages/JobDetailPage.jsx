@@ -197,6 +197,12 @@ export default function JobDetailPage() {
           {/* Fields */}
           <div>
             {fieldRow('Job Reference', job.job_ref || '—')}
+            {job.inspection_stage && fieldRow('Inspection Stage', (() => {
+              const map = { pre_production: 'Pre-Production Sample', inline: 'In-Line Production', final: 'Final Inspection', loading: 'Container Loading' }
+              const colors = { pre_production: ['#fef3c7','#92400e'], inline: ['#dbeafe','#1e40af'], final: ['#dcfce7','#166534'], loading: ['#f3e8ff','#6b21a8'] }
+              const [bg, color] = colors[job.inspection_stage] || ['#f3f4f6','#374151']
+              return <span style={{ backgroundColor: bg, color, padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '700' }}>{map[job.inspection_stage] || job.inspection_stage}</span>
+            })())}
             {fieldRow('PO Number', job.po_no)}
             {fieldRow('Item Code', job.item_code)}
             {fieldRow('Supplier Code', job.supplier_code)}

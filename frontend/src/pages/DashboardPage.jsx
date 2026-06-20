@@ -169,7 +169,7 @@ export default function DashboardPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb' }}>
-                      {['Job ID', 'PO No', 'Item', 'Supplier', 'Agency', 'Status', 'Date', 'Actions'].map(h => (
+                      {['Job ID', 'Stage', 'PO No', 'Item', 'Supplier', 'Agency', 'Status', 'Date', 'Actions'].map(h => (
                         <th key={h} style={{
                           padding: '12px 16px',
                           textAlign: 'left',
@@ -195,6 +195,17 @@ export default function DashboardPage() {
                       >
                         <td style={{ padding: '14px 16px', fontSize: '13px', color: '#374151', fontFamily: 'monospace' }}>
                           {job.job_ref || String(job.job_id || '').slice(0, 8) + '...'}
+                        </td>
+                        <td style={{ padding: '14px 16px' }}>
+                          {job.inspection_stage ? (
+                            <span style={{
+                              fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px',
+                              backgroundColor: { pre_production: '#fef3c7', inline: '#dbeafe', final: '#dcfce7', loading: '#f3e8ff' }[job.inspection_stage] || '#f3f4f6',
+                              color: { pre_production: '#92400e', inline: '#1e40af', final: '#166534', loading: '#6b21a8' }[job.inspection_stage] || '#374151',
+                            }}>
+                              {{ pre_production: 'Pre-Production', inline: 'In-Line', final: 'Final', loading: 'Loading' }[job.inspection_stage] || job.inspection_stage}
+                            </span>
+                          ) : <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>}
                         </td>
                         <td style={{ padding: '14px 16px', fontSize: '13px', color: '#374151', fontWeight: '500' }}>
                           {job.po_no || '-'}

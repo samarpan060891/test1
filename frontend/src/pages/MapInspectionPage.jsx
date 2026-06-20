@@ -5,15 +5,24 @@ import SearchableDropdown from '../components/SearchableDropdown.jsx'
 import { mapJob } from '../api/inspectionJobs.js'
 import { searchPOs, searchAgencies } from '../api/masters.js'
 
+const STAGES = [
+  { key: 'pre_production', label: 'Pre-Production Sample Inspection', desc: 'Inspect sample before mass production begins' },
+  { key: 'inline',         label: 'In-Line Production Inspection',    desc: 'Inspect during active production run' },
+  { key: 'final',          label: 'Final Inspection',                 desc: 'Full inspection after production is complete' },
+  { key: 'loading',        label: 'Container Loading Inspection',     desc: 'Inspect goods during container stuffing' },
+]
+
 export default function MapInspectionPage() {
   const [selectedPO, setSelectedPO] = useState(null)
   const [selectedAgency, setSelectedAgency] = useState(null)
   const [inspectionDate, setInspectionDate] = useState('')
   const [inspectionType, setInspectionType] = useState('agency')
+  const [selectedStages, setSelectedStages] = useState(['final'])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [noTemplateError, setNoTemplateError] = useState(null)
   const [successJob, setSuccessJob] = useState(null)
+  const [successJobs, setSuccessJobs] = useState([])
 
   const inputStyle = {
     width: '100%',
@@ -68,6 +77,10 @@ export default function MapInspectionPage() {
       setError('Please select an agency for agency inspection.')
       return
     }
+    if (!selectedStages.length) {
+      setError('Please select at least one inspection stage.')
+      return
+    }
 
     setLoading(true)
     try {
@@ -76,8 +89,16 @@ export default function MapInspectionPage() {
         agency_code: inspectionType === 'agency' ? selectedAgency.value : undefined,
         inspection_date: inspectionDate,
         inspection_type: inspectionType,
+        inspection_stages: selectedStages,
       })
-      setSuccessJob(res.data?.job || res.data)
+      const data = res.data
+      if (data.jobs) {
+        setSuccessJobs(data.jobs)
+        setSuccessJob(null)
+      } else {
+        setSuccessJob(data?.job || data)
+        setSuccessJobs([])
+      }
     } catch (err) {
       const status = err?.response?.status
       const data = err?.response?.data
@@ -91,14 +112,18 @@ export default function MapInspectionPage() {
     }
   }
 
+  const toggleStage = (key) => setSelectedStages(p => p.includes(key) ? p.filter(s => s !== key) : [...p, key])
+
   const handleReset = () => {
     setSelectedPO(null)
     setSelectedAgency(null)
     setInspectionDate('')
     setInspectionType('agency')
+    setSelectedStages(['final'])
     setError('')
     setNoTemplateError(null)
     setSuccessJob(null)
+    setSuccessJobs([])
   }
 
   return (
@@ -155,39 +180,47 @@ export default function MapInspectionPage() {
           </div>
         )}
 
-        {/* Success */}
+        {/* Success — single job */}
         {successJob && (
-          <div style={{
-            backgroundColor: '#f0fdf4', border: '1px solid #86efac',
-            borderRadius: '10px', padding: '20px 24px', marginBottom: '24px',
-          }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: '600', color: '#15803d' }}>
-              Inspection Mapped Successfully!
-            </h3>
+          <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', padding: '20px 24px', marginBottom: '24px' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: '600', color: '#15803d' }}>Inspection Mapped Successfully!</h3>
             <p style={{ margin: '0 0 12px', fontSize: '14px', color: '#166534' }}>
-              Job ID: <code style={{ fontFamily: 'monospace', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>
-                {successJob.job_id || successJob.id}
-              </code>
+              Job: <code style={{ fontFamily: 'monospace', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>{successJob.job_ref || successJob.job_id}</code>
             </p>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <Link to={`/jobs/${successJob.job_id || successJob.id}`} style={{
-                backgroundColor: '#15803d', color: '#fff', padding: '8px 16px',
-                borderRadius: '6px', textDecoration: 'none', fontSize: '13px', fontWeight: '600',
-              }}>
-                View Job
-              </Link>
-              <button onClick={handleReset} style={{
-                backgroundColor: '#fff', color: '#374151', border: '1px solid #d1d5db',
-                padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer',
-              }}>
-                Map Another
-              </button>
+              <Link to={`/jobs/${successJob.job_id}`} style={{ backgroundColor: '#15803d', color: '#fff', padding: '8px 16px', borderRadius: '6px', textDecoration: 'none', fontSize: '13px', fontWeight: '600' }}>View Job</Link>
+              <button onClick={handleReset} style={{ backgroundColor: '#fff', color: '#374151', border: '1px solid #d1d5db', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Map Another</button>
             </div>
           </div>
         )}
 
+        {/* Success — multiple jobs (multiple stages) */}
+        {successJobs.length > 0 && (
+          <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', padding: '20px 24px', marginBottom: '24px' }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: '600', color: '#15803d' }}>
+              {successJobs.length} Inspection Jobs Created!
+            </h3>
+            <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#6b7280' }}>One job per selected stage:</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              {successJobs.map(j => {
+                const stageLabel = STAGES.find(s => s.key === j.inspection_stage)?.label || j.inspection_stage
+                return (
+                  <div key={j.job_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#dcfce7', borderRadius: '6px', padding: '10px 14px' }}>
+                    <div>
+                      <span style={{ fontWeight: '700', fontSize: '13px', color: '#166534' }}>{j.job_ref || j.job_id?.slice(0,8)}</span>
+                      <span style={{ fontSize: '12px', color: '#15803d', marginLeft: '10px' }}>{stageLabel}</span>
+                    </div>
+                    <Link to={`/jobs/${j.job_id}`} style={{ fontSize: '12px', color: '#15803d', fontWeight: '600', textDecoration: 'underline' }}>View</Link>
+                  </div>
+                )
+              })}
+            </div>
+            <button onClick={handleReset} style={{ backgroundColor: '#15803d', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Map Another</button>
+          </div>
+        )}
+
         {/* Form */}
-        {!successJob && (
+        {!successJob && !successJobs.length && (
           <div style={{
             backgroundColor: '#fff', borderRadius: '10px',
             boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '32px',
@@ -259,6 +292,37 @@ export default function MapInspectionPage() {
                 />
               )}
 
+              {/* Inspection Stages */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={labelStyle}>
+                  Inspection Stages <span style={{ color: '#dc2626' }}>*</span>
+                  <span style={{ fontWeight: '400', color: '#6b7280', fontSize: '13px', marginLeft: '8px' }}>Select all that apply</span>
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {STAGES.map((stage, idx) => (
+                    <label key={stage.key} onClick={() => toggleStage(stage.key)} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 16px',
+                      borderRadius: '8px', cursor: 'pointer',
+                      border: `2px solid ${selectedStages.includes(stage.key) ? '#1e40af' : '#e5e7eb'}`,
+                      backgroundColor: selectedStages.includes(stage.key) ? '#eff6ff' : '#fff',
+                    }}>
+                      <input type="checkbox" checked={selectedStages.includes(stage.key)} onChange={() => {}} style={{ marginTop: '2px', accentColor: '#1e40af', width: '16px', height: '16px', flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: selectedStages.includes(stage.key) ? '#1e40af' : '#374151' }}>
+                          {idx + 1}. {stage.label}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{stage.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {selectedStages.length > 1 && (
+                  <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#1d4ed8', fontWeight: '500' }}>
+                    {selectedStages.length} stages selected — {selectedStages.length} separate jobs will be created
+                  </p>
+                )}
+              </div>
+
               {/* Inspection Date */}
               <div style={{ marginBottom: '32px' }}>
                 <label style={labelStyle}>
@@ -285,7 +349,7 @@ export default function MapInspectionPage() {
                     cursor: loading ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {loading ? 'Mapping...' : 'Map Inspection'}
+                  {loading ? 'Mapping...' : selectedStages.length > 1 ? `Map ${selectedStages.length} Inspections` : 'Map Inspection'}
                 </button>
                 <Link to="/dashboard" style={{
                   padding: '11px 20px', borderRadius: '7px', fontSize: '14px',

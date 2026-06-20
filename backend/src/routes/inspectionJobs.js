@@ -109,8 +109,10 @@ router.get('/:id', async (req, res) => {
  * Business rule: Must have an active checklist template for item's category/sub_category.
  * If not, returns 422 with error code NO_ACTIVE_TEMPLATE (alert QA only).
  */
+const VALID_STAGES = ['pre_production', 'inline', 'final', 'loading'];
+
 router.post('/', authorize('qa', 'buying'), async (req, res) => {
-  const { po_no, agency_code, inspection_date, inspection_type = 'agency' } = req.body;
+  const { po_no, agency_code, inspection_date, inspection_type = 'agency', inspection_stages } = req.body;
 
   if (!['agency', 'self'].includes(inspection_type)) {
     return res.status(400).json({ error: 'inspection_type must be "agency" or "self"' });
@@ -122,6 +124,13 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
   if (inspection_type === 'agency' && !agency_code) {
     return res.status(400).json({ error: 'agency_code is required for agency inspection' });
+  }
+
+  // stages: default to ['final'] if not provided, validate all provided values
+  const stages = (inspection_stages && inspection_stages.length > 0) ? inspection_stages : ['final'];
+  const invalidStages = stages.filter(s => !VALID_STAGES.includes(s));
+  if (invalidStages.length > 0) {
+    return res.status(400).json({ error: `Invalid stages: ${invalidStages.join(', ')}` });
   }
 
   const client = await db.getClient();
@@ -183,39 +192,37 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
     const templateId = templateResult.rows[0].template_id;
 
-    // Create the inspection job
-    const jobResult = await client.query(
-      `INSERT INTO qc_inspection.inspection_job
-        (po_no, item_code, supplier_code, agency_code, checklist_template_id, status, inspection_date, inspection_type)
-       VALUES ($1, $2, $3, $4, $5, 'mapped_awaiting_inspection', $6, $7)
-       RETURNING *`,
-      [po_no, po.item_code, po.supplier_code, agency_code || null, templateId, inspection_date, inspection_type]
-    );
+    // Create one job per selected inspection stage
+    const createdJobs = [];
+    for (const stage of stages) {
+      const jobResult = await client.query(
+        `INSERT INTO qc_inspection.inspection_job
+          (po_no, item_code, supplier_code, agency_code, checklist_template_id, status, inspection_date, inspection_type, inspection_stage)
+         VALUES ($1, $2, $3, $4, $5, 'mapped_awaiting_inspection', $6, $7, $8)
+         RETURNING *`,
+        [po_no, po.item_code, po.supplier_code, agency_code || null, templateId, inspection_date, inspection_type, stage]
+      );
+      const job = jobResult.rows[0];
+      createdJobs.push(job);
 
-    const job = jobResult.rows[0];
-
-    // Create initial log entry
-    await client.query(
-      `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [
-        po_no,
-        job.job_id,
-        req.user.user_id,
-        req.user.role,
-        `Inspection job mapped. Agency: ${agency_code}. Inspection date: ${inspection_date}.`,
-      ]
-    );
+      await client.query(
+        `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [po_no, job.job_id, req.user.user_id, req.user.role,
+         `Inspection job mapped. Stage: ${stage}. Agency: ${agency_code || 'self'}. Date: ${inspection_date}.`]
+      );
+    }
 
     await client.query('COMMIT');
 
-    // Fire-and-forget notifications
+    // Fire-and-forget notifications for first job only
     if (inspection_type === 'agency') {
-      sendNotification(job.job_id, 'JOB_MAPPED', 'agency_user', agencyResult.rows[0].contact_emails || []);
+      sendNotification(createdJobs[0].job_id, 'JOB_MAPPED', 'agency_user', agencyResult.rows[0].contact_emails || []);
     }
-    sendNotification(job.job_id, 'JOB_MAPPED', 'supplier_user', [po.contact_email]);
+    sendNotification(createdJobs[0].job_id, 'JOB_MAPPED', 'supplier_user', [po.contact_email]);
 
-    res.status(201).json(job);
+    // Return array if multiple stages, single object if one (backwards compatible)
+    res.status(201).json(stages.length === 1 ? createdJobs[0] : { jobs: createdJobs, count: createdJobs.length });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Map job error:', err);
