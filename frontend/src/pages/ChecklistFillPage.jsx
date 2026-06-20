@@ -23,6 +23,7 @@ export default function ChecklistFillPage() {
   const [error, setError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [actualDate, setActualDate] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -102,7 +103,7 @@ export default function ChecklistFillPage() {
       })
 
       await submitResponses(id, responsePayload)
-      await submitJob(id)
+      await submitJob(id, { actual_inspection_date: actualDate })
       setSuccess(true)
     } catch (err) {
       const msg = err?.response?.data?.message || err?.response?.data?.error || 'Failed to submit checklist. Please try again.'
@@ -367,6 +368,37 @@ export default function ChecklistFillPage() {
               </div>
             </div>
           ))}
+
+          {/* Actual Inspection Date */}
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '10px',
+            padding: '20px 24px',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+            marginBottom: '16px'
+          }}>
+            <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '8px' }}>
+              Actual Inspection Date <span style={{ color: '#dc2626' }}>*</span>
+              <span style={{ fontWeight: '400', color: '#6b7280', marginLeft: '8px', fontSize: '13px' }}>
+                (Date when inspection was physically carried out)
+              </span>
+            </label>
+            <input
+              type="date"
+              value={actualDate}
+              onChange={e => setActualDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              style={{
+                padding: '9px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '14px',
+                color: '#111827',
+                outline: 'none',
+                width: '220px'
+              }}
+            />
+          </div>
 
           {/* Submit */}
           <div style={{

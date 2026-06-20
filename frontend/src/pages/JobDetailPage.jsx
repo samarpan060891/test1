@@ -201,7 +201,10 @@ export default function JobDetailPage() {
             {fieldRow('Item Code', job.item_code)}
             {fieldRow('Supplier Code', job.supplier_code)}
             {fieldRow('Agency Code', job.agency_code)}
-            {fieldRow('Inspection Date', job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : null)}
+            {fieldRow('Planned Inspection Date', job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : null)}
+            {fieldRow('Actual Inspection Date', job.actual_inspection_date ? new Date(job.actual_inspection_date).toLocaleDateString() : '—')}
+            {fieldRow('Submitted At', job.submitted_at ? new Date(job.submitted_at).toLocaleString() : '—')}
+            {fieldRow('QA Decision At', job.decided_at ? new Date(job.decided_at).toLocaleString() : '—')}
             {fieldRow('Created At', job.created_at ? new Date(job.created_at).toLocaleString() : null)}
             {job.final_outcome && fieldRow('Final Outcome', job.final_outcome)}
             {job.qa_remarks && fieldRow('QA Remarks', job.qa_remarks)}

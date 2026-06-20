@@ -229,6 +229,7 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
  * Transitions: mapped_awaiting_inspection → submitted_pending_qa
  */
 router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req, res) => {
+  const { actual_inspection_date } = req.body;
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
@@ -280,9 +281,11 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
     }
 
     const updated = await client.query(
-      `UPDATE qc_inspection.inspection_job SET status = 'submitted_pending_qa', submitted_at = NOW()
+      `UPDATE qc_inspection.inspection_job
+       SET status = 'submitted_pending_qa', submitted_at = NOW(),
+           actual_inspection_date = COALESCE($2::date, CURRENT_DATE)
        WHERE job_id = $1 RETURNING *`,
-      [req.params.id]
+      [req.params.id, actual_inspection_date || null]
     );
 
     await client.query(
