@@ -21,11 +21,11 @@ router.get('/', async (req, res) => {
         s.name AS supplier_name,
         a.name AS agency_name,
         p.quantity
-      FROM inspection_jobs j
-      JOIN item_master i ON i.item_code = j.item_code
-      JOIN supplier_master s ON s.supplier_code = j.supplier_code
-      JOIN quality_agency_master a ON a.agency_code = j.agency_code
-      JOIN po_master p ON p.po_no = j.po_no
+      FROM qc_inspection.inspection_job j
+      JOIN qc_inspection.item_master i ON i.item_code = j.item_code
+      JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+      JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+      JOIN qc_inspection.po_master p ON p.po_no = j.po_no
     `;
     const params = [];
     const conditions = [];
@@ -69,11 +69,11 @@ router.get('/:id', async (req, res) => {
         a.name AS agency_name,
         a.contact_emails AS agency_emails,
         p.quantity
-      FROM inspection_jobs j
-      JOIN item_master i ON i.item_code = j.item_code
-      JOIN supplier_master s ON s.supplier_code = j.supplier_code
-      JOIN quality_agency_master a ON a.agency_code = j.agency_code
-      JOIN po_master p ON p.po_no = j.po_no
+      FROM qc_inspection.inspection_job j
+      JOIN qc_inspection.item_master i ON i.item_code = j.item_code
+      JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+      JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+      JOIN qc_inspection.po_master p ON p.po_no = j.po_no
       WHERE j.job_id = $1`,
       [req.params.id]
     );
@@ -121,8 +121,8 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
     // Fetch PO and item details
     const poResult = await client.query(
       `SELECT p.*, i.category, i.sub_category, i.name AS item_name
-       FROM po_master p
-       JOIN item_master i ON i.item_code = p.item_code
+       FROM qc_inspection.po_master p
+       JOIN qc_inspection.item_master i ON i.item_code = p.item_code
        WHERE p.po_no = $1`,
       [po_no]
     );
@@ -141,7 +141,7 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
     // Verify agency exists
     const agencyResult = await client.query(
-      'SELECT * FROM quality_agency_master WHERE agency_code = $1',
+      'SELECT * FROM qc_inspection.quality_agency_master WHERE agency_code = $1',
       [agency_code]
     );
     if (agencyResult.rows.length === 0) {
@@ -151,7 +151,7 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
     // BUSINESS RULE: Check for active checklist template for item's category/sub_category
     const templateResult = await client.query(
-      `SELECT template_id FROM checklist_templates
+      `SELECT template_id FROM qc_inspection.checklist_template
        WHERE category = $1 AND sub_category = $2 AND status = 'active'
        ORDER BY version DESC LIMIT 1`,
       [po.category, po.sub_category]
@@ -172,7 +172,7 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
     // Create the inspection job
     const jobResult = await client.query(
-      `INSERT INTO inspection_jobs
+      `INSERT INTO qc_inspection.inspection_job
         (po_no, item_code, supplier_code, agency_code, checklist_template_id, status, inspection_date)
        VALUES ($1, $2, $3, $4, $5, 'mapped_awaiting_inspection', $6)
        RETURNING *`,
@@ -183,7 +183,7 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
     // Create initial log entry
     await client.query(
-      `INSERT INTO log_entries (po_no, item_code, job_id, author_role, author_email, message)
+      `INSERT INTO qc_inspection.log_entry (po_no, item_code, job_id, author_role, author_email, message)
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         po_no,
@@ -222,7 +222,7 @@ router.put('/:id/submit', authorize('agency_user'), async (req, res) => {
     await client.query('BEGIN');
 
     const jobResult = await client.query(
-      'SELECT * FROM inspection_jobs WHERE job_id = $1',
+      'SELECT * FROM qc_inspection.inspection_job WHERE job_id = $1',
       [req.params.id]
     );
 
@@ -246,11 +246,11 @@ router.put('/:id/submit', authorize('agency_user'), async (req, res) => {
 
     // Check all checklist items have responses
     const totalItems = await client.query(
-      'SELECT COUNT(*) AS cnt FROM checklist_items WHERE template_id = $1',
+      'SELECT COUNT(*) AS cnt FROM qc_inspection.checklist_item WHERE template_id = $1',
       [job.checklist_template_id]
     );
     const totalResponses = await client.query(
-      'SELECT COUNT(*) AS cnt FROM inspection_responses WHERE job_id = $1',
+      'SELECT COUNT(*) AS cnt FROM qc_inspection.inspection_response WHERE job_id = $1',
       [req.params.id]
     );
 
@@ -262,13 +262,13 @@ router.put('/:id/submit', authorize('agency_user'), async (req, res) => {
     }
 
     const updated = await client.query(
-      `UPDATE inspection_jobs SET status = 'submitted_pending_qa', updated_at = NOW()
+      `UPDATE qc_inspection.inspection_job SET status = 'submitted_pending_qa', updated_at = NOW()
        WHERE job_id = $1 RETURNING *`,
       [req.params.id]
     );
 
     await client.query(
-      `INSERT INTO log_entries (po_no, item_code, job_id, author_role, author_email, message)
+      `INSERT INTO qc_inspection.log_entry (po_no, item_code, job_id, author_role, author_email, message)
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [job.po_no, job.item_code, job.job_id, req.user.role, req.user.email,
         'Inspection checklist submitted for QA review.']
@@ -278,7 +278,7 @@ router.put('/:id/submit', authorize('agency_user'), async (req, res) => {
 
     // Notify QA team
     const qaUsers = await db.query(
-      "SELECT email FROM team_stakeholders WHERE role = 'qa'"
+      "SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa'"
     );
     sendNotification(job.job_id, 'SUBMITTED_FOR_QA', 'qa', qaUsers.rows.map(u => u.email));
 
@@ -310,7 +310,7 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
     await client.query('BEGIN');
 
     const jobResult = await client.query(
-      'SELECT * FROM inspection_jobs WHERE job_id = $1',
+      'SELECT * FROM qc_inspection.inspection_job WHERE job_id = $1',
       [req.params.id]
     );
 
@@ -329,14 +329,14 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
     const newStatus = outcome === 'approved' ? 'qa_approved' : 'qa_rejected';
 
     const updated = await client.query(
-      `UPDATE inspection_jobs
+      `UPDATE qc_inspection.inspection_job
        SET status = $1, final_outcome = $2, qa_remarks = $3, updated_at = NOW()
        WHERE job_id = $4 RETURNING *`,
       [newStatus, outcome, remarks || null, req.params.id]
     );
 
     await client.query(
-      `INSERT INTO log_entries (po_no, item_code, job_id, author_role, author_email, message)
+      `INSERT INTO qc_inspection.log_entry (po_no, item_code, job_id, author_role, author_email, message)
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         job.po_no,
@@ -352,11 +352,11 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
 
     // Notify agency and supplier
     const agencyEmails = await db.query(
-      'SELECT contact_emails FROM quality_agency_master WHERE agency_code = $1',
+      'SELECT contact_emails FROM qc_inspection.quality_agency_master WHERE agency_code = $1',
       [job.agency_code]
     );
     const supplierEmail = await db.query(
-      'SELECT contact_email FROM supplier_master WHERE supplier_code = $1',
+      'SELECT contact_email FROM qc_inspection.supplier_master WHERE supplier_code = $1',
       [job.supplier_code]
     );
 

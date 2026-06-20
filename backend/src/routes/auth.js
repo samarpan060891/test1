@@ -20,7 +20,7 @@ router.post('/login', async (req, res) => {
   try {
     const result = await db.query(
       `SELECT user_id, name, email, role, agency_code, supplier_code, password_hash
-       FROM team_stakeholders
+       FROM qc_inspection.team_stakeholder
        WHERE email = $1`,
       [email.toLowerCase().trim()]
     );

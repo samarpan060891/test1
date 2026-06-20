@@ -17,8 +17,8 @@ router.get('/', async (req, res) => {
   try {
     let query = `
       SELECT n.*, j.po_no, j.item_code, j.status AS job_status
-      FROM notification_events n
-      LEFT JOIN inspection_jobs j ON j.job_id = n.job_id
+      FROM qc_inspection.notification_event n
+      LEFT JOIN qc_inspection.inspection_job j ON j.job_id = n.job_id
     `;
     const params = [];
     const conditions = [];
@@ -79,7 +79,7 @@ router.post('/trigger', async (req, res) => {
 
   try {
     const jobResult = await db.query(
-      'SELECT j.*, a.contact_emails, s.contact_email AS supplier_email FROM inspection_jobs j JOIN quality_agency_master a ON a.agency_code = j.agency_code JOIN supplier_master s ON s.supplier_code = j.supplier_code WHERE j.job_id = $1',
+      'SELECT j.*, a.contact_emails, s.contact_email AS supplier_email FROM qc_inspection.inspection_job j JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code WHERE j.job_id = $1',
       [job_id]
     );
 
@@ -93,7 +93,7 @@ router.post('/trigger', async (req, res) => {
     if (recipient_role === 'agency_user') emails = job.contact_emails || [];
     else if (recipient_role === 'supplier_user') emails = [job.supplier_email];
     else if (recipient_role === 'qa') {
-      const qaUsers = await db.query("SELECT email FROM team_stakeholders WHERE role = 'qa'");
+      const qaUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa'");
       emails = qaUsers.rows.map(u => u.email);
     }
 

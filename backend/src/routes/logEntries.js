@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
   try {
     let query = `
       SELECT l.*
-      FROM log_entries l
+      FROM qc_inspection.log_entry l
     `;
     const params = [];
     const conditions = [];
@@ -25,8 +25,8 @@ router.get('/', async (req, res) => {
     if (req.user.role === 'agency_user' || req.user.role === 'supplier_user') {
       query = `
         SELECT l.*
-        FROM log_entries l
-        LEFT JOIN inspection_jobs j ON j.job_id = l.job_id
+        FROM qc_inspection.log_entry l
+        LEFT JOIN qc_inspection.inspection_job j ON j.job_id = l.job_id
       `;
       if (req.user.role === 'agency_user') {
         params.push(req.user.agency_code);
@@ -90,7 +90,7 @@ router.post('/', async (req, res) => {
     if (job_id) {
       // Verify job access
       const jobResult = await db.query(
-        'SELECT * FROM inspection_jobs WHERE job_id = $1',
+        'SELECT * FROM qc_inspection.inspection_job WHERE job_id = $1',
         [job_id]
       );
 
@@ -112,14 +112,14 @@ router.post('/', async (req, res) => {
     }
 
     if (po_no && !itemCode) {
-      const poResult = await db.query('SELECT item_code FROM po_master WHERE po_no = $1', [po_no]);
+      const poResult = await db.query('SELECT item_code FROM qc_inspection.po_master WHERE po_no = $1', [po_no]);
       if (poResult.rows.length > 0) {
         itemCode = poResult.rows[0].item_code;
       }
     }
 
     const result = await db.query(
-      `INSERT INTO log_entries (po_no, item_code, job_id, author_role, author_email, message)
+      `INSERT INTO qc_inspection.log_entry (po_no, item_code, job_id, author_role, author_email, message)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
       [resolvedPoNo, itemCode, job_id || null, req.user.role, req.user.email, message.trim()]
@@ -139,7 +139,7 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT * FROM log_entries WHERE log_id = $1',
+      'SELECT * FROM qc_inspection.log_entry WHERE log_id = $1',
       [req.params.id]
     );
     if (result.rows.length === 0) {

@@ -13,7 +13,7 @@ router.get('/:jobId', async (req, res) => {
   try {
     // Verify job access
     const jobResult = await db.query(
-      'SELECT * FROM inspection_jobs WHERE job_id = $1',
+      'SELECT * FROM qc_inspection.inspection_job WHERE job_id = $1',
       [req.params.jobId]
     );
 
@@ -32,8 +32,8 @@ router.get('/:jobId', async (req, res) => {
 
     const result = await db.query(
       `SELECT r.*, ci.section, ci.checkpoint_text, ci.criticality, ci.sort_order
-       FROM inspection_responses r
-       JOIN checklist_items ci ON ci.item_id = r.checklist_item_id
+       FROM qc_inspection.inspection_response r
+       JOIN qc_inspection.checklist_item ci ON ci.item_id = r.checklist_item_id
        WHERE r.job_id = $1
        ORDER BY ci.sort_order ASC`,
       [req.params.jobId]
@@ -75,7 +75,7 @@ router.post('/:jobId', authorize('agency_user'), async (req, res) => {
 
     // Verify job and access
     const jobResult = await client.query(
-      'SELECT * FROM inspection_jobs WHERE job_id = $1',
+      'SELECT * FROM qc_inspection.inspection_job WHERE job_id = $1',
       [req.params.jobId]
     );
 
@@ -98,7 +98,7 @@ router.post('/:jobId', authorize('agency_user'), async (req, res) => {
 
     // Verify all checklist_item_ids belong to this job's template
     const templateItems = await client.query(
-      'SELECT item_id FROM checklist_items WHERE template_id = $1',
+      'SELECT item_id FROM qc_inspection.checklist_item WHERE template_id = $1',
       [job.checklist_template_id]
     );
     const validItemIds = new Set(templateItems.rows.map(r => r.item_id));
@@ -116,7 +116,7 @@ router.post('/:jobId', authorize('agency_user'), async (req, res) => {
     const savedResponses = [];
     for (const r of responses) {
       const upsertResult = await client.query(
-        `INSERT INTO inspection_responses (job_id, checklist_item_id, result, remark, photo_url)
+        `INSERT INTO qc_inspection.inspection_response (job_id, checklist_item_id, result, remark, photo_url)
          VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (job_id, checklist_item_id)
          DO UPDATE SET result = EXCLUDED.result, remark = EXCLUDED.remark, photo_url = EXCLUDED.photo_url

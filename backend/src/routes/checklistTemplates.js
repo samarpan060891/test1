@@ -16,8 +16,8 @@ router.get('/', async (req, res) => {
     let query = `
       SELECT t.*,
         COUNT(i.item_id) AS item_count
-      FROM checklist_templates t
-      LEFT JOIN checklist_items i ON i.template_id = t.template_id
+      FROM qc_inspection.checklist_template t
+      LEFT JOIN qc_inspection.checklist_item i ON i.template_id = t.template_id
     `;
     const params = [];
 
@@ -43,7 +43,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const templateResult = await db.query(
-      'SELECT * FROM checklist_templates WHERE template_id = $1',
+      'SELECT * FROM qc_inspection.checklist_template WHERE template_id = $1',
       [req.params.id]
     );
 
@@ -59,7 +59,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const itemsResult = await db.query(
-      'SELECT * FROM checklist_items WHERE template_id = $1 ORDER BY sort_order ASC',
+      'SELECT * FROM qc_inspection.checklist_item WHERE template_id = $1 ORDER BY sort_order ASC',
       [req.params.id]
     );
 
@@ -87,14 +87,14 @@ router.post('/', authorize('qa'), async (req, res) => {
     let ver = version;
     if (!ver) {
       const maxVer = await db.query(
-        'SELECT COALESCE(MAX(version), 0) AS max_ver FROM checklist_templates WHERE category = $1 AND sub_category = $2',
+        'SELECT COALESCE(MAX(version), 0) AS max_ver FROM qc_inspection.checklist_template WHERE category = $1 AND sub_category = $2',
         [category, sub_category]
       );
       ver = maxVer.rows[0].max_ver + 1;
     }
 
     const result = await db.query(
-      `INSERT INTO checklist_templates (category, sub_category, version, status)
+      `INSERT INTO qc_inspection.checklist_template (category, sub_category, version, status)
        VALUES ($1, $2, $3, 'draft')
        RETURNING *`,
       [category, sub_category, ver]
@@ -120,7 +120,7 @@ router.put('/:id/activate', authorize('qa'), async (req, res) => {
     await client.query('BEGIN');
 
     const templateResult = await client.query(
-      'SELECT * FROM checklist_templates WHERE template_id = $1',
+      'SELECT * FROM qc_inspection.checklist_template WHERE template_id = $1',
       [req.params.id]
     );
 
@@ -143,7 +143,7 @@ router.put('/:id/activate', authorize('qa'), async (req, res) => {
 
     // Check template has at least one item
     const itemCount = await client.query(
-      'SELECT COUNT(*) AS cnt FROM checklist_items WHERE template_id = $1',
+      'SELECT COUNT(*) AS cnt FROM qc_inspection.checklist_item WHERE template_id = $1',
       [req.params.id]
     );
     if (parseInt(itemCount.rows[0].cnt) === 0) {
@@ -153,14 +153,14 @@ router.put('/:id/activate', authorize('qa'), async (req, res) => {
 
     // Archive any currently active template for same category/sub_category
     await client.query(
-      `UPDATE checklist_templates SET status = 'archived', updated_at = NOW()
+      `UPDATE qc_inspection.checklist_template SET status = 'archived', updated_at = NOW()
        WHERE category = $1 AND sub_category = $2 AND status = 'active'`,
       [template.category, template.sub_category]
     );
 
     // Activate this template
     const updated = await client.query(
-      `UPDATE checklist_templates SET status = 'active', updated_at = NOW()
+      `UPDATE qc_inspection.checklist_template SET status = 'active', updated_at = NOW()
        WHERE template_id = $1 RETURNING *`,
       [req.params.id]
     );
@@ -183,14 +183,14 @@ router.put('/:id/activate', authorize('qa'), async (req, res) => {
 router.put('/:id', authorize('qa'), async (req, res) => {
   const { category, sub_category } = req.body;
   try {
-    const existing = await db.query('SELECT * FROM checklist_templates WHERE template_id = $1', [req.params.id]);
+    const existing = await db.query('SELECT * FROM qc_inspection.checklist_template WHERE template_id = $1', [req.params.id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Template not found' });
     if (existing.rows[0].status !== 'draft') {
       return res.status(400).json({ error: 'Can only edit draft templates' });
     }
 
     const result = await db.query(
-      `UPDATE checklist_templates SET category = COALESCE($1, category), sub_category = COALESCE($2, sub_category), updated_at = NOW()
+      `UPDATE qc_inspection.checklist_template SET category = COALESCE($1, category), sub_category = COALESCE($2, sub_category), updated_at = NOW()
        WHERE template_id = $3 RETURNING *`,
       [category, sub_category, req.params.id]
     );
@@ -219,7 +219,7 @@ router.post('/:id/items', authorize('qa'), async (req, res) => {
 
   try {
     const templateExists = await db.query(
-      'SELECT template_id, status FROM checklist_templates WHERE template_id = $1',
+      'SELECT template_id, status FROM qc_inspection.checklist_template WHERE template_id = $1',
       [req.params.id]
     );
     if (templateExists.rows.length === 0) {
@@ -230,14 +230,14 @@ router.post('/:id/items', authorize('qa'), async (req, res) => {
     let sortOrd = sort_order;
     if (!sortOrd) {
       const maxSort = await db.query(
-        'SELECT COALESCE(MAX(sort_order), 0) AS max_sort FROM checklist_items WHERE template_id = $1',
+        'SELECT COALESCE(MAX(sort_order), 0) AS max_sort FROM qc_inspection.checklist_item WHERE template_id = $1',
         [req.params.id]
       );
       sortOrd = maxSort.rows[0].max_sort + 1;
     }
 
     const result = await db.query(
-      `INSERT INTO checklist_items (template_id, section, checkpoint_text, criticality, sort_order)
+      `INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text, criticality, sort_order)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [req.params.id, section, checkpoint_text, criticality || 'major', sortOrd]
     );
@@ -256,7 +256,7 @@ router.post('/:id/items', authorize('qa'), async (req, res) => {
 router.delete('/:id/items/:itemId', authorize('qa'), async (req, res) => {
   try {
     const result = await db.query(
-      'DELETE FROM checklist_items WHERE item_id = $1 AND template_id = $2 RETURNING item_id',
+      'DELETE FROM qc_inspection.checklist_item WHERE item_id = $1 AND template_id = $2 RETURNING item_id',
       [req.params.itemId, req.params.id]
     );
     if (result.rows.length === 0) {
