@@ -104,7 +104,8 @@ export default function AdminMastersPage() {
       const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
       if (rows.length === 0) { setBulkMsg('No data rows found in file'); setBulkLoading(false); return }
       const res = await cfg.bulk(rows)
-      setBulkMsg(`Uploaded ${res.data.inserted} of ${rows.length} records successfully!`)
+      const { inserted, skipped } = res.data
+      setBulkMsg(`Inserted ${inserted} new record(s)${skipped ? `, skipped ${skipped} duplicate(s)` : ''}.`)
       load()
     } catch (err) {
       setBulkMsg(err?.response?.data?.error || 'Bulk upload failed')

@@ -21,6 +21,11 @@ router.get('/pos', authenticate, async (req, res) => {
            i.name ILIKE $1 OR
            s.name ILIKE $1
          )
+         AND NOT EXISTS (
+           SELECT 1 FROM qc_inspection.inspection_job ij
+           WHERE ij.po_no = p.po_no
+             AND ij.status IN ('mapped_awaiting_inspection', 'submitted_pending_qa', 'qa_approved')
+         )
        ORDER BY p.po_no
        LIMIT 20`,
       [`%${search}%`]

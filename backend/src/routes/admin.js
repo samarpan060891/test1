@@ -90,21 +90,21 @@ router.put('/users/:id/reset-password', async (req, res) => {
 
 // ── MASTER DATA ───────────────────────────────────────────────────────────────
 
-// Generic bulk insert helper
+// Generic bulk insert helper — skips duplicates, does not overwrite
 async function bulkUpsert(table, rows, conflictCol) {
-  const results = { inserted: 0, errors: [] };
+  const results = { inserted: 0, skipped: 0, errors: [] };
   for (const row of rows) {
     try {
       const keys = Object.keys(row);
       const vals = Object.values(row);
       const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-      const updates = keys.filter(k => k !== conflictCol).map(k => `${k} = EXCLUDED.${k}`).join(', ');
-      await db.query(
+      const r = await db.query(
         `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})
-         ON CONFLICT (${conflictCol}) DO UPDATE SET ${updates}`,
+         ON CONFLICT (${conflictCol}) DO NOTHING`,
         vals
       );
-      results.inserted++;
+      if (r.rowCount > 0) results.inserted++;
+      else results.skipped++;
     } catch (err) {
       results.errors.push({ row, error: err.message });
     }
