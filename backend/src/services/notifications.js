@@ -37,8 +37,8 @@ async function sendNotification(jobId, eventType, recipientRole, recipientEmails
   // Persist to notification_events
   try {
     const result = await db.query(
-      `INSERT INTO notification_events (job_id, event_type, recipient_role, recipient_email)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO qc_inspection.notification_event (job_id, event_type, recipient_role, recipient_email, channel)
+       VALUES ($1, $2, $3, $4, 'in_app')
        RETURNING *`,
       [
         jobId,
