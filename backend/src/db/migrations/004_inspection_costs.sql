@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS qc_inspection.agency_contract (
   valid_from          DATE,
   valid_to            DATE,
   notes               TEXT,
-  created_by          INTEGER     REFERENCES qc_inspection.team_stakeholder(user_id),
+  created_by          UUID        REFERENCES qc_inspection.team_stakeholder(user_id),
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -45,15 +45,15 @@ CREATE TABLE IF NOT EXISTS qc_inspection.inspection_charges_advice (
   status              TEXT        NOT NULL DEFAULT 'pending_qa'
                       CHECK (status IN ('pending_qa','pending_buying','approved','rejected')),
 
-  qa_user_id          INTEGER     REFERENCES qc_inspection.team_stakeholder(user_id),
+  qa_user_id          UUID        REFERENCES qc_inspection.team_stakeholder(user_id),
   qa_approved_at      TIMESTAMPTZ,
   qa_notes            TEXT,
 
-  buying_user_id      INTEGER     REFERENCES qc_inspection.team_stakeholder(user_id),
+  buying_user_id      UUID        REFERENCES qc_inspection.team_stakeholder(user_id),
   buying_approved_at  TIMESTAMPTZ,
   buying_notes        TEXT,
 
-  rejected_by         INTEGER     REFERENCES qc_inspection.team_stakeholder(user_id),
+  rejected_by         UUID        REFERENCES qc_inspection.team_stakeholder(user_id),
   rejected_at         TIMESTAMPTZ,
   rejection_reason    TEXT,
 
