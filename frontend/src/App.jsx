@@ -79,7 +79,7 @@ export default function App() {
         <Route
           path="/checklist-templates"
           element={
-            <ProtectedRoute allowedRoles={['qa']}>
+            <ProtectedRoute allowedRoles={['qa', 'admin']}>
               <ChecklistTemplatesPage />
             </ProtectedRoute>
           }

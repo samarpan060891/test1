@@ -58,7 +58,7 @@ export default function Navbar() {
             <Link to="/map-inspection" style={navLinkStyle('/map-inspection')}>Map Inspection</Link>
           )}
 
-          {role === 'qa' && (
+          {(role === 'qa' || role === 'admin') && (
             <Link to="/checklist-templates" style={navLinkStyle('/checklist-templates')}>
               Checklist Templates
             </Link>
