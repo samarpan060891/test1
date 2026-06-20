@@ -70,16 +70,18 @@ INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role, ag
   ('Daniel Buying',   'daniel.buying@homesrus.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'buying',   NULL,      NULL),
 
   -- Agency users
-  ('Eva Bureau',      'eva.bureau@bureauveritas.com','$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'agency',  'AGC-001', NULL),
-  ('James Tan',       'james.sgs@sgs.com',           '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'agency',  'AGC-002', NULL),
-  ('Mei Lin',         'mei.lin@intertek.com',        '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'agency',  'AGC-003', NULL),
-  ('David Nguyen',    'david.qima@qima.com',         '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'agency',  'AGC-004', NULL),
+  ('Eva Bureau',      'eva.bureau@bureauveritas.com','$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'agency_user',  'AGC-001', NULL),
+  ('James Tan',       'james.sgs@sgs.com',           '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'agency_user',  'AGC-002', NULL),
+  ('Mei Lin',         'mei.lin@intertek.com',        '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'agency_user',  'AGC-003', NULL),
+  ('David Nguyen',    'david.qima@qima.com',         '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'agency_user',  'AGC-004', NULL),
+  ('Sophie Weber',    'sophie.tuv@tuv.com',          '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'agency_user',  'AGC-005', NULL),
 
   -- Supplier users
-  ('Iris Wang',       'iris.wang@shanghaifurniture.cn', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'supplier', NULL, 'SUP-001'),
-  ('Minh Le',         'minh.le@vietnamhomegoods.vn',    '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'supplier', NULL, 'SUP-002'),
-  ('Priya Sharma',    'priya.sharma@indiacrafts.in',    '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'supplier', NULL, 'SUP-003'),
-  ('Ahmad Razak',     'ahmad.razak@mti.com.my',         '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'supplier', NULL, 'SUP-004');
+  ('Iris Wang',       'iris.wang@shanghaifurniture.cn', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'supplier_user', NULL, 'SUP-001'),
+  ('Minh Le',         'minh.le@vietnamhomegoods.vn',    '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'supplier_user', NULL, 'SUP-002'),
+  ('Priya Sharma',    'priya.sharma@indiacrafts.in',    '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'supplier_user', NULL, 'SUP-003'),
+  ('Ahmad Razak',     'ahmad.razak@mti.com.my',         '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'supplier_user', NULL, 'SUP-004'),
+  ('Budi Santoso',    'budi.santoso@indonesiarattan.id','$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'supplier_user', NULL, 'SUP-005');
 
 -- ============================================================
 -- 6. CHECKLIST TEMPLATES
