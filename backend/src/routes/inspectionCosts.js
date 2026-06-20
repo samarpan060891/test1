@@ -129,6 +129,18 @@ router.post('/', authorize('agency_user'), async (req, res) => {
   if (rate_type === 'manday' && !num_mandays) return res.status(400).json({ error: 'num_mandays is required for manday rate type' });
 
   try {
+    // Validate jobs — reject self-inspection jobs (no charges applicable)
+    const jobCheck = await db.query(
+      `SELECT job_id, inspection_type, parent_job_id FROM qc_inspection.inspection_job WHERE job_id = ANY($1::uuid[])`,
+      [job_ids]
+    );
+    const selfJobs = jobCheck.rows.filter(j => j.inspection_type === 'self');
+    if (selfJobs.length > 0) return res.status(400).json({ error: 'Self-inspection jobs cannot have charges. Please deselect them.' });
+
+    // Determine cost bearer — if any job is a re-inspection (has parent_job_id), supplier bears cost
+    const hasReinspection = jobCheck.rows.some(j => j.parent_job_id != null);
+    const cost_bearer = hasReinspection ? 'supplier' : 'homes_r_us';
+
     // Calculate total cost
     let total_cost = 0;
     let po_value = null;
@@ -153,11 +165,11 @@ router.post('/', authorize('agency_user'), async (req, res) => {
     const r = await db.query(
       `INSERT INTO qc_inspection.inspection_charges_advice
          (agency_code, contract_id, rate_type, rate_value, num_mandays, travel_allowance, stay_allowance,
-          currency, po_value, total_cost, notes, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+          currency, po_value, total_cost, cost_bearer, notes, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
       [req.user.agency_code, contract_id || null, rate_type, rate_value, num_mandays || null,
        travel_allowance || 0, stay_allowance || 0, currency || 'USD',
-       po_value, total_cost, notes || null, req.user.user_id]
+       po_value, total_cost, cost_bearer, notes || null, req.user.user_id]
     );
     const advice = r.rows[0];
 

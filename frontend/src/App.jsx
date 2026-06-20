@@ -115,7 +115,7 @@ export default function App() {
         <Route
           path="/inspection-costs"
           element={
-            <ProtectedRoute allowedRoles={['qa', 'buying', 'agency_user']}>
+            <ProtectedRoute allowedRoles={['qa', 'buying', 'agency_user', 'admin']}>
               <InspectionCostPage />
             </ProtectedRoute>
           }

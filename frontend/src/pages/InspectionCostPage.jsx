@@ -354,6 +354,14 @@ export default function InspectionCostPage() {
                         : `${a.rate_value}% of PO value`}
                       &nbsp;·&nbsp;
                       <strong style={{ color: '#111827' }}>Total: {fmt(a.total_cost, a.currency)}</strong>
+                      &nbsp;·&nbsp;
+                      <span style={{
+                        backgroundColor: a.cost_bearer === 'supplier' ? '#fef3c7' : '#ede9fe',
+                        color: a.cost_bearer === 'supplier' ? '#92400e' : '#5b21b6',
+                        padding: '1px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700'
+                      }}>
+                        {a.cost_bearer === 'supplier' ? 'Supplier Bears Cost' : 'Homes R Us Bears Cost'}
+                      </span>
                     </p>
                     <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#9ca3af' }}>
                       {(a.jobs || []).length} job(s) &nbsp;·&nbsp; Created by {a.created_by_name} on {new Date(a.created_at).toLocaleDateString()}
@@ -418,16 +426,22 @@ export default function InspectionCostPage() {
                 <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto' }}>
                   {jobs.length === 0 ? (
                     <p style={{ padding: '16px', color: '#9ca3af', fontSize: '13px', margin: 0 }}>No eligible jobs found</p>
-                  ) : jobs.map(j => (
-                    <label key={j.job_id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={selectedJobs.includes(j.job_id)} onChange={() => toggleJob(j.job_id)} />
-                      <div>
-                        <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{j.job_ref || j.job_id?.slice(0, 8)}</span>
-                        <span style={{ fontSize: '12px', color: '#6b7280', marginLeft: '8px' }}>{j.po_no} · {j.item_name || j.supplier_code}</span>
-                        <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '8px' }}>{j.inspection_date}</span>
-                      </div>
-                    </label>
-                  ))}
+                  ) : jobs.map(j => {
+                    const isSelf = j.inspection_type === 'self'
+                    const isReinspect = !!j.parent_job_id
+                    return (
+                      <label key={j.job_id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid #f3f4f6', cursor: isSelf ? 'not-allowed' : 'pointer', opacity: isSelf ? 0.5 : 1, backgroundColor: isSelf ? '#fafafa' : '#fff' }}>
+                        <input type="checkbox" checked={selectedJobs.includes(j.job_id)} onChange={() => toggleJob(j.job_id)} disabled={isSelf} />
+                        <div>
+                          <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{j.job_ref || j.job_id?.slice(0, 8)}</span>
+                          <span style={{ fontSize: '12px', color: '#6b7280', marginLeft: '8px' }}>{j.po_no} · {j.item_name || j.supplier_code}</span>
+                          <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '8px' }}>{j.inspection_date}</span>
+                          {isSelf && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#dc2626', fontWeight: '600' }}>Self-inspection — no charges</span>}
+                          {isReinspect && !isSelf && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#92400e', fontWeight: '600', backgroundColor: '#fef3c7', padding: '1px 6px', borderRadius: '4px' }}>Re-inspection — supplier bears cost</span>}
+                        </div>
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
 

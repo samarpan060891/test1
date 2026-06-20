@@ -64,7 +64,7 @@ export default function Navbar() {
             </Link>
           )}
 
-          {(role === 'qa' || role === 'buying' || role === 'agency_user') && (
+          {(role === 'qa' || role === 'buying' || role === 'agency_user' || role === 'admin') && (
             <Link to="/inspection-costs" style={navLinkStyle('/inspection-costs')}>Inspection Costs</Link>
           )}
 

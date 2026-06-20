@@ -57,8 +57,10 @@ CREATE TABLE IF NOT EXISTS qc_inspection.inspection_charges_advice (
   rejected_at         TIMESTAMPTZ,
   rejection_reason    TEXT,
 
+  cost_bearer         TEXT        NOT NULL DEFAULT 'homes_r_us'
+                      CHECK (cost_bearer IN ('homes_r_us', 'supplier')),
   notes               TEXT,
-  created_by          INTEGER     NOT NULL REFERENCES qc_inspection.team_stakeholder(user_id),
+  created_by          UUID        NOT NULL REFERENCES qc_inspection.team_stakeholder(user_id),
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
