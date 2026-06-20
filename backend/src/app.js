@@ -9,6 +9,7 @@ const inspectionResponseRoutes = require('./routes/inspectionResponses');
 const logEntryRoutes = require('./routes/logEntries');
 const notificationRoutes = require('./routes/notifications');
 const mastersRoutes = require('./routes/masters');
+const reportsRoutes = require('./routes/reports');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api/inspection-responses', inspectionResponseRoutes);
 app.use('/api/log-entries', logEntryRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/masters', mastersRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

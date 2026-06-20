@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getJobs } from '../api/inspectionJobs.js'
 import { getNotifications } from '../api/notifications.js'
+import client from '../api/client.js'
 
 const statusColors = {
   mapped_awaiting_inspection: { backgroundColor: '#dbeafe', color: '#1d4ed8' },
@@ -59,6 +60,24 @@ export default function DashboardPage() {
   const approved = jobs.filter(j => j.status === 'qa_approved').length
   const rejected = jobs.filter(j => j.status === 'qa_rejected').length
 
+  const [downloading, setDownloading] = useState(false)
+  const handleDownloadReport = async () => {
+    setDownloading(true)
+    try {
+      const res = await client.get('/reports/download', { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `QC_Inspection_Report_${new Date().toISOString().slice(0,10)}.xlsx`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      alert('Failed to download report. Please try again.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const statCard = (label, value, color) => (
     <div style={{
       backgroundColor: '#fff',
@@ -87,22 +106,40 @@ export default function DashboardPage() {
               Welcome back, {user?.email}
             </p>
           </div>
-          {(user?.role === 'qa' || user?.role === 'buying') && (
-            <Link
-              to="/map-inspection"
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button
+              onClick={handleDownloadReport}
+              disabled={downloading}
               style={{
-                backgroundColor: '#1e40af',
+                backgroundColor: downloading ? '#6b7280' : '#059669',
                 color: '#fff',
                 padding: '10px 20px',
                 borderRadius: '8px',
-                textDecoration: 'none',
+                border: 'none',
                 fontSize: '14px',
-                fontWeight: '600'
+                fontWeight: '600',
+                cursor: downloading ? 'not-allowed' : 'pointer'
               }}
             >
-              + Map New Inspection
-            </Link>
-          )}
+              {downloading ? 'Downloading...' : '⬇ Download Report'}
+            </button>
+            {(user?.role === 'qa' || user?.role === 'buying') && (
+              <Link
+                to="/map-inspection"
+                style={{
+                  backgroundColor: '#1e40af',
+                  color: '#fff',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              >
+                + Map New Inspection
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Stats row */}
