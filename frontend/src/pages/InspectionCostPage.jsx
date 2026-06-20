@@ -187,6 +187,73 @@ export default function InspectionCostPage() {
 
   const raisedJobIds = new Set(advices.flatMap(a => (a.jobs || []).map(j => j.job_id)))
 
+  // ── Supplier view ──────────────────────────────────────────────────────────
+  if (role === 'supplier_user') {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+        <Navbar />
+        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
+          <h1 style={{ margin: '0 0 4px', fontSize: '24px', fontWeight: '700', color: '#111827' }}>Inspection Charges</h1>
+          <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: '14px' }}>Charges raised against your POs where the cost is borne by your company</p>
+
+          {loading ? <p style={{ color: '#6b7280' }}>{t('common_loading')}</p> : advices.length === 0 ? (
+            <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '48px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+              <p style={{ color: '#9ca3af', fontSize: '15px' }}>No inspection charges applicable to your account</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {advices.map(a => (
+                <div key={a.advice_id} style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '16px', color: '#111827' }}>{a.advice_ref}</span>
+                        <span style={{
+                          backgroundColor: a.status === 'approved' ? '#f0fdf4' : a.status === 'rejected' ? '#fef2f2' : '#fefce8',
+                          color: a.status === 'approved' ? '#166534' : a.status === 'rejected' ? '#991b1b' : '#92400e',
+                          padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '700'
+                        }}>
+                          {a.status === 'approved' ? 'Approved' : a.status === 'rejected' ? 'Rejected' : 'Pending Approval'}
+                        </span>
+                        <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>
+                          Supplier Bears Cost
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
+                        Agency: <strong style={{ color: '#374151' }}>{a.agency_name}</strong>
+                        &nbsp;·&nbsp;
+                        {a.rate_type === 'manday'
+                          ? `${a.num_mandays} mandays @ ${fmt(a.rate_value, a.currency)}/day`
+                          : `${a.rate_value}% of PO value`}
+                        &nbsp;·&nbsp;
+                        <strong style={{ color: '#dc2626', fontSize: '14px' }}>Total: {fmt(a.total_cost, a.currency)}</strong>
+                      </p>
+                      <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#9ca3af' }}>
+                        Raised on {new Date(a.created_at).toLocaleDateString()}
+                      </p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                        {(a.jobs || []).map(j => (
+                          <span key={j.job_id} style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '5px', fontSize: '12px', fontWeight: '600' }}>
+                            {j.job_ref || j.po_no}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {a.status === 'approved' && (
+                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6', fontSize: '12px', color: '#6b7280' }}>
+                      ✅ Approved by QA{a.qa_user_name ? `: ${a.qa_user_name}` : ''}{a.buying_user_name ? ` · Buying: ${a.buying_user_name}` : ''}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Navbar />

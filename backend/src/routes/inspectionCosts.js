@@ -77,6 +77,14 @@ router.get('/', async (req, res) => {
     if (role === 'agency_user') {
       q += ' WHERE a.agency_code = $1';
       params.push(agency_code);
+    } else if (role === 'supplier_user') {
+      q += ` WHERE a.cost_bearer = 'supplier'
+             AND EXISTS (
+               SELECT 1 FROM qc_inspection.ica_jobs ij2
+               JOIN qc_inspection.inspection_job j2 ON j2.job_id = ij2.job_id
+               WHERE ij2.advice_id = a.advice_id AND j2.supplier_code = $1
+             )`;
+      params.push(req.user.supplier_code);
     }
     q += ' GROUP BY a.advice_id, ag.name, creator.name, qa_u.name, buy_u.name ORDER BY a.created_at DESC';
 

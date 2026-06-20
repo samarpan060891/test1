@@ -71,6 +71,10 @@ export default function Navbar() {
             <Link to="/inspection-costs" style={navLinkStyle('/inspection-costs')}>{t('nav_inspection_costs')}</Link>
           )}
 
+          {role === 'supplier_user' && (
+            <Link to="/inspection-costs" style={navLinkStyle('/inspection-costs')}>Inspection Charges</Link>
+          )}
+
           {role === 'admin' && (
             <>
               <Link to="/admin/users" style={navLinkStyle('/admin/users')}>{t('nav_users')}</Link>
