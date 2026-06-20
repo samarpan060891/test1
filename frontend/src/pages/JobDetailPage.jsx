@@ -5,9 +5,11 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { getJob } from '../api/inspectionJobs.js'
 import { getLogs, createLog } from '../api/logEntries.js'
+import { getResponses } from '../api/inspectionResponses.js'
 import { searchAgencies } from '../api/masters.js'
 import SearchableDropdown from '../components/SearchableDropdown.jsx'
 import client from '../api/client.js'
+import { generateInspectionReport } from '../utils/generateInspectionReport.js'
 
 const statusColors = {
   mapped_awaiting_inspection: { backgroundColor: '#dbeafe', color: '#1d4ed8' },
@@ -59,6 +61,25 @@ export default function JobDetailPage() {
   const [logError, setLogError] = useState('')
   const [logSubmitting, setLogSubmitting] = useState(false)
   const [logSuccess, setLogSuccess] = useState('')
+
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  const handleDownloadPDF = async () => {
+    setPdfLoading(true)
+    try {
+      const [responsesRes, logsRes] = await Promise.all([
+        getResponses(jobId).catch(() => ({ data: [] })),
+        getLogs({ job_id: jobId }).catch(() => ({ data: [] })),
+      ])
+      const responses = responsesRes.data || []
+      const logsData = Array.isArray(logsRes.data) ? logsRes.data : logsRes.data?.logs || []
+      await generateInspectionReport(job, responses, logsData)
+    } catch (err) {
+      console.error('PDF generation failed:', err)
+    } finally {
+      setPdfLoading(false)
+    }
+  }
 
   // Re-inspection state
   const [showReinspect, setShowReinspect] = useState(false)
@@ -327,6 +348,25 @@ export default function JobDetailPage() {
             >
               {t('nav_po_log')}
             </Link>
+            <button
+              onClick={handleDownloadPDF}
+              disabled={pdfLoading}
+              style={{
+                backgroundColor: pdfLoading ? '#6b7280' : '#059669',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 18px',
+                borderRadius: '7px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: pdfLoading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {pdfLoading ? '⏳ Generating...' : '⬇ Download Report'}
+            </button>
           </div>
         </div>
 
