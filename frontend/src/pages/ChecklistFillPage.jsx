@@ -72,7 +72,7 @@ export default function ChecklistFillPage() {
   }
 
   const filledCount = items.filter(item => {
-    const r = responses[item.checklist_item_id || item.id]
+    const r = responses[item.item_id || item.checklist_item_id || item.id]
     return r?.result
   }).length
 
@@ -81,7 +81,7 @@ export default function ChecklistFillPage() {
     setSubmitError('')
 
     const unfilledItems = items.filter(item => {
-      const itemId = item.checklist_item_id || item.id
+      const itemId = item.item_id || item.checklist_item_id || item.id
       return !responses[itemId]?.result
     })
 
@@ -93,7 +93,7 @@ export default function ChecklistFillPage() {
     setSubmitting(true)
     try {
       const responsePayload = items.map(item => {
-        const itemId = item.checklist_item_id || item.id
+        const itemId = item.item_id || item.checklist_item_id || item.id
         return {
           checklist_item_id: itemId,
           result: responses[itemId]?.result,
@@ -276,7 +276,7 @@ export default function ChecklistFillPage() {
                 borderTop: 'none'
               }}>
                 {sectionItems.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map((item, idx) => {
-                  const itemId = item.checklist_item_id || item.id
+                  const itemId = item.item_id || item.checklist_item_id || item.id
                   const resp = responses[itemId] || {}
                   const isFilled = !!resp.result
 
