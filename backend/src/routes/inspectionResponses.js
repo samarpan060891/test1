@@ -52,7 +52,7 @@ router.get('/:jobId', async (req, res) => {
  * Body: { responses: [{ checklist_item_id, result, remark, photo_url? }] }
  * Uses UPSERT — can be called multiple times (save progress).
  */
-router.post('/:jobId', authorize('agency_user'), async (req, res) => {
+router.post('/:jobId', authorize('agency_user', 'supplier_user'), async (req, res) => {
   const { responses } = req.body;
 
   if (!responses || !Array.isArray(responses) || responses.length === 0) {
@@ -86,9 +86,15 @@ router.post('/:jobId', authorize('agency_user'), async (req, res) => {
 
     const job = jobResult.rows[0];
 
-    if (job.agency_code !== req.user.agency_code) {
+    if (req.user.role === 'agency_user' && job.agency_code !== req.user.agency_code) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Access denied' });
+    }
+    if (req.user.role === 'supplier_user') {
+      if (job.inspection_type !== 'self' || job.supplier_code !== req.user.supplier_code) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Access denied' });
+      }
     }
 
     if (job.status !== 'mapped_awaiting_inspection') {

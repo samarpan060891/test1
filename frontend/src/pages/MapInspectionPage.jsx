@@ -9,6 +9,7 @@ export default function MapInspectionPage() {
   const [selectedPO, setSelectedPO] = useState(null)
   const [selectedAgency, setSelectedAgency] = useState(null)
   const [inspectionDate, setInspectionDate] = useState('')
+  const [inspectionType, setInspectionType] = useState('agency')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [noTemplateError, setNoTemplateError] = useState(null)
@@ -59,8 +60,12 @@ export default function MapInspectionPage() {
     setNoTemplateError(null)
     setSuccessJob(null)
 
-    if (!selectedPO || !selectedAgency || !inspectionDate) {
-      setError('All fields are required.')
+    if (!selectedPO || !inspectionDate) {
+      setError('PO and inspection date are required.')
+      return
+    }
+    if (inspectionType === 'agency' && !selectedAgency) {
+      setError('Please select an agency for agency inspection.')
       return
     }
 
@@ -68,8 +73,9 @@ export default function MapInspectionPage() {
     try {
       const res = await mapJob({
         po_no: selectedPO.value,
-        agency_code: selectedAgency.value,
+        agency_code: inspectionType === 'agency' ? selectedAgency.value : undefined,
         inspection_date: inspectionDate,
+        inspection_type: inspectionType,
       })
       setSuccessJob(res.data?.job || res.data)
     } catch (err) {
@@ -89,6 +95,7 @@ export default function MapInspectionPage() {
     setSelectedPO(null)
     setSelectedAgency(null)
     setInspectionDate('')
+    setInspectionType('agency')
     setError('')
     setNoTemplateError(null)
     setSuccessJob(null)
@@ -214,15 +221,43 @@ export default function MapInspectionPage() {
                 </div>
               )}
 
-              {/* Agency searchable dropdown */}
-              <SearchableDropdown
-                label="Quality Agency"
-                required
-                placeholder="Search by agency name or code..."
-                value={selectedAgency}
-                onChange={setSelectedAgency}
-                fetchOptions={fetchAgencies}
-              />
+              {/* Inspection Type Toggle */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={labelStyle}>Inspection Type <span style={{ color: '#dc2626' }}>*</span></label>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {[
+                    { value: 'agency', label: '🏢 Agency Inspection', desc: 'An external QC agency performs the inspection' },
+                    { value: 'self',   label: '🏭 Self Inspection',   desc: 'Supplier performs and submits the inspection themselves' },
+                  ].map(opt => (
+                    <div
+                      key={opt.value}
+                      onClick={() => { setInspectionType(opt.value); setSelectedAgency(null) }}
+                      style={{
+                        flex: 1, padding: '14px 16px', borderRadius: '8px', cursor: 'pointer',
+                        border: `2px solid ${inspectionType === opt.value ? '#1e40af' : '#e5e7eb'}`,
+                        backgroundColor: inspectionType === opt.value ? '#eff6ff' : '#fff',
+                      }}
+                    >
+                      <div style={{ fontWeight: '600', fontSize: '14px', color: inspectionType === opt.value ? '#1e40af' : '#374151', marginBottom: '4px' }}>
+                        {opt.label}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>{opt.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Agency searchable dropdown — only for agency inspections */}
+              {inspectionType === 'agency' && (
+                <SearchableDropdown
+                  label="Quality Agency"
+                  required
+                  placeholder="Search by agency name or code..."
+                  value={selectedAgency}
+                  onChange={setSelectedAgency}
+                  fetchOptions={fetchAgencies}
+                />
+              )}
 
               {/* Inspection Date */}
               <div style={{ marginBottom: '32px' }}>

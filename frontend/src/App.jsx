@@ -48,7 +48,7 @@ export default function App() {
         <Route
           path="/jobs/:id/fill"
           element={
-            <ProtectedRoute allowedRoles={['agency_user']}>
+            <ProtectedRoute allowedRoles={['agency_user', 'supplier_user']}>
               <ChecklistFillPage />
             </ProtectedRoute>
           }

@@ -108,10 +108,18 @@ router.get('/:id', async (req, res) => {
  * If not, returns 422 with error code NO_ACTIVE_TEMPLATE (alert QA only).
  */
 router.post('/', authorize('qa', 'buying'), async (req, res) => {
-  const { po_no, agency_code, inspection_date } = req.body;
+  const { po_no, agency_code, inspection_date, inspection_type = 'agency' } = req.body;
 
-  if (!po_no || !agency_code || !inspection_date) {
-    return res.status(400).json({ error: 'po_no, agency_code, and inspection_date are required' });
+  if (!['agency', 'self'].includes(inspection_type)) {
+    return res.status(400).json({ error: 'inspection_type must be "agency" or "self"' });
+  }
+
+  if (!po_no || !inspection_date) {
+    return res.status(400).json({ error: 'po_no and inspection_date are required' });
+  }
+
+  if (inspection_type === 'agency' && !agency_code) {
+    return res.status(400).json({ error: 'agency_code is required for agency inspection' });
   }
 
   const client = await db.getClient();
@@ -139,14 +147,17 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
       return res.status(400).json({ error: 'Cannot map inspection for a cancelled PO' });
     }
 
-    // Verify agency exists
-    const agencyResult = await client.query(
-      'SELECT * FROM qc_inspection.quality_agency_master WHERE agency_code = $1',
-      [agency_code]
-    );
-    if (agencyResult.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: `Agency ${agency_code} not found` });
+    // Verify agency exists (only for agency inspections)
+    let agencyResult = { rows: [{}] };
+    if (inspection_type === 'agency') {
+      agencyResult = await client.query(
+        'SELECT * FROM qc_inspection.quality_agency_master WHERE agency_code = $1',
+        [agency_code]
+      );
+      if (agencyResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: `Agency ${agency_code} not found` });
+      }
     }
 
     // BUSINESS RULE: Check for active checklist template for item's category/sub_category
@@ -173,10 +184,10 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
     // Create the inspection job
     const jobResult = await client.query(
       `INSERT INTO qc_inspection.inspection_job
-        (po_no, item_code, supplier_code, agency_code, checklist_template_id, status, inspection_date)
-       VALUES ($1, $2, $3, $4, $5, 'mapped_awaiting_inspection', $6)
+        (po_no, item_code, supplier_code, agency_code, checklist_template_id, status, inspection_date, inspection_type)
+       VALUES ($1, $2, $3, $4, $5, 'mapped_awaiting_inspection', $6, $7)
        RETURNING *`,
-      [po_no, po.item_code, po.supplier_code, agency_code, templateId, inspection_date]
+      [po_no, po.item_code, po.supplier_code, agency_code || null, templateId, inspection_date, inspection_type]
     );
 
     const job = jobResult.rows[0];
@@ -197,7 +208,9 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
     await client.query('COMMIT');
 
     // Fire-and-forget notifications
-    sendNotification(job.job_id, 'JOB_MAPPED', 'agency_user', agencyResult.rows[0].contact_emails);
+    if (inspection_type === 'agency') {
+      sendNotification(job.job_id, 'JOB_MAPPED', 'agency_user', agencyResult.rows[0].contact_emails || []);
+    }
     sendNotification(job.job_id, 'JOB_MAPPED', 'supplier_user', [po.contact_email]);
 
     res.status(201).json(job);
@@ -215,7 +228,7 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
  * Agency submits the filled inspection.
  * Transitions: mapped_awaiting_inspection → submitted_pending_qa
  */
-router.put('/:id/submit', authorize('agency_user'), async (req, res) => {
+router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req, res) => {
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
@@ -233,9 +246,15 @@ router.put('/:id/submit', authorize('agency_user'), async (req, res) => {
     const job = jobResult.rows[0];
 
     // Scope check
-    if (job.agency_code !== req.user.agency_code) {
+    if (req.user.role === 'agency_user' && job.agency_code !== req.user.agency_code) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Access denied' });
+    }
+    if (req.user.role === 'supplier_user') {
+      if (job.inspection_type !== 'self' || job.supplier_code !== req.user.supplier_code) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Access denied' });
+      }
     }
 
     if (job.status !== 'mapped_awaiting_inspection') {
