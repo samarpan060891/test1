@@ -60,7 +60,7 @@ router.get('/', async (req, res) => {
                  json_build_object(
                    'job_id', j.job_id, 'job_ref', j.job_ref,
                    'po_no', j.po_no, 'supplier_code', j.supplier_code,
-                   'item_name', j.item_name, 'inspection_date', j.inspection_date
+                   'item_name', im.name, 'inspection_date', j.inspection_date
                  )
                ) FILTER (WHERE j.job_id IS NOT NULL), '[]'
              ) AS jobs
@@ -70,7 +70,8 @@ router.get('/', async (req, res) => {
       LEFT JOIN qc_inspection.team_stakeholder qa_u ON qa_u.user_id = a.qa_user_id
       LEFT JOIN qc_inspection.team_stakeholder buy_u ON buy_u.user_id = a.buying_user_id
       LEFT JOIN qc_inspection.ica_jobs ij ON ij.advice_id = a.advice_id
-      LEFT JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id`;
+      LEFT JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
+      LEFT JOIN qc_inspection.item_master im ON im.item_code = j.item_code`;
 
     const params = [];
     if (role === 'agency_user') {
@@ -99,7 +100,7 @@ router.get('/:id', async (req, res) => {
                  json_build_object(
                    'job_id', j.job_id, 'job_ref', j.job_ref,
                    'po_no', j.po_no, 'supplier_code', j.supplier_code,
-                   'item_name', j.item_name, 'inspection_date', j.inspection_date,
+                   'item_name', im.name, 'inspection_date', j.inspection_date,
                    'quantity', j.quantity
                  )
                ) FILTER (WHERE j.job_id IS NOT NULL), '[]'
@@ -112,6 +113,7 @@ router.get('/:id', async (req, res) => {
       LEFT JOIN qc_inspection.team_stakeholder rej_u ON rej_u.user_id = a.rejected_by
       LEFT JOIN qc_inspection.ica_jobs ij ON ij.advice_id = a.advice_id
       LEFT JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
+      LEFT JOIN qc_inspection.item_master im ON im.item_code = j.item_code
       WHERE a.advice_id = $1
       GROUP BY a.advice_id, ag.name, creator.name, qa_u.name, buy_u.name, rej_u.name`,
       [req.params.id]
