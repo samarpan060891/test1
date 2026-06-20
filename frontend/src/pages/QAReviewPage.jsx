@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
 import { getJob, makeDecision } from '../api/inspectionJobs.js'
 import { getTemplate } from '../api/checklistTemplates.js'
 import { getResponses } from '../api/inspectionResponses.js'
@@ -72,6 +73,7 @@ function getAQLSuggestion(items, responseMap) {
 export default function QAReviewPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   const [job, setJob] = useState(null)
   const [items, setItems] = useState([])
@@ -161,7 +163,7 @@ export default function QAReviewPage() {
       <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
         <Navbar />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
-          <p style={{ color: '#6b7280' }}>Loading review data...</p>
+          <p style={{ color: '#6b7280' }}>{t('common_loading')}</p>
         </div>
       </div>
     )
@@ -189,10 +191,10 @@ export default function QAReviewPage() {
               {outcome === 'approved' ? '✅' : '❌'}
             </div>
             <h2 style={{ margin: '0 0 10px', fontSize: '22px', fontWeight: '700', color: '#111827' }}>
-              Decision Submitted!
+              {t('qa_decision_submitted') || 'Decision Submitted!'}
             </h2>
             <p style={{ color: '#6b7280', fontSize: '15px' }}>
-              Job has been {outcome === 'approved' ? 'approved' : 'rejected'}. Redirecting to job details...
+              {outcome === 'approved' ? t('status_approved') : t('status_rejected')}
             </p>
           </div>
         </div>
@@ -215,12 +217,12 @@ export default function QAReviewPage() {
         {/* Header */}
         <div style={{ marginBottom: '24px' }}>
           <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>
-            <Link to={`/jobs/${id}`} style={{ color: '#1e40af', textDecoration: 'none' }}>Job Details</Link>
+            <Link to={`/jobs/${id}`} style={{ color: '#1e40af', textDecoration: 'none' }}>{t('job_detail_title')}</Link>
             <span style={{ margin: '0 8px' }}>/</span>
-            <span>QA Review</span>
+            <span>{t('qa_review') || 'QA Review'}</span>
           </div>
           <h1 style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '700', color: '#111827' }}>
-            QA Review & Decision
+            {t('qa_review_title') || 'QA Review & Decision'}
           </h1>
           <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>
             PO: <strong>{job?.po_no}</strong> | Supplier: <strong>{job?.supplier_code}</strong>
@@ -230,11 +232,11 @@ export default function QAReviewPage() {
         {/* Summary stats */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
           {[
-            { label: 'Total Items', value: totalItems, color: '#1e40af', bg: '#dbeafe' },
-            { label: 'Pass', value: passCount, color: '#059669', bg: '#d1fae5' },
-            { label: 'Fail', value: failCount, color: '#dc2626', bg: '#fee2e2' },
-            { label: 'N/A', value: naCount, color: '#6b7280', bg: '#f3f4f6' },
-            { label: 'Critical Fails', value: criticalFails, color: '#b91c1c', bg: '#fee2e2' }
+            { label: t('qa_total_items') || 'Total Items', value: totalItems, color: '#1e40af', bg: '#dbeafe' },
+            { label: t('checklist_pass'), value: passCount, color: '#059669', bg: '#d1fae5' },
+            { label: t('checklist_fail'), value: failCount, color: '#dc2626', bg: '#fee2e2' },
+            { label: t('checklist_na'), value: naCount, color: '#6b7280', bg: '#f3f4f6' },
+            { label: t('qa_critical_fails') || 'Critical Fails', value: criticalFails, color: '#b91c1c', bg: '#fee2e2' }
           ].map(stat => (
             <div key={stat.label} style={{
               backgroundColor: stat.bg, borderRadius: '8px', padding: '14px 20px',
@@ -271,7 +273,7 @@ export default function QAReviewPage() {
           {/* Checklist responses */}
           <div style={{ flex: 1, minWidth: '400px' }}>
             <h2 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
-              Checklist Responses
+              {t('qa_checklist_responses') || 'Checklist Responses'}
             </h2>
 
             {Object.entries(groupedItems).map(([section, sectionItems]) => (
@@ -313,7 +315,7 @@ export default function QAReviewPage() {
                               padding: '2px 10px', borderRadius: '9999px',
                               fontSize: '11px', fontWeight: '700', textTransform: 'uppercase'
                             }}>
-                              {result ? result.toUpperCase() : 'No Response'}
+                              {result ? (result === 'pass' ? t('checklist_pass') : result === 'fail' ? t('checklist_fail') : t('checklist_na')) : (t('qa_no_response') || 'No Response')}
                             </span>
                           </div>
                         </div>
@@ -322,7 +324,7 @@ export default function QAReviewPage() {
                             margin: '6px 0 0', fontSize: '12px', color: '#6b7280', fontStyle: 'italic',
                             backgroundColor: '#f9fafb', padding: '6px 10px', borderRadius: '4px'
                           }}>
-                            Remark: {resp.remark}
+                            {t('checklist_remarks')}: {resp.remark}
                           </p>
                         )}
                       </div>
@@ -340,7 +342,7 @@ export default function QAReviewPage() {
             padding: '24px', position: 'sticky', top: '80px'
           }}>
             <h2 style={{ margin: '0 0 20px', fontSize: '16px', fontWeight: '600', color: '#111827' }}>
-              Your Decision
+              {t('qa_your_decision') || 'Your Decision'}
             </h2>
 
             {submitError && (
@@ -360,8 +362,8 @@ export default function QAReviewPage() {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {[
-                    { value: 'approved', label: 'Approve', icon: '✓', color: '#059669', bg: '#f0fdf4', border: '#86efac' },
-                    { value: 'rejected', label: 'Reject', icon: '✗', color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' }
+                    { value: 'approved', label: t('costs_approve'), icon: '✓', color: '#059669', bg: '#f0fdf4', border: '#86efac' },
+                    { value: 'rejected', label: t('costs_reject'), icon: '✗', color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' }
                   ].map(opt => (
                     <label key={opt.value} style={{
                       display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer',
@@ -392,12 +394,12 @@ export default function QAReviewPage() {
 
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#374151' }}>
-                  Remarks
+                  {t('job_qa_remarks')}
                 </label>
                 <textarea
                   value={remarks}
                   onChange={e => setRemarks(e.target.value)}
-                  placeholder="Add your QA remarks..."
+                  placeholder={t('job_qa_remarks') + '...'}
                   rows={4}
                   style={{
                     width: '100%', padding: '10px 12px', border: '1px solid #d1d5db',
@@ -419,7 +421,7 @@ export default function QAReviewPage() {
                   cursor: (submitting || !outcome) ? 'not-allowed' : 'pointer'
                 }}
               >
-                {submitting ? 'Submitting...' : 'Submit Decision'}
+                {submitting ? t('common_saving') : (t('qa_submit_decision') || 'Submit Decision')}
               </button>
             </form>
           </div>

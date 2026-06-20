@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
 import Navbar from '../components/Navbar.jsx'
 import { changePassword } from '../api/auth.js'
+import { useLanguage } from '../context/LanguageContext.jsx'
 
 export default function ChangePasswordPage() {
+  const { t } = useLanguage()
   const [form, setForm] = useState({ current_password: '', new_password: '', confirm_password: '' })
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
@@ -11,15 +13,15 @@ export default function ChangePasswordPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (form.new_password !== form.confirm_password) {
-      setIsError(true); setMsg('New passwords do not match'); return
+      setIsError(true); setMsg(t('change_pwd_mismatch')); return
     }
     if (form.new_password.length < 6) {
-      setIsError(true); setMsg('New password must be at least 6 characters'); return
+      setIsError(true); setMsg(t('change_pwd_minlength')); return
     }
     setSaving(true); setMsg(''); setIsError(false)
     try {
       await changePassword(form.current_password, form.new_password)
-      setMsg('Password changed successfully!')
+      setMsg(t('change_pwd_success'))
       setIsError(false)
       setForm({ current_password: '', new_password: '', confirm_password: '' })
     } catch (err) {
@@ -33,14 +35,14 @@ export default function ChangePasswordPage() {
       <Navbar />
       <div style={{ maxWidth: '480px', margin: '60px auto', padding: '0 24px' }}>
         <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '36px', boxShadow: '0 1px 6px rgba(0,0,0,0.1)' }}>
-          <h1 style={{ margin: '0 0 6px', fontSize: '22px', fontWeight: '700', color: '#111827' }}>Change Password</h1>
-          <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: '14px' }}>Update your account password</p>
+          <h1 style={{ margin: '0 0 6px', fontSize: '22px', fontWeight: '700', color: '#111827' }}>{t('change_pwd_title')}</h1>
+          <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: '14px' }}>{t('change_pwd_subtitle')}</p>
 
           <form onSubmit={handleSubmit}>
             {[
-              { key: 'current_password', label: 'Current Password' },
-              { key: 'new_password', label: 'New Password' },
-              { key: 'confirm_password', label: 'Confirm New Password' },
+              { key: 'current_password', label: t('change_pwd_current') },
+              { key: 'new_password', label: t('change_pwd_new') },
+              { key: 'confirm_password', label: t('change_pwd_confirm') },
             ].map(({ key, label }) => (
               <div key={key} style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{label} *</label>
@@ -70,7 +72,7 @@ export default function ChangePasswordPage() {
               border: 'none', padding: '11px', borderRadius: '7px', fontSize: '15px', fontWeight: '600',
               cursor: saving ? 'not-allowed' : 'pointer'
             }}>
-              {saving ? 'Updating...' : 'Change Password'}
+              {saving ? t('change_pwd_submitting') : t('change_pwd_submit')}
             </button>
           </form>
         </div>

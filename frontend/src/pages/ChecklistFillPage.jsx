@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
 import { getJob, submitJob } from '../api/inspectionJobs.js'
 import { getTemplate } from '../api/checklistTemplates.js'
 import { getResponses, submitResponses } from '../api/inspectionResponses.js'
@@ -14,6 +15,7 @@ const criticalityColors = {
 export default function ChecklistFillPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   const [job, setJob] = useState(null)
   const [items, setItems] = useState([])
@@ -126,7 +128,7 @@ export default function ChecklistFillPage() {
       <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
         <Navbar />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
-          <p style={{ color: '#6b7280' }}>Loading checklist...</p>
+          <p style={{ color: '#6b7280' }}>{t('common_loading')}</p>
         </div>
       </div>
     )
@@ -157,10 +159,10 @@ export default function ChecklistFillPage() {
           }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>✅</div>
             <h2 style={{ margin: '0 0 10px', fontSize: '22px', fontWeight: '700', color: '#111827' }}>
-              Checklist Submitted!
+              {t('checklist_submitted') || 'Checklist Submitted!'}
             </h2>
             <p style={{ color: '#6b7280', marginBottom: '24px', fontSize: '15px' }}>
-              Your inspection responses have been saved and submitted for QA review.
+              {t('checklist_submitted_msg') || 'Your inspection responses have been saved and submitted for QA review.'}
             </p>
             <Link
               to={`/jobs/${id}`}
@@ -174,7 +176,7 @@ export default function ChecklistFillPage() {
                 fontWeight: '600'
               }}
             >
-              View Job Details
+              {t('job_detail_title')}
             </Link>
           </div>
         </div>
@@ -192,12 +194,12 @@ export default function ChecklistFillPage() {
         {/* Header */}
         <div style={{ marginBottom: '24px' }}>
           <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>
-            <Link to={`/jobs/${id}`} style={{ color: '#1e40af', textDecoration: 'none' }}>Job Details</Link>
+            <Link to={`/jobs/${id}`} style={{ color: '#1e40af', textDecoration: 'none' }}>{t('job_detail_title')}</Link>
             <span style={{ margin: '0 8px' }}>/</span>
-            <span>Fill Checklist</span>
+            <span>{t('checklist_title')}</span>
           </div>
           <h1 style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '700', color: '#111827' }}>
-            Fill Inspection Checklist
+            {t('checklist_fill_title') || 'Fill Inspection Checklist'}
           </h1>
           <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>
             PO: <strong>{job?.po_no}</strong> | Agency: <strong>{job?.agency_code}</strong>
@@ -337,7 +339,7 @@ export default function ChecklistFillPage() {
                               onChange={() => handleResponseChange(itemId, 'result', result)}
                               style={{ display: 'none' }}
                             />
-                            {result === 'pass' ? '✓ Pass' : result === 'fail' ? '✗ Fail' : '— N/A'}
+                            {result === 'pass' ? `✓ ${t('checklist_pass')}` : result === 'fail' ? `✗ ${t('checklist_fail')}` : `— ${t('checklist_na')}`}
                           </label>
                         ))}
                       </div>
@@ -346,7 +348,7 @@ export default function ChecklistFillPage() {
                       <textarea
                         value={resp.remark || ''}
                         onChange={e => handleResponseChange(itemId, 'remark', e.target.value)}
-                        placeholder="Add remark (optional)..."
+                        placeholder={`${t('checklist_remarks')} (${t('common_cancel') ? t('map_cancel') : 'optional'})...`}
                         rows={2}
                         style={{
                           width: '100%',
@@ -378,10 +380,7 @@ export default function ChecklistFillPage() {
             marginBottom: '16px'
           }}>
             <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '8px' }}>
-              Actual Inspection Date <span style={{ color: '#dc2626' }}>*</span>
-              <span style={{ fontWeight: '400', color: '#6b7280', marginLeft: '8px', fontSize: '13px' }}>
-                (Date when inspection was physically carried out)
-              </span>
+              {t('checklist_actual_date')} <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <input
               type="date"
@@ -434,7 +433,7 @@ export default function ChecklistFillPage() {
                   backgroundColor: '#fff'
                 }}
               >
-                Cancel
+                {t('common_cancel')}
               </Link>
               <button
                 type="submit"
@@ -450,7 +449,7 @@ export default function ChecklistFillPage() {
                   cursor: submitting ? 'not-allowed' : 'pointer'
                 }}
               >
-                {submitting ? 'Submitting...' : 'Save & Submit'}
+                {submitting ? t('checklist_submitting') : t('checklist_submit')}
               </button>
             </div>
           </div>

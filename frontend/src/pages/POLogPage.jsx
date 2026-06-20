@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
 import { getLogs, createLog } from '../api/logEntries.js'
 
 const roleBadgeColors = {
@@ -11,6 +12,7 @@ const roleBadgeColors = {
 }
 
 export default function POLogPage() {
+  const { t } = useLanguage()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [poNoFilter, setPoNoFilter] = useState(searchParams.get('po_no') || '')
@@ -107,9 +109,9 @@ export default function POLogPage() {
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 24px' }}>
         {/* Header */}
         <div style={{ marginBottom: '28px' }}>
-          <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '700', color: '#111827' }}>PO Activity Log</h1>
+          <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '700', color: '#111827' }}>{t('nav_po_log')}</h1>
           <p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: '14px' }}>
-            View and post log entries for purchase orders and inspection jobs.
+            {t('po_log_subtitle') || 'View and post log entries for purchase orders and inspection jobs.'}
           </p>
         </div>
 
@@ -121,11 +123,11 @@ export default function POLogPage() {
           padding: '20px 24px',
           marginBottom: '24px'
         }}>
-          <h2 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: '600', color: '#374151' }}>Filter Entries</h2>
+          <h2 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: '600', color: '#374151' }}>{t('po_log_filter') || 'Filter Entries'}</h2>
           <form onSubmit={handleFilter} style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '180px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>
-                PO Number
+                {t('th_po_no')}
               </label>
               <input
                 type="text"
@@ -137,7 +139,7 @@ export default function POLogPage() {
             </div>
             <div style={{ flex: 1, minWidth: '180px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>
-                Job ID
+                {t('th_job_id')}
               </label>
               <input
                 type="text"
@@ -161,7 +163,7 @@ export default function POLogPage() {
                   cursor: 'pointer'
                 }}
               >
-                Filter
+                {t('common_search')}
               </button>
               <button
                 type="button"
@@ -176,7 +178,7 @@ export default function POLogPage() {
                   cursor: 'pointer'
                 }}
               >
-                Clear
+                {t('common_cancel')}
               </button>
             </div>
           </form>
@@ -213,7 +215,7 @@ export default function POLogPage() {
           </div>
 
           {loading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading entries...</div>
+            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>{t('common_loading')}</div>
           ) : error ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#dc2626' }}>{error}</div>
           ) : logs.length === 0 ? (
@@ -291,7 +293,7 @@ export default function POLogPage() {
           boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
           padding: '24px'
         }}>
-          <h2 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: '600', color: '#111827' }}>Post a Remark</h2>
+          <h2 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: '600', color: '#111827' }}>{t('job_post_remark')}</h2>
 
           {postError && (
             <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '10px', padding: '10px 14px', backgroundColor: '#fef2f2', borderRadius: '6px', border: '1px solid #fca5a5' }}>
@@ -344,7 +346,7 @@ export default function POLogPage() {
                   cursor: (posting || !newMessage.trim() || (!appliedPoNo && !appliedJobId)) ? 'not-allowed' : 'pointer'
                 }}
               >
-                {posting ? 'Posting...' : 'Post Remark'}
+                {posting ? t('common_saving') : t('job_post_remark')}
               </button>
               {(!appliedPoNo && !appliedJobId) && (
                 <span style={{ fontSize: '12px', color: '#9ca3af' }}>

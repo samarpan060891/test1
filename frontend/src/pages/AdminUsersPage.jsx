@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Navbar from '../components/Navbar.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
 import { getUsers, createUser, updateUser, deleteUser, resetPassword } from '../api/admin.js'
 
 const ROLES = ['qa', 'buying', 'agency_user', 'supplier_user', 'admin']
@@ -7,6 +8,7 @@ const ROLES = ['qa', 'buying', 'agency_user', 'supplier_user', 'admin']
 const emptyForm = { name: '', email: '', password: '', role: 'agency_user', agency_code: '', supplier_code: '' }
 
 export default function AdminUsersPage() {
+  const { t } = useLanguage()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -70,15 +72,15 @@ export default function AdminUsersPage() {
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#111827' }}>User Management</h1>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#111827' }}>{t('admin_users_title')}</h1>
             <p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: '14px' }}>{users.length} users</p>
           </div>
           <button onClick={openCreate} style={{ backgroundColor: '#1e40af', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
-            + Add User
+            {t('admin_add_user')}
           </button>
         </div>
 
-        {loading ? <p style={{ color: '#6b7280' }}>Loading...</p> : (
+        {loading ? <p style={{ color: '#6b7280' }}>{t('common_loading')}</p> : (
           <div style={{ backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -99,9 +101,9 @@ export default function AdminUsersPage() {
                     <td style={{ padding: '12px 16px', fontSize: '13px', color: '#374151' }}>{u.agency_code || u.supplier_code || '—'}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => openEdit(u)} style={{ padding: '5px 12px', fontSize: '12px', border: '1px solid #d1d5db', borderRadius: '5px', cursor: 'pointer', backgroundColor: '#fff' }}>Edit</button>
-                        <button onClick={() => { setResetModal(u); setNewPwd(''); setResetMsg('') }} style={{ padding: '5px 12px', fontSize: '12px', border: '1px solid #fbbf24', borderRadius: '5px', cursor: 'pointer', backgroundColor: '#fffbeb', color: '#d97706' }}>Reset Pwd</button>
-                        <button onClick={() => handleDelete(u)} style={{ padding: '5px 12px', fontSize: '12px', border: '1px solid #fca5a5', borderRadius: '5px', cursor: 'pointer', backgroundColor: '#fef2f2', color: '#dc2626' }}>Delete</button>
+                        <button onClick={() => openEdit(u)} style={{ padding: '5px 12px', fontSize: '12px', border: '1px solid #d1d5db', borderRadius: '5px', cursor: 'pointer', backgroundColor: '#fff' }}>{t('admin_edit')}</button>
+                        <button onClick={() => { setResetModal(u); setNewPwd(''); setResetMsg('') }} style={{ padding: '5px 12px', fontSize: '12px', border: '1px solid #fbbf24', borderRadius: '5px', cursor: 'pointer', backgroundColor: '#fffbeb', color: '#d97706' }}>{t('admin_reset_pwd')}</button>
+                        <button onClick={() => handleDelete(u)} style={{ padding: '5px 12px', fontSize: '12px', border: '1px solid #fca5a5', borderRadius: '5px', cursor: 'pointer', backgroundColor: '#fef2f2', color: '#dc2626' }}>{t('admin_delete')}</button>
                       </div>
                     </td>
                   </tr>
@@ -116,7 +118,7 @@ export default function AdminUsersPage() {
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '32px', width: '480px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: '700' }}>{editUser ? 'Edit User' : 'Add New User'}</h2>
+            <h2 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: '700' }}>{editUser ? t('admin_edit') : t('admin_add_user')}</h2>
             {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626', padding: '10px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '13px' }}>{error}</div>}
             <form onSubmit={handleSave}>
               {[['Name', 'name', 'text'], ['Email', 'email', 'email']].map(([label, key, type]) => (
@@ -151,9 +153,9 @@ export default function AdminUsersPage() {
               )}
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
                 <button type="submit" disabled={saving} style={{ flex: 1, backgroundColor: saving ? '#93c5fd' : '#1e40af', color: '#fff', border: 'none', padding: '10px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}>
-                  {saving ? 'Saving...' : editUser ? 'Save Changes' : 'Create User'}
+                  {saving ? t('common_saving') : t('admin_save')}
                 </button>
-                <button type="button" onClick={() => setShowForm(false)} style={{ flex: 1, backgroundColor: '#fff', border: '1px solid #d1d5db', padding: '10px', borderRadius: '7px', fontSize: '14px', cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={() => setShowForm(false)} style={{ flex: 1, backgroundColor: '#fff', border: '1px solid #d1d5db', padding: '10px', borderRadius: '7px', fontSize: '14px', cursor: 'pointer' }}>{t('admin_cancel')}</button>
               </div>
             </form>
           </div>
@@ -164,13 +166,13 @@ export default function AdminUsersPage() {
       {resetModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '32px', width: '380px' }}>
-            <h2 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: '700' }}>Reset Password</h2>
+            <h2 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: '700' }}>{t('admin_reset_pwd')}</h2>
             <p style={{ margin: '0 0 20px', color: '#6b7280', fontSize: '14px' }}>{resetModal.name} ({resetModal.email})</p>
             <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder="New password (min 6 chars)" style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', marginBottom: '12px' }} />
             {resetMsg && <p style={{ margin: '0 0 12px', fontSize: '13px', color: resetMsg.includes('success') ? '#059669' : '#dc2626' }}>{resetMsg}</p>}
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={handleReset} style={{ flex: 1, backgroundColor: '#d97706', color: '#fff', border: 'none', padding: '10px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Reset Password</button>
-              <button onClick={() => setResetModal(null)} style={{ flex: 1, border: '1px solid #d1d5db', padding: '10px', borderRadius: '7px', fontSize: '14px', cursor: 'pointer', backgroundColor: '#fff' }}>Cancel</button>
+              <button onClick={handleReset} style={{ flex: 1, backgroundColor: '#d97706', color: '#fff', border: 'none', padding: '10px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>{t('admin_reset_pwd')}</button>
+              <button onClick={() => setResetModal(null)} style={{ flex: 1, border: '1px solid #d1d5db', padding: '10px', borderRadius: '7px', fontSize: '14px', cursor: 'pointer', backgroundColor: '#fff' }}>{t('admin_cancel')}</button>
             </div>
           </div>
         </div>

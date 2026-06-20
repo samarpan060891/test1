@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import Navbar from '../components/Navbar.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
 import {
   getSuppliers, saveSingleSupplier, bulkSuppliers,
   getAgencies, saveSingleAgency, bulkAgencies,
@@ -54,6 +55,7 @@ function emptyForm(fields) {
 }
 
 export default function AdminMastersPage() {
+  const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState('Suppliers')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
@@ -118,8 +120,8 @@ export default function AdminMastersPage() {
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Navbar />
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
-        <h1 style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '700', color: '#111827' }}>Masters Management</h1>
-        <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: '14px' }}>Manage reference data used across the system</p>
+        <h1 style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '700', color: '#111827' }}>{t('admin_masters_title')}</h1>
+        <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: '14px' }}>{t('admin_masters_subtitle') || 'Manage reference data used across the system'}</p>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '2px solid #e5e7eb' }}>
@@ -139,7 +141,7 @@ export default function AdminMastersPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Single Entry */}
             <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-              <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: '700', color: '#111827' }}>Add / Update Single Entry</h3>
+              <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: '700', color: '#111827' }}>{t('admin_single_entry') || 'Add / Update Single Entry'}</h3>
               <form onSubmit={handleSingle}>
                 {cfg.fields.map(f => (
                   <div key={f.key} style={{ marginBottom: '12px' }}>
@@ -163,14 +165,14 @@ export default function AdminMastersPage() {
                   width: '100%', backgroundColor: saving ? '#93c5fd' : '#1e40af', color: '#fff',
                   border: 'none', padding: '9px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer'
                 }}>
-                  {saving ? 'Saving...' : `Save ${activeTab.slice(0, -1)}`}
+                  {saving ? t('common_saving') : t('admin_save')}
                 </button>
               </form>
             </div>
 
             {/* Bulk Upload */}
             <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: '700', color: '#111827' }}>Bulk Upload</h3>
+              <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: '700', color: '#111827' }}>{t('admin_bulk_upload') || 'Bulk Upload'}</h3>
               <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#6b7280' }}>
                 Upload a CSV or Excel file. First row must be headers matching:<br />
                 <code style={{ fontSize: '11px', color: '#374151' }}>{colKeys.join(', ')}</code>
@@ -189,7 +191,7 @@ export default function AdminMastersPage() {
                 cursor: bulkLoading ? 'not-allowed' : 'pointer', fontSize: '13px', color: '#6b7280',
                 backgroundColor: bulkLoading ? '#f9fafb' : '#fff'
               }}>
-                {bulkLoading ? 'Uploading...' : 'Click to select CSV / Excel file'}
+                {bulkLoading ? t('common_saving') : (t('admin_bulk_select') || 'Click to select CSV / Excel file')}
               </label>
               {bulkMsg && (
                 <p style={{ margin: '10px 0 0', fontSize: '13px', color: bulkMsg.includes('success') ? '#059669' : '#dc2626' }}>{bulkMsg}</p>
@@ -204,9 +206,9 @@ export default function AdminMastersPage() {
               <span style={{ fontSize: '13px', color: '#6b7280' }}>{rows.length} records</span>
             </div>
             {loading ? (
-              <p style={{ padding: '24px', color: '#6b7280', fontSize: '14px' }}>Loading...</p>
+              <p style={{ padding: '24px', color: '#6b7280', fontSize: '14px' }}>{t('common_loading')}</p>
             ) : rows.length === 0 ? (
-              <p style={{ padding: '24px', color: '#9ca3af', fontSize: '14px', textAlign: 'center' }}>No records found</p>
+              <p style={{ padding: '24px', color: '#9ca3af', fontSize: '14px', textAlign: 'center' }}>{t('common_no_data')}</p>
             ) : (
               <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>

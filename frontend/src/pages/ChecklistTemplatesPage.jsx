@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Navbar from '../components/Navbar.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
 import {
   getTemplates,
   createTemplate,
@@ -371,6 +372,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
 }
 
 export default function ChecklistTemplatesPage() {
+  const { t } = useLanguage()
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -489,10 +491,10 @@ export default function ChecklistTemplatesPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '700', color: '#111827' }}>
-              Checklist Templates
+              {t('nav_checklist_templates')}
             </h1>
             <p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: '14px' }}>
-              Manage inspection checklist templates and their items.
+              {t('tmpl_subtitle') || 'Manage inspection checklist templates and their items.'}
             </p>
           </div>
           <button
@@ -508,7 +510,7 @@ export default function ChecklistTemplatesPage() {
               cursor: 'pointer'
             }}
           >
-            {showAddTemplate ? 'Cancel' : '+ Add Template'}
+            {showAddTemplate ? t('admin_cancel') : (t('tmpl_add') || '+ Add Template')}
           </button>
         </div>
 
@@ -538,7 +540,7 @@ export default function ChecklistTemplatesPage() {
             border: '2px solid #bfdbfe'
           }}>
             <h2 style={{ margin: '0 0 18px', fontSize: '16px', fontWeight: '600', color: '#111827' }}>
-              New Checklist Template
+              {t('tmpl_new') || 'New Checklist Template'}
             </h2>
 
             {createError && (
@@ -590,7 +592,7 @@ export default function ChecklistTemplatesPage() {
                     cursor: creating ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  {creating ? 'Creating...' : 'Create Template'}
+                  {creating ? t('common_saving') : (t('tmpl_create') || 'Create Template')}
                 </button>
                 <button
                   type="button"
@@ -605,7 +607,7 @@ export default function ChecklistTemplatesPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  Cancel
+                  {t('admin_cancel')}
                 </button>
               </div>
             </form>
@@ -614,7 +616,7 @@ export default function ChecklistTemplatesPage() {
 
         {/* Templates list */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px', color: '#6b7280' }}>Loading templates...</div>
+          <div style={{ textAlign: 'center', padding: '60px', color: '#6b7280' }}>{t('common_loading')}</div>
         ) : error ? (
           <div style={{ textAlign: 'center', padding: '60px', color: '#dc2626' }}>{error}</div>
         ) : templates.length === 0 ? (
@@ -627,14 +629,14 @@ export default function ChecklistTemplatesPage() {
             color: '#9ca3af'
           }}>
             <div style={{ fontSize: '40px', marginBottom: '12px' }}>📋</div>
-            <p style={{ fontSize: '15px', margin: 0 }}>No checklist templates found.</p>
-            <p style={{ fontSize: '13px', margin: '8px 0 0' }}>Click "Add Template" to create your first one.</p>
+            <p style={{ fontSize: '15px', margin: 0 }}>{t('tmpl_no_templates') || 'No checklist templates found.'}</p>
+            <p style={{ fontSize: '13px', margin: '8px 0 0' }}>{t('tmpl_no_templates_hint') || 'Click "Add Template" to create your first one.'}</p>
           </div>
         ) : (
           <>
-            {renderSection('Active Templates', activeTemplates, '#059669')}
-            {renderSection('Draft Templates', draftTemplates, '#d97706')}
-            {renderSection('Other Templates', otherTemplates, '#6b7280')}
+            {renderSection(t('tmpl_active') || 'Active Templates', activeTemplates, '#059669')}
+            {renderSection(t('tmpl_draft') || 'Draft Templates', draftTemplates, '#d97706')}
+            {renderSection(t('tmpl_other') || 'Other Templates', otherTemplates, '#6b7280')}
           </>
         )}
       </div>

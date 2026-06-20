@@ -4,15 +4,17 @@ import Navbar from '../components/Navbar.jsx'
 import SearchableDropdown from '../components/SearchableDropdown.jsx'
 import { mapJob } from '../api/inspectionJobs.js'
 import { searchPOs, searchAgencies } from '../api/masters.js'
-
-const STAGES = [
-  { key: 'pre_production', label: 'Pre-Production Sample Inspection', desc: 'Inspect sample before mass production begins' },
-  { key: 'inline',         label: 'In-Line Production Inspection',    desc: 'Inspect during active production run' },
-  { key: 'final',          label: 'Final Inspection',                 desc: 'Full inspection after production is complete' },
-  { key: 'loading',        label: 'Container Loading Inspection',     desc: 'Inspect goods during container stuffing' },
-]
+import { useLanguage } from '../context/LanguageContext.jsx'
 
 export default function MapInspectionPage() {
+  const { t } = useLanguage()
+
+  const STAGES = [
+    { key: 'pre_production', label: t('stage_pre_production_full'), desc: t('map_stage_pre_production_desc') },
+    { key: 'inline',         label: t('stage_inline_full'),         desc: t('map_stage_inline_desc') },
+    { key: 'final',          label: t('stage_final_full'),          desc: t('map_stage_final_desc') },
+    { key: 'loading',        label: t('stage_loading_full'),        desc: t('map_stage_loading_desc') },
+  ]
   const [selectedPO, setSelectedPO] = useState(null)
   const [selectedAgency, setSelectedAgency] = useState(null)
   const [inspectionDate, setInspectionDate] = useState('')
@@ -70,15 +72,15 @@ export default function MapInspectionPage() {
     setSuccessJob(null)
 
     if (!selectedPO || !inspectionDate) {
-      setError('PO and inspection date are required.')
+      setError(t('map_error_po_date') || 'PO and inspection date are required.')
       return
     }
     if (inspectionType === 'agency' && !selectedAgency) {
-      setError('Please select an agency for agency inspection.')
+      setError(t('map_error_agency') || 'Please select an agency for agency inspection.')
       return
     }
     if (!selectedStages.length) {
-      setError('Please select at least one inspection stage.')
+      setError(t('map_error_stage') || 'Please select at least one inspection stage.')
       return
     }
 
@@ -133,10 +135,10 @@ export default function MapInspectionPage() {
 
         <div style={{ marginBottom: '28px' }}>
           <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '700', color: '#111827' }}>
-            Map New Inspection
+            {t('map_title')}
           </h1>
           <p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: '14px' }}>
-            Assign an inspection job to an agency for a given PO.
+            {t('map_subtitle')}
           </p>
         </div>
 
@@ -150,11 +152,11 @@ export default function MapInspectionPage() {
               <span style={{ fontSize: '24px', flexShrink: 0 }}>⚠️</span>
               <div>
                 <h3 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: '700', color: '#dc2626' }}>
-                  No Active Checklist Template
+                  {t('map_no_template_title') || 'No Active Checklist Template'}
                 </h3>
                 <p style={{ margin: 0, fontSize: '14px', color: '#7f1d1d', lineHeight: '1.5' }}>
-                  No active checklist template found for <strong>{noTemplateError}</strong>.
-                  Please create and activate one in Checklist Templates before mapping this inspection.
+                  {t('map_no_template_body') || 'No active checklist template found for'} <strong>{noTemplateError}</strong>.
+                  {t('map_no_template_hint') || ' Please create and activate one in Checklist Templates before mapping this inspection.'}
                 </p>
                 <Link to="/checklist-templates" style={{
                   display: 'inline-block', marginTop: '10px',
@@ -162,7 +164,7 @@ export default function MapInspectionPage() {
                   padding: '7px 14px', borderRadius: '6px',
                   textDecoration: 'none', fontSize: '13px', fontWeight: '600',
                 }}>
-                  Go to Checklist Templates
+                  {t('nav_checklist_templates')}
                 </Link>
               </div>
             </div>
@@ -183,13 +185,13 @@ export default function MapInspectionPage() {
         {/* Success — single job */}
         {successJob && (
           <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', padding: '20px 24px', marginBottom: '24px' }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: '600', color: '#15803d' }}>Inspection Mapped Successfully!</h3>
+            <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: '600', color: '#15803d' }}>{t('map_success_title')}</h3>
             <p style={{ margin: '0 0 12px', fontSize: '14px', color: '#166534' }}>
               Job: <code style={{ fontFamily: 'monospace', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>{successJob.job_ref || successJob.job_id}</code>
             </p>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <Link to={`/jobs/${successJob.job_id}`} style={{ backgroundColor: '#15803d', color: '#fff', padding: '8px 16px', borderRadius: '6px', textDecoration: 'none', fontSize: '13px', fontWeight: '600' }}>View Job</Link>
-              <button onClick={handleReset} style={{ backgroundColor: '#fff', color: '#374151', border: '1px solid #d1d5db', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>Map Another</button>
+              <Link to={`/jobs/${successJob.job_id}`} style={{ backgroundColor: '#15803d', color: '#fff', padding: '8px 16px', borderRadius: '6px', textDecoration: 'none', fontSize: '13px', fontWeight: '600' }}>{t('map_view_job')}</Link>
+              <button onClick={handleReset} style={{ backgroundColor: '#fff', color: '#374151', border: '1px solid #d1d5db', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>{t('map_map_another')}</button>
             </div>
           </div>
         )}
@@ -198,9 +200,9 @@ export default function MapInspectionPage() {
         {successJobs.length > 0 && (
           <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', padding: '20px 24px', marginBottom: '24px' }}>
             <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: '600', color: '#15803d' }}>
-              {successJobs.length} Inspection Jobs Created!
+              {t('map_success_multiple').replace('{n}', successJobs.length)}
             </h3>
-            <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#6b7280' }}>One job per selected stage:</p>
+            <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#6b7280' }}>{t('map_success_per_stage')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
               {successJobs.map(j => {
                 const stageLabel = STAGES.find(s => s.key === j.inspection_stage)?.label || j.inspection_stage
@@ -210,12 +212,12 @@ export default function MapInspectionPage() {
                       <span style={{ fontWeight: '700', fontSize: '13px', color: '#166534' }}>{j.job_ref || j.job_id?.slice(0,8)}</span>
                       <span style={{ fontSize: '12px', color: '#15803d', marginLeft: '10px' }}>{stageLabel}</span>
                     </div>
-                    <Link to={`/jobs/${j.job_id}`} style={{ fontSize: '12px', color: '#15803d', fontWeight: '600', textDecoration: 'underline' }}>View</Link>
+                    <Link to={`/jobs/${j.job_id}`} style={{ fontSize: '12px', color: '#15803d', fontWeight: '600', textDecoration: 'underline' }}>{t('th_view')}</Link>
                   </div>
                 )
               })}
             </div>
-            <button onClick={handleReset} style={{ backgroundColor: '#15803d', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Map Another</button>
+            <button onClick={handleReset} style={{ backgroundColor: '#15803d', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>{t('map_map_another')}</button>
           </div>
         )}
 
@@ -229,9 +231,9 @@ export default function MapInspectionPage() {
 
               {/* PO searchable dropdown */}
               <SearchableDropdown
-                label="Purchase Order (PO)"
+                label={t('map_po')}
                 required
-                placeholder="Search by PO number, item name or supplier..."
+                placeholder={t('map_po_placeholder')}
                 value={selectedPO}
                 onChange={setSelectedPO}
                 fetchOptions={fetchPOs}
@@ -246,21 +248,21 @@ export default function MapInspectionPage() {
                   fontSize: '13px', color: '#475569',
                 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                    <div><span style={{ fontWeight: '600' }}>Item:</span> {selectedPO.meta.item_name}</div>
-                    <div><span style={{ fontWeight: '600' }}>Category:</span> {selectedPO.meta.category} / {selectedPO.meta.sub_category}</div>
-                    <div><span style={{ fontWeight: '600' }}>Supplier:</span> {selectedPO.meta.supplier_name}</div>
-                    <div><span style={{ fontWeight: '600' }}>Quantity:</span> {selectedPO.meta.quantity} units</div>
+                    <div><span style={{ fontWeight: '600' }}>{t('job_item_code')}:</span> {selectedPO.meta.item_name}</div>
+                    <div><span style={{ fontWeight: '600' }}>{t('map_category') || 'Category'}:</span> {selectedPO.meta.category} / {selectedPO.meta.sub_category}</div>
+                    <div><span style={{ fontWeight: '600' }}>{t('job_supplier')}:</span> {selectedPO.meta.supplier_name}</div>
+                    <div><span style={{ fontWeight: '600' }}>{t('map_quantity') || 'Quantity'}:</span> {selectedPO.meta.quantity}</div>
                   </div>
                 </div>
               )}
 
               {/* Inspection Type Toggle */}
               <div style={{ marginBottom: '20px' }}>
-                <label style={labelStyle}>Inspection Type <span style={{ color: '#dc2626' }}>*</span></label>
+                <label style={labelStyle}>{t('map_type')} <span style={{ color: '#dc2626' }}>*</span></label>
                 <div style={{ display: 'flex', gap: '12px' }}>
                   {[
-                    { value: 'agency', label: '🏢 Agency Inspection', desc: 'An external QC agency performs the inspection' },
-                    { value: 'self',   label: '🏭 Self Inspection',   desc: 'Supplier performs and submits the inspection themselves' },
+                    { value: 'agency', label: `🏢 ${t('map_type_agency')}`, desc: t('map_type_agency_desc') },
+                    { value: 'self',   label: `🏭 ${t('map_type_self')}`,   desc: t('map_type_self_desc') },
                   ].map(opt => (
                     <div
                       key={opt.value}
@@ -283,9 +285,9 @@ export default function MapInspectionPage() {
               {/* Agency searchable dropdown — only for agency inspections */}
               {inspectionType === 'agency' && (
                 <SearchableDropdown
-                  label="Quality Agency"
+                  label={t('map_agency')}
                   required
-                  placeholder="Search by agency name or code..."
+                  placeholder={t('map_agency_placeholder')}
                   value={selectedAgency}
                   onChange={setSelectedAgency}
                   fetchOptions={fetchAgencies}
@@ -295,8 +297,8 @@ export default function MapInspectionPage() {
               {/* Inspection Stages */}
               <div style={{ marginBottom: '24px' }}>
                 <label style={labelStyle}>
-                  Inspection Stages <span style={{ color: '#dc2626' }}>*</span>
-                  <span style={{ fontWeight: '400', color: '#6b7280', fontSize: '13px', marginLeft: '8px' }}>Select all that apply</span>
+                  {t('map_stages')} <span style={{ color: '#dc2626' }}>*</span>
+                  <span style={{ fontWeight: '400', color: '#6b7280', fontSize: '13px', marginLeft: '8px' }}>{t('map_stages_hint')}</span>
                 </label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {STAGES.map((stage, idx) => (
@@ -318,7 +320,7 @@ export default function MapInspectionPage() {
                 </div>
                 {selectedStages.length > 1 && (
                   <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#1d4ed8', fontWeight: '500' }}>
-                    {selectedStages.length} stages selected — {selectedStages.length} separate jobs will be created
+                    {t('map_stages_selected') || `${selectedStages.length} stages selected — ${selectedStages.length} separate jobs will be created`}
                   </p>
                 )}
               </div>
@@ -326,7 +328,7 @@ export default function MapInspectionPage() {
               {/* Inspection Date */}
               <div style={{ marginBottom: '32px' }}>
                 <label style={labelStyle}>
-                  Inspection Date <span style={{ color: '#dc2626' }}>*</span>
+                  {t('map_date')} <span style={{ color: '#dc2626' }}>*</span>
                 </label>
                 <input
                   type="date"
@@ -349,14 +351,14 @@ export default function MapInspectionPage() {
                     cursor: loading ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {loading ? 'Mapping...' : selectedStages.length > 1 ? `Map ${selectedStages.length} Inspections` : 'Map Inspection'}
+                  {loading ? t('map_submitting') : selectedStages.length > 1 ? t('map_submit_multiple').replace('{n}', selectedStages.length) : t('map_submit')}
                 </button>
                 <Link to="/dashboard" style={{
                   padding: '11px 20px', borderRadius: '7px', fontSize: '14px',
                   textDecoration: 'none', color: '#374151',
                   border: '1px solid #d1d5db', backgroundColor: '#fff',
                 }}>
-                  Cancel
+                  {t('map_cancel')}
                 </Link>
               </div>
             </form>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
 import { getAdvices, createAdvice, approveAdvice, rejectAdvice, getContracts, createContract } from '../api/inspectionCosts.js'
 import { getJobs } from '../api/inspectionJobs.js'
 
@@ -28,6 +29,7 @@ function fmt(num, currency = 'USD') {
 
 export default function InspectionCostPage() {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const role = user?.role
 
@@ -179,16 +181,14 @@ export default function InspectionCostPage() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#111827' }}>Inspection Charges</h1>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#111827' }}>{t('costs_title')}</h1>
             <p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: '14px' }}>
-              {role === 'agency_user'
-                ? 'Raise inspection charges advice for your assigned jobs'
-                : 'Review and approve inspection charges submitted by agencies'}
+              {role === 'agency_user' ? t('costs_subtitle_agency') : t('costs_subtitle_review')}
             </p>
           </div>
           {role === 'agency_user' && (
             <button onClick={openCreate} style={{ backgroundColor: '#1e40af', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
-              + New Charges Advice
+              {t('costs_new_advice')}
             </button>
           )}
         </div>
@@ -197,10 +197,10 @@ export default function InspectionCostPage() {
         {(role === 'qa' || role === 'buying') && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
             {[
-              { label: 'Pending QA', key: 'pending_qa', color: '#1d4ed8' },
-              { label: 'Pending Buying', key: 'pending_buying', color: '#92400e' },
-              { label: 'Approved', key: 'approved', color: '#166534' },
-              { label: 'Rejected', key: 'rejected', color: '#991b1b' },
+              { label: t('costs_pending_qa'), key: 'pending_qa', color: '#1d4ed8' },
+              { label: t('costs_pending_buying'), key: 'pending_buying', color: '#92400e' },
+              { label: t('costs_approved'), key: 'approved', color: '#166534' },
+              { label: t('costs_rejected'), key: 'rejected', color: '#991b1b' },
             ].map(s => (
               <div key={s.key} style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                 <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>{s.label}</p>
@@ -217,7 +217,7 @@ export default function InspectionCostPage() {
           <div style={{ marginBottom: '24px' }}>
             <button onClick={() => { setShowContracts(p => !p); if (!showContracts) loadContracts() }}
               style={{ backgroundColor: showContracts ? '#1e40af' : '#fff', color: showContracts ? '#fff' : '#1e40af', border: '1px solid #1e40af', padding: '8px 16px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-              {showContracts ? '▲ Hide' : '▼ Manage'} Standard Contracts
+              {showContracts ? `▲ ${t('costs_hide')}` : `▼ ${t('costs_manage')}`} {t('costs_std_contracts')}
             </button>
 
             {showContracts && (
@@ -288,7 +288,7 @@ export default function InspectionCostPage() {
                     </div>
                     {contractMsg && <p style={{ margin: '0 0 8px', fontSize: '12px', color: contractMsg.includes('saved') ? '#059669' : '#dc2626' }}>{contractMsg}</p>}
                     <button type="submit" disabled={contractSaving} style={{ width: '100%', backgroundColor: contractSaving ? '#93c5fd' : '#1e40af', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: contractSaving ? 'not-allowed' : 'pointer' }}>
-                      {contractSaving ? 'Saving...' : 'Save Contract'}
+                      {contractSaving ? t('common_saving') : t('costs_save_contract')}
                     </button>
                   </form>
                 </div>
@@ -296,10 +296,10 @@ export default function InspectionCostPage() {
                 {/* Contracts list */}
                 <div style={{ backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
                   <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e7eb' }}>
-                    <span style={{ fontWeight: '700', fontSize: '14px' }}>Existing Contracts ({allContracts.length})</span>
+                    <span style={{ fontWeight: '700', fontSize: '14px' }}>{t('costs_existing_contracts')} ({allContracts.length})</span>
                   </div>
                   {allContracts.length === 0 ? (
-                    <p style={{ padding: '20px', color: '#9ca3af', fontSize: '13px' }}>No contracts defined yet</p>
+                    <p style={{ padding: '20px', color: '#9ca3af', fontSize: '13px' }}>{t('costs_no_contracts')}</p>
                   ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                       <thead>
@@ -332,9 +332,9 @@ export default function InspectionCostPage() {
         )}
 
         {/* List */}
-        {loading ? <p style={{ color: '#6b7280' }}>Loading...</p> : advices.length === 0 ? (
+        {loading ? <p style={{ color: '#6b7280' }}>{t('common_loading')}</p> : advices.length === 0 ? (
           <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '48px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-            <p style={{ color: '#9ca3af', fontSize: '15px' }}>No charges advice found</p>
+            <p style={{ color: '#9ca3af', fontSize: '15px' }}>{t('costs_no_records')}</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -360,7 +360,7 @@ export default function InspectionCostPage() {
                         color: a.cost_bearer === 'supplier' ? '#92400e' : '#5b21b6',
                         padding: '1px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700'
                       }}>
-                        {a.cost_bearer === 'supplier' ? 'Supplier Bears Cost' : 'Homes R Us Bears Cost'}
+                        {a.cost_bearer === 'supplier' ? t('costs_supplier') : t('costs_homes_r_us')}
                       </span>
                     </p>
                     <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#9ca3af' }}>
@@ -380,11 +380,11 @@ export default function InspectionCostPage() {
                       <>
                         <button onClick={() => { setShowApprove({ advice: a, action: 'approve' }); setActionNote(''); setActionMsg('') }}
                           style={{ padding: '6px 14px', fontSize: '13px', fontWeight: '600', backgroundColor: '#f0fdf4', color: '#166534', border: '1px solid #86efac', borderRadius: '6px', cursor: 'pointer' }}>
-                          Approve
+                          {t('costs_approve')}
                         </button>
                         <button onClick={() => { setShowApprove({ advice: a, action: 'reject' }); setActionNote(''); setActionMsg('') }}
                           style={{ padding: '6px 14px', fontSize: '13px', fontWeight: '600', backgroundColor: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer' }}>
-                          Reject
+                          {t('costs_reject')}
                         </button>
                       </>
                     )}
@@ -415,7 +415,7 @@ export default function InspectionCostPage() {
       {showCreate && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 50, overflowY: 'auto', padding: '32px 16px' }}>
           <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '32px', width: '600px', maxWidth: '100%' }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: '700' }}>New Inspection Charges Advice</h2>
+            <h2 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: '700' }}>{t('costs_new_advice_modal')}</h2>
 
             <form onSubmit={handleCreate}>
               {/* Job selection */}
@@ -547,10 +547,10 @@ export default function InspectionCostPage() {
 
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button type="submit" disabled={creating} style={{ flex: 1, backgroundColor: creating ? '#93c5fd' : '#1e40af', color: '#fff', border: 'none', padding: '10px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: creating ? 'not-allowed' : 'pointer' }}>
-                  {creating ? 'Submitting...' : 'Submit Charges Advice'}
+                  {creating ? t('common_saving') : t('costs_submit_advice')}
                 </button>
                 <button type="button" onClick={() => setShowCreate(false)} style={{ flex: 1, backgroundColor: '#fff', border: '1px solid #d1d5db', padding: '10px', borderRadius: '7px', fontSize: '14px', cursor: 'pointer' }}>
-                  Cancel
+                  {t('admin_cancel')}
                 </button>
               </div>
             </form>
@@ -586,10 +586,10 @@ export default function InspectionCostPage() {
                 color: '#fff',
                 opacity: actionSaving ? 0.7 : 1
               }}>
-                {actionSaving ? 'Processing...' : showApprove.action === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+                {actionSaving ? t('common_saving') : showApprove.action === 'approve' ? t('costs_confirm_approval') : t('costs_confirm_rejection')}
               </button>
               <button onClick={() => setShowApprove(null)} style={{ flex: 1, backgroundColor: '#fff', border: '1px solid #d1d5db', padding: '10px', borderRadius: '7px', fontSize: '14px', cursor: 'pointer' }}>
-                Cancel
+                {t('admin_cancel')}
               </button>
             </div>
           </div>
