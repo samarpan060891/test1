@@ -157,7 +157,7 @@ export default function DashboardPage() {
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
                       >
                         <td style={{ padding: '14px 16px', fontSize: '13px', color: '#374151', fontFamily: 'monospace' }}>
-                          {String(job.job_id || job.id || '').slice(0, 8)}...
+                          {job.job_ref || String(job.job_id || '').slice(0, 8) + '...'}
                         </td>
                         <td style={{ padding: '14px 16px', fontSize: '13px', color: '#374151', fontWeight: '500' }}>
                           {job.po_no || '-'}

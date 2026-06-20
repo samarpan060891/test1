@@ -171,7 +171,7 @@ export default function JobDetailPage() {
         <div style={{ marginBottom: '20px', fontSize: '13px', color: '#6b7280' }}>
           <Link to="/dashboard" style={{ color: '#1e40af', textDecoration: 'none' }}>Dashboard</Link>
           <span style={{ margin: '0 8px' }}>/</span>
-          <span>Job {String(jobId).slice(0, 8)}...</span>
+          <span>Job {job?.job_ref || String(jobId).slice(0, 8) + '...'}</span>
         </div>
 
         {/* Header card */}
@@ -196,6 +196,7 @@ export default function JobDetailPage() {
 
           {/* Fields */}
           <div>
+            {fieldRow('Job Reference', job.job_ref || '—')}
             {fieldRow('PO Number', job.po_no)}
             {fieldRow('Item Code', job.item_code)}
             {fieldRow('Supplier Code', job.supplier_code)}

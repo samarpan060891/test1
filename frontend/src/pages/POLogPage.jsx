@@ -267,7 +267,7 @@ export default function POLogPage() {
                           to={`/jobs/${log.job_id}`}
                           style={{ fontSize: '12px', color: '#1e40af', textDecoration: 'none' }}
                         >
-                          Job: {String(log.job_id).slice(0, 8)}...
+                          Job: {log.job_ref || String(log.job_id).slice(0, 8) + "..."}
                         </Link>
                       )}
                       <span style={{ fontSize: '12px', color: '#9ca3af', marginLeft: 'auto' }}>
