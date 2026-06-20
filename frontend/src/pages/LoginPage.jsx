@@ -1,9 +1,12 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx'
 
 export default function LoginPage() {
   const { login } = useAuth()
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -76,11 +79,16 @@ export default function LoginPage() {
             <span style={{ fontSize: '28px' }}>🔍</span>
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: '0 0 6px' }}>
-            QC Inspection
+            {t('login_title')}
           </h1>
           <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>
-            Sign in to your account
+            {t('login_subtitle')}
           </p>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
+            <div style={{ backgroundColor: '#1e40af', borderRadius: '8px', padding: '4px' }}>
+              <LanguageSwitcher />
+            </div>
+          </div>
         </div>
 
         {/* Error */}
@@ -101,7 +109,7 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '20px' }}>
-            <label style={labelStyle}>Email address</label>
+            <label style={labelStyle}>{t('login_email')}</label>
             <input
               type="email"
               value={email}
@@ -115,7 +123,7 @@ export default function LoginPage() {
           </div>
 
           <div style={{ marginBottom: '28px' }}>
-            <label style={labelStyle}>Password</label>
+            <label style={labelStyle}>{t('login_password')}</label>
             <input
               type="password"
               value={password}
@@ -146,7 +154,7 @@ export default function LoginPage() {
             onMouseEnter={e => { if (!loading) e.target.style.backgroundColor = '#1d4ed8' }}
             onMouseLeave={e => { if (!loading) e.target.style.backgroundColor = '#1e40af' }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? t('login_loading') : t('login_button')}
           </button>
         </form>
       </div>

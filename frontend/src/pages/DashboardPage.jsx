@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
 import { getJobs } from '../api/inspectionJobs.js'
 import { getNotifications } from '../api/notifications.js'
 import client from '../api/client.js'
@@ -38,6 +39,7 @@ function StatusBadge({ status }) {
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const [jobs, setJobs] = useState([])
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
@@ -101,9 +103,9 @@ export default function DashboardPage() {
         {/* Page header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '700', color: '#111827' }}>Dashboard</h1>
+            <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '700', color: '#111827' }}>{t('dashboard_title')}</h1>
             <p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: '14px' }}>
-              Welcome back, {user?.email}
+              {t('dashboard_welcome')}, {user?.email}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -121,7 +123,7 @@ export default function DashboardPage() {
                 cursor: downloading ? 'not-allowed' : 'pointer'
               }}
             >
-              {downloading ? 'Downloading...' : '⬇ Download Report'}
+              {downloading ? t('common_loading') : `⬇ ${t('dashboard_download_report')}`}
             </button>
             {(user?.role === 'qa' || user?.role === 'buying') && (
               <Link
@@ -144,10 +146,10 @@ export default function DashboardPage() {
 
         {/* Stats row */}
         <div style={{ display: 'flex', gap: '16px', marginBottom: '28px', flexWrap: 'wrap' }}>
-          {statCard('Total Jobs', totalJobs, '#1e40af')}
-          {statCard('Pending QA Review', pendingQA, '#d97706')}
-          {statCard('Approved', approved, '#059669')}
-          {statCard('Rejected', rejected, '#dc2626')}
+          {statCard(t('dashboard_total_jobs'), totalJobs, '#1e40af')}
+          {statCard(t('dashboard_pending_qa'), pendingQA, '#d97706')}
+          {statCard(t('dashboard_approved'), approved, '#059669')}
+          {statCard(t('dashboard_rejected'), rejected, '#dc2626')}
         </div>
 
         {/* Main content: table + notifications */}
@@ -155,21 +157,21 @@ export default function DashboardPage() {
           {/* Jobs table */}
           <div style={{ flex: 1, backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
-              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#111827' }}>Inspection Jobs</h2>
+              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#111827' }}>{t('dashboard_inspection_jobs')}</h2>
             </div>
 
             {loading ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading jobs...</div>
+              <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>{t('common_loading')}</div>
             ) : error ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#dc2626' }}>{error}</div>
             ) : jobs.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>No inspection jobs found.</div>
+              <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>{t('dashboard_no_jobs')}</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb' }}>
-                      {['Job ID', 'Stage', 'PO No', 'Item', 'Supplier', 'Agency', 'Status', 'Date', 'Actions'].map(h => (
+                      {[t('th_job_id'), t('th_stage'), t('th_po_no'), t('th_item'), t('th_supplier'), t('th_agency'), t('th_status'), t('th_date'), t('th_actions')].map(h => (
                         <th key={h} style={{
                           padding: '12px 16px',
                           textAlign: 'left',
@@ -203,7 +205,7 @@ export default function DashboardPage() {
                               backgroundColor: { pre_production: '#fef3c7', inline: '#dbeafe', final: '#dcfce7', loading: '#f3e8ff' }[job.inspection_stage] || '#f3f4f6',
                               color: { pre_production: '#92400e', inline: '#1e40af', final: '#166534', loading: '#6b21a8' }[job.inspection_stage] || '#374151',
                             }}>
-                              {{ pre_production: 'Pre-Production', inline: 'In-Line', final: 'Final', loading: 'Loading' }[job.inspection_stage] || job.inspection_stage}
+                              {({ pre_production: t('stage_pre_production'), inline: t('stage_inline'), final: t('stage_final'), loading: t('stage_loading') })[job.inspection_stage] || job.inspection_stage}
                             </span>
                           ) : <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>}
                         </td>
@@ -239,7 +241,7 @@ export default function DashboardPage() {
                               backgroundColor: '#eff6ff'
                             }}
                           >
-                            View
+                            {t('th_view')}
                           </Link>
                         </td>
                       </tr>
@@ -261,13 +263,13 @@ export default function DashboardPage() {
           }}>
             <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #e5e7eb' }}>
               <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '600', color: '#111827' }}>
-                Notifications
+                {t('dashboard_notifications')}
               </h2>
             </div>
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               {notifications.length === 0 ? (
                 <div style={{ padding: '32px 20px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>
-                  No notifications
+                  {t('dashboard_no_notifications')}
                 </div>
               ) : (
                 notifications.map((n, idx) => (

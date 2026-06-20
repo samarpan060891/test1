@@ -45,6 +45,10 @@ export function AuthProvider({ children }) {
     sessionStorage.setItem(USER_KEY, JSON.stringify(newUser))
     setToken(newToken)
     setUser(newUser)
+    // Apply saved language preference from user profile
+    if (newUser.language && newUser.language !== 'en') {
+      localStorage.setItem('qc_lang', newUser.language)
+    }
     return newUser
   }
 

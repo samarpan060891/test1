@@ -1,6 +1,8 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
+import LanguageSwitcher from './LanguageSwitcher.jsx'
 
 const roleBadgeColors = {
   qa: { backgroundColor: '#7c3aed', color: '#fff' },
@@ -11,6 +13,7 @@ const roleBadgeColors = {
 
 export default function Navbar() {
   const { user, logout } = useAuth()
+  const { t } = useLanguage()
   const location = useLocation()
 
   const navLinkStyle = (path) => ({
@@ -51,27 +54,27 @@ export default function Navbar() {
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Link to="/dashboard" style={navLinkStyle('/dashboard')}>Dashboard</Link>
-          <Link to="/po-log" style={navLinkStyle('/po-log')}>PO Log</Link>
+          <Link to="/dashboard" style={navLinkStyle('/dashboard')}>{t('nav_dashboard')}</Link>
+          <Link to="/po-log" style={navLinkStyle('/po-log')}>{t('nav_po_log')}</Link>
 
           {(role === 'qa' || role === 'buying') && (
-            <Link to="/map-inspection" style={navLinkStyle('/map-inspection')}>Map Inspection</Link>
+            <Link to="/map-inspection" style={navLinkStyle('/map-inspection')}>{t('nav_map_inspection')}</Link>
           )}
 
           {(role === 'qa' || role === 'admin') && (
             <Link to="/checklist-templates" style={navLinkStyle('/checklist-templates')}>
-              Checklist Templates
+              {t('nav_checklist_templates')}
             </Link>
           )}
 
           {(role === 'qa' || role === 'buying' || role === 'agency_user' || role === 'admin') && (
-            <Link to="/inspection-costs" style={navLinkStyle('/inspection-costs')}>Inspection Costs</Link>
+            <Link to="/inspection-costs" style={navLinkStyle('/inspection-costs')}>{t('nav_inspection_costs')}</Link>
           )}
 
           {role === 'admin' && (
             <>
-              <Link to="/admin/users" style={navLinkStyle('/admin/users')}>Users</Link>
-              <Link to="/admin/masters" style={navLinkStyle('/admin/masters')}>Masters</Link>
+              <Link to="/admin/users" style={navLinkStyle('/admin/users')}>{t('nav_users')}</Link>
+              <Link to="/admin/masters" style={navLinkStyle('/admin/masters')}>{t('nav_masters')}</Link>
             </>
           )}
         </div>
@@ -97,8 +100,9 @@ export default function Navbar() {
             </span>
           </>
         )}
+        <LanguageSwitcher />
         <Link to="/change-password" style={{ ...navLinkStyle('/change-password'), fontSize: '13px', padding: '5px 10px' }}>
-          Change Password
+          {t('nav_change_password')}
         </Link>
         <button
           onClick={logout}
@@ -116,7 +120,7 @@ export default function Navbar() {
           onMouseEnter={e => e.target.style.backgroundColor = 'rgba(255,255,255,0.25)'}
           onMouseLeave={e => e.target.style.backgroundColor = 'rgba(255,255,255,0.15)'}
         >
-          Logout
+          {t('nav_logout')}
         </button>
       </div>
     </nav>

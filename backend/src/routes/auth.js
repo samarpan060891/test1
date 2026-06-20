@@ -20,7 +20,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const result = await db.query(
-      `SELECT user_id, name, email, role, agency_code, supplier_code, password_hash
+      `SELECT user_id, name, email, role, agency_code, supplier_code, password_hash, language
        FROM qc_inspection.team_stakeholder
        WHERE email = $1`,
       [email.toLowerCase().trim()]
@@ -44,6 +44,7 @@ router.post('/login', async (req, res) => {
       role: user.role,
       agency_code: user.agency_code,
       supplier_code: user.supplier_code,
+      language: user.language || 'en',
     };
 
     const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
@@ -87,6 +88,26 @@ router.put('/change-password', authenticate, async (req, res) => {
       [hash, req.user.user_id]
     );
     res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /api/auth/language
+ * Save the user's preferred language.
+ */
+router.put('/language', authenticate, async (req, res) => {
+  const { language } = req.body;
+  const VALID_LANGS = ['en', 'zh', 'tr', 'ms', 'vi', 'id', 'th', 'fil'];
+  if (!language || !VALID_LANGS.includes(language))
+    return res.status(400).json({ error: 'Invalid language code' });
+  try {
+    await db.query(
+      `UPDATE qc_inspection.team_stakeholder SET language = $1 WHERE user_id = $2`,
+      [language, req.user.user_id]
+    );
+    res.json({ message: 'Language updated' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

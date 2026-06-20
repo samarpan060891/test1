@@ -1,6 +1,7 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.jsx'
+import { LanguageProvider } from './context/LanguageContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
@@ -17,6 +18,7 @@ import InspectionCostPage from './pages/InspectionCostPage.jsx'
 
 export default function App() {
   return (
+    <LanguageProvider>
     <AuthProvider>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -122,5 +124,6 @@ export default function App() {
         />
       </Routes>
     </AuthProvider>
+    </LanguageProvider>
   )
 }
