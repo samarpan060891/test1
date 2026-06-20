@@ -30,7 +30,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
   const [addingItem, setAddingItem] = useState(false)
   const [addItemError, setAddItemError] = useState('')
 
-  const templateId = template.checklist_template_id || template.id
+  const templateId = template.template_id || template.checklist_template_id || template.id
   const items = template.items || template.checklist_items || []
 
   const handleActivate = async () => {
@@ -116,8 +116,8 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
             </span>
           </div>
           <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>
-            Version {template.version || 1} · {items.length} item{items.length !== 1 ? 's' : ''}
-            · ID: <code style={{ fontFamily: 'monospace' }}>{String(templateId).slice(0, 8)}...</code>
+            Version {template.version || 1} · {expanded ? items.length : (template.item_count ?? '?')} item{(expanded ? items.length : template.item_count) !== 1 ? 's' : ''}
+            · ID: <code style={{ fontFamily: 'monospace' }}>{templateId ? String(templateId).slice(0, 8) + '...' : 'N/A'}</code>
           </p>
         </div>
 
@@ -184,7 +184,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                 </thead>
                 <tbody>
                   {[...items].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map((item, idx) => {
-                    const itemId = item.checklist_item_id || item.id
+                    const itemId = item.item_id || item.checklist_item_id || item.id
                     return (
                       <tr key={itemId || idx} style={{ borderBottom: '1px solid #f3f4f6' }}
                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f9fafb'}
@@ -469,7 +469,7 @@ export default function ChecklistTemplatesPage() {
         </h2>
         {list.map(t => (
           <TemplateCard
-            key={t.checklist_template_id || t.id}
+            key={t.template_id || t.checklist_template_id || t.id}
             template={t}
             onActivate={handleActivate}
             onAddItem={handleAddItem}
