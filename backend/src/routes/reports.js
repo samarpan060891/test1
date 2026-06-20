@@ -63,8 +63,8 @@ router.get('/download', async (req, res) => {
     wsJobs['!cols'] = [10,12,10,24,14,28,12,20,14,22,18,18,18,18,14,30,18].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, wsJobs, 'Inspection Jobs');
 
-    // ── 2. CHECKLIST RESPONSES SHEET (not for supplier self-only) ────────────
-    if (role !== 'supplier_user') {
+    // ── 2. CHECKLIST RESPONSES SHEET ─────────────────────────────────────────
+    {
       let respQuery = `
         SELECT
           j.job_ref, j.po_no, j.item_code, i.name AS item_name,
@@ -82,6 +82,9 @@ router.get('/download', async (req, res) => {
       if (role === 'agency_user') {
         respQuery = respQuery.replace('ORDER BY', `WHERE j.agency_code = $1 ORDER BY`);
         respParams.push(agency_code);
+      } else if (role === 'supplier_user') {
+        respQuery = respQuery.replace('ORDER BY', `WHERE j.supplier_code = $1 ORDER BY`);
+        respParams.push(supplier_code);
       }
 
       const responses = await db.query(respQuery, respParams);
