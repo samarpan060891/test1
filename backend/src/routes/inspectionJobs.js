@@ -348,7 +348,7 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
 
     const updated = await client.query(
       `UPDATE qc_inspection.inspection_job
-       SET status = $1, final_outcome = $2, qa_remarks = $3, decided_at = NOW()
+       SET status = $1, final_outcome = $2, qa_notes = $3, decided_at = NOW()
        WHERE job_id = $4 RETURNING *`,
       [newStatus, outcome, remarks || null, req.params.id]
     );
