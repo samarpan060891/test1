@@ -9,15 +9,15 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token')
-    const storedUser = localStorage.getItem('user')
+    const storedToken = sessionStorage.getItem('token')
+    const storedUser = sessionStorage.getItem('user')
     if (storedToken && storedUser) {
       try {
         setToken(storedToken)
         setUser(JSON.parse(storedUser))
       } catch {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+        sessionStorage.removeItem('token')
+        sessionStorage.removeItem('user')
       }
     }
     setLoading(false)
@@ -26,16 +26,16 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const response = await axios.post('/api/auth/login', { email, password })
     const { token: newToken, user: newUser } = response.data
-    localStorage.setItem('token', newToken)
-    localStorage.setItem('user', JSON.stringify(newUser))
+    sessionStorage.setItem('token', newToken)
+    sessionStorage.setItem('user', JSON.stringify(newUser))
     setToken(newToken)
     setUser(newUser)
     return newUser
   }
 
   const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('user')
     setToken(null)
     setUser(null)
     window.location.href = '/login'
