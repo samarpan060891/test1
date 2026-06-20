@@ -11,6 +11,7 @@ const notificationRoutes = require('./routes/notifications');
 const mastersRoutes = require('./routes/masters');
 const reportsRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
+const inspectionCostRoutes = require('./routes/inspectionCosts');
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/masters', mastersRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/inspection-costs', inspectionCostRoutes);
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

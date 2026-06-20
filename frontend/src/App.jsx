@@ -13,6 +13,7 @@ import ChecklistTemplatesPage from './pages/ChecklistTemplatesPage.jsx'
 import AdminUsersPage from './pages/AdminUsersPage.jsx'
 import AdminMastersPage from './pages/AdminMastersPage.jsx'
 import ChangePasswordPage from './pages/ChangePasswordPage.jsx'
+import InspectionCostPage from './pages/InspectionCostPage.jsx'
 
 export default function App() {
   return (
@@ -107,6 +108,15 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ChangePasswordPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/inspection-costs"
+          element={
+            <ProtectedRoute allowedRoles={['qa', 'buying', 'agency_user']}>
+              <InspectionCostPage />
             </ProtectedRoute>
           }
         />

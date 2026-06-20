@@ -64,6 +64,10 @@ export default function Navbar() {
             </Link>
           )}
 
+          {(role === 'qa' || role === 'buying' || role === 'agency_user') && (
+            <Link to="/inspection-costs" style={navLinkStyle('/inspection-costs')}>Inspection Costs</Link>
+          )}
+
           {role === 'admin' && (
             <>
               <Link to="/admin/users" style={navLinkStyle('/admin/users')}>Users</Link>
