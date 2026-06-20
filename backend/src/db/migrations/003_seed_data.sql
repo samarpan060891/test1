@@ -85,11 +85,15 @@ INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role, ag
 -- 6. CHECKLIST TEMPLATES
 -- ============================================================
 INSERT INTO qc_inspection.checklist_template (template_id, category, sub_category, name, version, status) VALUES
-  ('aaaaaaaa-0001-0001-0001-000000000001', 'Furniture', 'Upholstered Seating',  'Upholstered Seating Inspection v1', '1.0', 'active'),
-  ('aaaaaaaa-0001-0001-0001-000000000002', 'Furniture', 'Dining & Tables',      'Dining & Tables Inspection v1',     '1.0', 'active'),
-  ('aaaaaaaa-0001-0001-0001-000000000003', 'Furniture', 'Bedroom Furniture',    'Bedroom Furniture Inspection v1',   '1.0', 'active'),
-  ('aaaaaaaa-0001-0001-0001-000000000004', 'Household', 'Tableware',            'Tableware Inspection v1',           '1.0', 'active'),
-  ('aaaaaaaa-0001-0001-0001-000000000005', 'Household', 'Cookware',             'Cookware Inspection v1',            '1.0', 'draft');
+  ('aaaaaaaa-0001-0001-0001-000000000001', 'Furniture', 'Upholstered Seating',    'Upholstered Seating Inspection v1',    '1.0', 'active'),
+  ('aaaaaaaa-0001-0001-0001-000000000002', 'Furniture', 'Dining & Tables',        'Dining & Tables Inspection v1',        '1.0', 'active'),
+  ('aaaaaaaa-0001-0001-0001-000000000003', 'Furniture', 'Bedroom Furniture',      'Bedroom Furniture Inspection v1',      '1.0', 'active'),
+  ('aaaaaaaa-0001-0001-0001-000000000004', 'Household', 'Tableware',              'Tableware Inspection v1',              '1.0', 'active'),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Household', 'Cookware',               'Cookware Inspection v1',               '1.0', 'active'),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Furniture', 'Seating',                'Seating Inspection v1',                '1.0', 'active'),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Household', 'Soft Furnishings',       'Soft Furnishings Inspection v1',       '1.0', 'active'),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Household', 'Storage & Organisation', 'Storage & Organisation Inspection v1', '1.0', 'active'),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Household', 'Lighting',               'Lighting Inspection v1',               '1.0', 'active');
 
 -- ============================================================
 -- 7. CHECKLIST ITEMS — Upholstered Seating template
@@ -144,3 +148,90 @@ INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text,
   ('aaaaaaaa-0001-0001-0001-000000000003', 'Finishing',  'Labels (care, country of origin) correct and attached', 'major',    9),
   ('aaaaaaaa-0001-0001-0001-000000000003', 'Packaging',  'Frame parts wrapped and protected to prevent transit damage','major',10),
   ('aaaaaaaa-0001-0001-0001-000000000003', 'Packaging',  'Hardware pack (bolts, fixings) complete and included',  'critical',11);
+
+-- ============================================================
+-- 10. CHECKLIST ITEMS — Cookware template
+-- ============================================================
+INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text, criticality, sort_order) VALUES
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Visual & Finish',   'No scratches, dents or surface damage on body or lid',                  'major',    1),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Visual & Finish',   'Coating/non-stick finish uniform — no peeling, bubbling or bare patches','critical', 2),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Visual & Finish',   'Colour and finish matches approved sample',                              'major',    3),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Dimensions',        'Overall dimensions within tolerance (±2 mm)',                            'major',    4),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Dimensions',        'Lid fits flush with no visible gap around rim',                          'major',    5),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Material & Safety', 'Material confirmed food-grade — no toxic or restricted substances',      'critical', 6),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Material & Safety', 'Handle/knob firmly attached — no wobble or looseness',                  'critical', 7),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Material & Safety', 'No sharp edges or burrs on rim, handle or base',                        'critical', 8),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Functionality',     'Lid sits flush and forms proper seal when closed',                      'major',    9),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Functionality',     'Handles/knobs confirmed heat-resistant and correctly mounted',           'major',   10),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Packaging',         'Product packed without damage — no dents from packaging pressure',       'minor',   11),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'Packaging',         'Correct label/barcode on packaging matches PO specification',            'minor',   12);
+
+-- ============================================================
+-- 11. CHECKLIST ITEMS — Seating (Office/Other) template
+-- ============================================================
+INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text, criticality, sort_order) VALUES
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Structure',     'Chair base/frame is stable with no wobble under load',                 'critical', 1),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Structure',     'All screws, bolts and fixings are tight and correctly assembled',      'critical', 2),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Structure',     'Seat and back dimensions match approved specification',                'major',    3),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Ergonomics',    'Height adjustment mechanism operates smoothly and locks correctly',    'critical', 4),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Ergonomics',    'Armrests (if applicable) adjust and lock at correct heights',          'major',    5),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Ergonomics',    'Lumbar support positioned correctly and provides adequate support',    'major',    6),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Upholstery',    'Seat and back fabric/mesh colour matches approved sample',             'major',    7),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Upholstery',    'No pilling, snagging or loose threads on fabric surfaces',            'major',    8),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Upholstery',    'Cushion/padding is even with no lumps, flat spots or exposed foam',   'major',    9),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Finishing',     'No visible scratches or marks on frame, base or armrests',            'major',   10),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Finishing',     'Castors/glides fitted and move freely without snagging',              'minor',   11),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Packaging',     'Chair parts protected to prevent transit damage',                     'major',   12),
+  ('aaaaaaaa-0001-0001-0001-000000000006', 'Packaging',     'Assembly instructions and hardware pack included and complete',        'critical',13);
+
+-- ============================================================
+-- 12. CHECKLIST ITEMS — Soft Furnishings template
+-- ============================================================
+INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text, criticality, sort_order) VALUES
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Visual',        'Colour and pattern matches approved sample (no dye lot variation)',    'critical', 1),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Visual',        'No stains, marks, snags or pulls visible on fabric surface',          'major',    2),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Visual',        'Pattern repeat is aligned correctly across width and length',         'major',    3),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Dimensions',    'Overall dimensions (length x width) within tolerance (±1 cm)',        'major',    4),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Dimensions',    'Hem width is even and consistent on all edges',                       'major',    5),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Construction',  'Stitching is even, straight and without skipped stitches',            'major',    6),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Construction',  'Header tape/eyelets/hooks are firmly attached and evenly spaced',     'critical', 7),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Construction',  'Lining (if applicable) is correctly attached with no puckering',      'major',    8),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Functionality', 'Blackout/thermal lining verified to block light as per spec',         'critical', 9),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Finishing',     'Care label and country of origin label correctly attached',           'major',   10),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Packaging',     'Items folded neatly and packed without creasing or damage',           'minor',   11),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'Packaging',     'Correct barcode/SKU label on packaging matches PO specification',     'minor',   12);
+
+-- ============================================================
+-- 13. CHECKLIST ITEMS — Storage & Organisation template
+-- ============================================================
+INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text, criticality, sort_order) VALUES
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Visual & Finish',   'No visible defects — no cracks, splits, fraying or discolouration',  'major',    1),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Visual & Finish',   'Colour and finish matches approved sample',                           'major',    2),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Visual & Finish',   'Weave/construction is even with no loose strands or gaps',            'major',    3),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Dimensions',        'All pieces in set match specified dimensions within tolerance (±5mm)', 'major',    4),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Dimensions',        'Lids (if applicable) fit correctly with no excessive gap',             'major',    5),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Structure',         'Basket/container holds its shape under normal load without deforming', 'critical', 6),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Structure',         'Handles firmly attached with no looseness or risk of detachment',      'critical', 7),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Structure',         'Base is stable — unit does not tip when loaded to rated capacity',     'major',    8),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Safety',            'No sharp edges, splinters or protruding fixings',                      'critical', 9),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Finishing',         'Care/material label correctly attached',                               'minor',   10),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Packaging',         'Items nested/stacked securely to prevent transit damage',              'minor',   11),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'Packaging',         'Correct barcode/SKU label on packaging matches PO specification',      'minor',   12);
+
+-- ============================================================
+-- 14. CHECKLIST ITEMS — Lighting template
+-- ============================================================
+INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text, criticality, sort_order) VALUES
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Visual & Finish',   'No scratches, dents or cracks on shade, body or base',                'major',    1),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Visual & Finish',   'Colour and finish matches approved sample',                           'major',    2),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Visual & Finish',   'Shade is even with no warping, creasing or discolouration',           'major',    3),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Electrical Safety', 'Wiring is correctly insulated with no exposed conductors',            'critical', 4),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Electrical Safety', 'Plug/connector is correctly fitted and meets destination market spec', 'critical', 5),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Electrical Safety', 'Earth/grounding connection verified (where applicable)',               'critical', 6),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Electrical Safety', 'Rated voltage and wattage label present and correct',                  'critical', 7),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Functionality',     'Lamp powers on correctly and produces consistent light output',        'critical', 8),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Functionality',     'Dimmer/colour temperature switch operates through all settings',       'major',    9),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Functionality',     'Base is stable — lamp does not tip when placed on flat surface',       'major',   10),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Finishing',         'All required certifications (CE, UKCA, etc.) marked on product',       'critical',11),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Packaging',         'Lamp fully protected — shade and bulb (if included) secured separately','major',  12),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'Packaging',         'Correct barcode/SKU label on packaging matches PO specification',      'minor',   13);
