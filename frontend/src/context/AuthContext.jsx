@@ -13,8 +13,15 @@ export function AuthProvider({ children }) {
     const storedUser = sessionStorage.getItem('user')
     if (storedToken && storedUser) {
       try {
-        setToken(storedToken)
-        setUser(JSON.parse(storedUser))
+        // Validate token is not expired by checking its expiry
+        const payload = JSON.parse(atob(storedToken.split('.')[1]))
+        if (payload.exp * 1000 < Date.now()) {
+          sessionStorage.removeItem('token')
+          sessionStorage.removeItem('user')
+        } else {
+          setToken(storedToken)
+          setUser(JSON.parse(storedUser))
+        }
       } catch {
         sessionStorage.removeItem('token')
         sessionStorage.removeItem('user')
