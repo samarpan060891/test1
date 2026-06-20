@@ -185,6 +185,8 @@ export default function InspectionCostPage() {
 
   const toggleJob = (id) => setSelectedJobs(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
 
+  const raisedJobIds = new Set(advices.flatMap(a => (a.jobs || []).map(j => j.job_id)))
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <Navbar />
@@ -244,9 +246,15 @@ export default function InspectionCostPage() {
                         </span>
                       </td>
                       <td style={{ padding: '10px 14px' }}>
-                        <button onClick={() => openCreate(j.job_id)} style={{ backgroundColor: '#1e40af', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: '5px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                          + Raise Advice
-                        </button>
+                        {raisedJobIds.has(j.job_id) ? (
+                          <span style={{ backgroundColor: '#f0fdf4', color: '#166534', border: '1px solid #86efac', padding: '5px 12px', borderRadius: '5px', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                            ✓ Advice Raised
+                          </span>
+                        ) : (
+                          <button onClick={() => openCreate(j.job_id)} style={{ backgroundColor: '#1e40af', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: '5px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            + Raise Advice
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
