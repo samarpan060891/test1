@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
       FROM qc_inspection.inspection_job j
       JOIN qc_inspection.item_master i ON i.item_code = j.item_code
       JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
-      JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+      LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
       JOIN qc_inspection.po_master p ON p.po_no = j.po_no
     `;
     const params = [];
@@ -72,7 +72,7 @@ router.get('/:id', async (req, res) => {
       FROM qc_inspection.inspection_job j
       JOIN qc_inspection.item_master i ON i.item_code = j.item_code
       JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
-      JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+      LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
       JOIN qc_inspection.po_master p ON p.po_no = j.po_no
       WHERE j.job_id = $1`,
       [req.params.id]
