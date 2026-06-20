@@ -270,7 +270,7 @@ export default function JobDetailPage() {
 
           {/* Action buttons */}
           <div style={{ marginTop: '24px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            {user?.role === 'qa' && job.status === 'qa_rejected' && (
+            {user?.role === 'qa' && job.status === 'qa_rejected' && job.reinspection_job?.status !== 'qa_approved' && (
               <button
                 onClick={() => setShowReinspect(true)}
                 style={{
