@@ -97,8 +97,8 @@ export default function InspectionCostPage() {
     setTravel(''); setStay(''); setCurrency('USD'); setAdviceNotes(''); setSelectedContract(''); setCreateMsg('')
     try {
       const [jobsRes, contractsRes] = await Promise.all([getJobs(), getContracts()])
-      // Only show jobs that are mapped/assigned to this agency and not yet inspected
-      setJobs((jobsRes.data || []).filter(j => ['mapped', 'agency_assigned', 'submitted', 'pending_review'].includes(j.status)))
+      // Show all conducted inspections eligible for raising charges
+      setJobs((jobsRes.data || []).filter(j => ['submitted_pending_qa', 'qa_approved', 'qa_rejected'].includes(j.status)))
       setContracts(contractsRes.data || [])
     } catch {}
     setShowCreate(true)
