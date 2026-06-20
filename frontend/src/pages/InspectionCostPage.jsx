@@ -134,7 +134,15 @@ export default function InspectionCostPage() {
       return (parseFloat(rateValue) * parseFloat(numMandays)) +
              parseFloat(travel || 0) + parseFloat(stay || 0)
     }
-    return null // percentage shown as "X% of PO value"
+    if (rateType === 'percentage') {
+      const totalQty = selectedJobs.reduce((sum, id) => {
+        const j = jobs.find(j => j.job_id === id)
+        return sum + (parseFloat(j?.quantity) || 0)
+      }, 0)
+      if (!totalQty) return null
+      return (totalQty * parseFloat(rateValue)) / 100
+    }
+    return null
   }
 
   const handleCreate = async (e) => {
@@ -657,7 +665,7 @@ export default function InspectionCostPage() {
               </div>
 
               {/* Cost preview */}
-              {calcCost() !== null && (
+              {rateType === 'manday' && calcCost() !== null && (
                 <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
                   <p style={{ margin: 0, fontSize: '14px', color: '#166534' }}>
                     Estimated Total: <strong>{fmt(calcCost(), currency)}</strong>
@@ -672,7 +680,10 @@ export default function InspectionCostPage() {
               {rateType === 'percentage' && rateValue && (
                 <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
                   <p style={{ margin: 0, fontSize: '14px', color: '#1e40af' }}>
-                    Cost will be calculated as <strong>{rateValue}%</strong> of the total PO value of selected jobs
+                    {calcCost() !== null
+                      ? <>Estimated Total: <strong>{fmt(calcCost(), currency)}</strong> <span style={{ fontSize: '12px', fontWeight: '400' }}>({rateValue}% of PO value {selectedJobs.reduce((s, id) => s + (parseFloat(jobs.find(j => j.job_id === id)?.quantity) || 0), 0).toLocaleString()})</span></>
+                      : <>Cost will be calculated as <strong>{rateValue}%</strong> of the total PO value of selected jobs</>
+                    }
                   </p>
                 </div>
               )}
