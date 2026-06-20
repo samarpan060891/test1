@@ -391,4 +391,89 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
   }
 });
 
+/**
+ * POST /api/inspection-jobs/:id/reinspect
+ * Create a new inspection job from a rejected one.
+ * Roles: qa, buying
+ * Body: { agency_code?, inspection_date, inspection_type? }
+ */
+router.post('/:id/reinspect', authorize('qa', 'buying'), async (req, res) => {
+  const { agency_code, inspection_date, inspection_type = 'agency' } = req.body;
+
+  if (!inspection_date) {
+    return res.status(400).json({ error: 'inspection_date is required' });
+  }
+  if (inspection_type === 'agency' && !agency_code) {
+    return res.status(400).json({ error: 'agency_code is required for agency inspection' });
+  }
+
+  const client = await db.getClient();
+  try {
+    await client.query('BEGIN');
+
+    const parentResult = await client.query(
+      'SELECT * FROM qc_inspection.inspection_job WHERE job_id = $1',
+      [req.params.id]
+    );
+
+    if (parentResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    const parent = parentResult.rows[0];
+
+    if (parent.status !== 'qa_rejected') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Re-inspection only allowed on rejected jobs. Current status: ${parent.status}` });
+    }
+
+    // Verify agency if provided
+    if (inspection_type === 'agency') {
+      const agencyResult = await client.query(
+        'SELECT * FROM qc_inspection.quality_agency_master WHERE agency_code = $1',
+        [agency_code]
+      );
+      if (agencyResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: `Agency ${agency_code} not found` });
+      }
+    }
+
+    // Create new job referencing the parent
+    const newJobResult = await client.query(
+      `INSERT INTO qc_inspection.inspection_job
+        (po_no, item_code, supplier_code, agency_code, checklist_template_id, status, inspection_date, inspection_type, parent_job_id)
+       VALUES ($1, $2, $3, $4, $5, 'mapped_awaiting_inspection', $6, $7, $8)
+       RETURNING *`,
+      [
+        parent.po_no, parent.item_code, parent.supplier_code,
+        agency_code || null, parent.checklist_template_id,
+        inspection_date, inspection_type, parent.job_id
+      ]
+    );
+
+    const newJob = newJobResult.rows[0];
+
+    await client.query(
+      `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        newJob.po_no, newJob.job_id, req.user.user_id, req.user.role,
+        `Re-inspection job created following rejection of job ${parent.job_id.slice(0, 8)}. Agency: ${agency_code || 'Self'}. Date: ${inspection_date}.`
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    res.status(201).json(newJob);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Re-inspect error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

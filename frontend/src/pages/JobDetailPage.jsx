@@ -4,6 +4,9 @@ import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getJob } from '../api/inspectionJobs.js'
 import { getLogs, createLog } from '../api/logEntries.js'
+import { searchAgencies } from '../api/masters.js'
+import SearchableDropdown from '../components/SearchableDropdown.jsx'
+import client from '../api/client.js'
 
 const statusColors = {
   mapped_awaiting_inspection: { backgroundColor: '#dbeafe', color: '#1d4ed8' },
@@ -56,6 +59,14 @@ export default function JobDetailPage() {
   const [logSubmitting, setLogSubmitting] = useState(false)
   const [logSuccess, setLogSuccess] = useState('')
 
+  // Re-inspection state
+  const [showReinspect, setShowReinspect] = useState(false)
+  const [reinspectType, setReinspectType] = useState('agency')
+  const [reinspectAgency, setReinspectAgency] = useState(null)
+  const [reinspectDate, setReinspectDate] = useState('')
+  const [reinspectLoading, setReinspectLoading] = useState(false)
+  const [reinspectError, setReinspectError] = useState('')
+
   const fetchLogs = () => {
     setLogsLoading(true)
     getLogs({ job_id: id })
@@ -88,6 +99,31 @@ export default function JobDetailPage() {
       setLogError('Failed to post log entry.')
     } finally {
       setLogSubmitting(false)
+    }
+  }
+
+  const fetchAgencies = async (search) => {
+    const rows = await searchAgencies(search)
+    return rows.map(r => ({ value: r.agency_code, label: r.name, sublabel: r.agency_code, meta: r }))
+  }
+
+  const handleReinspect = async (e) => {
+    e.preventDefault()
+    setReinspectError('')
+    if (!reinspectDate) { setReinspectError('Inspection date is required.'); return }
+    if (reinspectType === 'agency' && !reinspectAgency) { setReinspectError('Please select an agency.'); return }
+    setReinspectLoading(true)
+    try {
+      const res = await client.post(`/inspection-jobs/${jobId}/reinspect`, {
+        agency_code: reinspectType === 'agency' ? reinspectAgency.value : undefined,
+        inspection_date: reinspectDate,
+        inspection_type: reinspectType,
+      })
+      navigate(`/jobs/${res.data.job_id}`)
+    } catch (err) {
+      setReinspectError(err?.response?.data?.error || 'Failed to create re-inspection.')
+    } finally {
+      setReinspectLoading(false)
     }
   }
 
@@ -169,6 +205,18 @@ export default function JobDetailPage() {
 
           {/* Action buttons */}
           <div style={{ marginTop: '24px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {['qa', 'buying'].includes(user?.role) && job.status === 'qa_rejected' && (
+              <button
+                onClick={() => setShowReinspect(true)}
+                style={{
+                  backgroundColor: '#d97706', color: '#fff', border: 'none',
+                  padding: '10px 22px', borderRadius: '7px', fontSize: '14px',
+                  fontWeight: '600', cursor: 'pointer'
+                }}
+              >
+                Create Re-inspection
+              </button>
+            )}
             {user?.role === 'agency_user' && job.status === 'mapped_awaiting_inspection' && (
               <button
                 onClick={() => navigate(`/jobs/${jobId}/fill`)}
@@ -220,6 +268,84 @@ export default function JobDetailPage() {
             </Link>
           </div>
         </div>
+
+        {/* Re-inspection Modal */}
+        {showReinspect && (
+          <div style={{
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#fff', borderRadius: '12px', padding: '32px',
+              width: '100%', maxWidth: '480px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+            }}>
+              <h2 style={{ margin: '0 0 6px', fontSize: '20px', fontWeight: '700', color: '#111827' }}>
+                Create Re-inspection
+              </h2>
+              <p style={{ margin: '0 0 24px', fontSize: '13px', color: '#6b7280' }}>
+                PO: <strong>{job.po_no}</strong> — a new inspection job will be created.
+              </p>
+
+              {reinspectError && (
+                <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626', padding: '10px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '13px' }}>
+                  {reinspectError}
+                </div>
+              )}
+
+              <form onSubmit={handleReinspect}>
+                {/* Inspection Type */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', color: '#374151' }}>Inspection Type</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {[{ value: 'agency', label: '🏢 Agency' }, { value: 'self', label: '🏭 Self' }].map(opt => (
+                      <div key={opt.value} onClick={() => { setReinspectType(opt.value); setReinspectAgency(null) }}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: '7px', cursor: 'pointer', textAlign: 'center',
+                          border: `2px solid ${reinspectType === opt.value ? '#1e40af' : '#e5e7eb'}`,
+                          backgroundColor: reinspectType === opt.value ? '#eff6ff' : '#fff',
+                          fontWeight: '600', fontSize: '13px', color: reinspectType === opt.value ? '#1e40af' : '#374151'
+                        }}>
+                        {opt.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Agency */}
+                {reinspectType === 'agency' && (
+                  <SearchableDropdown
+                    label="Quality Agency"
+                    required
+                    placeholder="Search agency..."
+                    value={reinspectAgency}
+                    onChange={setReinspectAgency}
+                    fetchOptions={fetchAgencies}
+                  />
+                )}
+
+                {/* Date */}
+                <div style={{ marginBottom: '24px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#374151' }}>
+                    Inspection Date <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <input type="date" value={reinspectDate} onChange={e => setReinspectDate(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button type="submit" disabled={reinspectLoading}
+                    style={{ flex: 1, backgroundColor: reinspectLoading ? '#93c5fd' : '#d97706', color: '#fff', border: 'none', padding: '11px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: reinspectLoading ? 'not-allowed' : 'pointer' }}>
+                    {reinspectLoading ? 'Creating...' : 'Create Job'}
+                  </button>
+                  <button type="button" onClick={() => { setShowReinspect(false); setReinspectError('') }}
+                    style={{ flex: 1, backgroundColor: '#fff', color: '#374151', border: '1px solid #d1d5db', padding: '11px', borderRadius: '7px', fontSize: '14px', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Log Entries */}
         <div style={{
