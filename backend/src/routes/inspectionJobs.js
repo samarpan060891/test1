@@ -183,14 +183,13 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
     // Create initial log entry
     await client.query(
-      `INSERT INTO qc_inspection.log_entry (po_no, item_code, job_id, author_role, author_email, message)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
+       VALUES ($1, $2, $3, $4, $5)`,
       [
         po_no,
-        po.item_code,
         job.job_id,
+        req.user.user_id,
         req.user.role,
-        req.user.email,
         `Inspection job mapped. Agency: ${agency_code}. Inspection date: ${inspection_date}.`,
       ]
     );
@@ -268,9 +267,9 @@ router.put('/:id/submit', authorize('agency_user'), async (req, res) => {
     );
 
     await client.query(
-      `INSERT INTO qc_inspection.log_entry (po_no, item_code, job_id, author_role, author_email, message)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [job.po_no, job.item_code, job.job_id, req.user.role, req.user.email,
+      `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [job.po_no, job.job_id, req.user.user_id, req.user.role,
         'Inspection checklist submitted for QA review.']
     );
 
@@ -336,14 +335,13 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
     );
 
     await client.query(
-      `INSERT INTO qc_inspection.log_entry (po_no, item_code, job_id, author_role, author_email, message)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
+       VALUES ($1, $2, $3, $4, $5)`,
       [
         job.po_no,
-        job.item_code,
         job.job_id,
+        req.user.user_id,
         req.user.role,
-        req.user.email,
         `QA decision: ${outcome.toUpperCase()}. ${remarks ? 'Remarks: ' + remarks : ''}`,
       ]
     );
