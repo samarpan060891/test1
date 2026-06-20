@@ -470,7 +470,7 @@ router.post('/:id/reinspect', authorize('qa', 'buying'), async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Re-inspect error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err.message || 'Internal server error' });
   } finally {
     client.release();
   }
