@@ -221,7 +221,7 @@ export default function JobDetailPage() {
                 Create Re-inspection
               </button>
             )}
-            {user?.role === 'agency_user' && job.status === 'mapped_awaiting_inspection' && (
+            {user?.role === 'agency_user' && job.status === 'mapped_awaiting_inspection' && job.inspection_type !== 'self' && (
               <button
                 onClick={() => navigate(`/jobs/${jobId}/fill`)}
                 style={{
@@ -236,6 +236,23 @@ export default function JobDetailPage() {
                 }}
               >
                 Fill Checklist
+              </button>
+            )}
+            {user?.role === 'supplier_user' && job.status === 'mapped_awaiting_inspection' && job.inspection_type === 'self' && (
+              <button
+                onClick={() => navigate(`/jobs/${jobId}/fill`)}
+                style={{
+                  backgroundColor: '#1e40af',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 22px',
+                  borderRadius: '7px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Fill Checklist (Self Inspection)
               </button>
             )}
             {user?.role === 'qa' && job.status === 'submitted_pending_qa' && (
