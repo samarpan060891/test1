@@ -27,15 +27,16 @@ router.get('/contracts', async (req, res) => {
 
 // POST /inspection-costs/contracts — qa/buying/admin create contracts
 router.post('/contracts', authorize('qa', 'buying', 'admin'), async (req, res) => {
-  const { agency_code, rate_type, rate_value, travel_allowance, stay_allowance_per_day, currency, valid_from, valid_to, notes } = req.body;
+  const { agency_code, contract_name, rate_type, rate_value, travel_allowance, stay_allowance_per_day, currency, valid_from, valid_to, notes } = req.body;
   if (!agency_code || !rate_type || !rate_value)
     return res.status(400).json({ error: 'agency_code, rate_type and rate_value are required' });
   try {
     const r = await db.query(
       `INSERT INTO qc_inspection.agency_contract
-         (agency_code, rate_type, rate_value, travel_allowance, stay_allowance_per_day, currency, valid_from, valid_to, notes, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [agency_code, rate_type, rate_value, travel_allowance || 0, stay_allowance_per_day || 0,
+         (agency_code, contract_name, rate_type, rate_value, travel_allowance, stay_allowance_per_day, currency, valid_from, valid_to, notes, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+      [agency_code, contract_name || 'Standard Rate', rate_type, rate_value,
+       travel_allowance || 0, stay_allowance_per_day || 0,
        currency || 'USD', valid_from || null, valid_to || null, notes || null, req.user.user_id]
     );
     res.status(201).json(r.rows[0]);

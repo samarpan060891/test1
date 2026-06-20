@@ -43,7 +43,7 @@ export default function InspectionCostPage() {
   const [showContracts, setShowContracts] = useState(false)
   const [allContracts, setAllContracts]   = useState([])
   const [allAgencies, setAllAgencies]     = useState([])
-  const [contractForm, setContractForm]   = useState({ agency_code: '', rate_type: 'manday', rate_value: '', travel_allowance: '', stay_allowance_per_day: '', currency: 'USD', valid_from: '', valid_to: '', notes: '' })
+  const [contractForm, setContractForm]   = useState({ agency_code: '', contract_name: '', rate_type: 'manday', rate_value: '', travel_allowance: '', stay_allowance_per_day: '', currency: 'USD', valid_from: '', valid_to: '', notes: '' })
   const [contractMsg, setContractMsg]     = useState('')
   const [contractSaving, setContractSaving] = useState(false)
 
@@ -83,7 +83,7 @@ export default function InspectionCostPage() {
     try {
       await createContract(contractForm)
       setContractMsg('Contract saved!')
-      setContractForm({ agency_code: '', rate_type: 'manday', rate_value: '', travel_allowance: '', stay_allowance_per_day: '', currency: 'USD', valid_from: '', valid_to: '', notes: '' })
+      setContractForm({ agency_code: '', contract_name: '', rate_type: 'manday', rate_value: '', travel_allowance: '', stay_allowance_per_day: '', currency: 'USD', valid_from: '', valid_to: '', notes: '' })
       loadContracts()
     } catch (err) {
       setContractMsg(err?.response?.data?.error || 'Failed to save contract')
@@ -235,6 +235,12 @@ export default function InspectionCostPage() {
                       </select>
                     </div>
                     <div style={{ marginBottom: '10px' }}>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '3px' }}>Rate Structure Name *</label>
+                      <input type="text" value={contractForm.contract_name} onChange={e => setContractForm(p => ({ ...p, contract_name: e.target.value }))} required
+                        placeholder="e.g. Standard Rate, Weekend Rate, International"
+                        style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
+                    </div>
+                    <div style={{ marginBottom: '10px' }}>
                       <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '3px' }}>Rate Type *</label>
                       <select value={contractForm.rate_type} onChange={e => setContractForm(p => ({ ...p, rate_type: e.target.value }))}
                         style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}>
@@ -298,7 +304,7 @@ export default function InspectionCostPage() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                       <thead>
                         <tr style={{ backgroundColor: '#f8fafc' }}>
-                          {['Agency', 'Rate Type', 'Rate', 'Travel', 'Stay/Day', 'Currency', 'Valid'].map(h => (
+                          {['Agency', 'Structure Name', 'Rate Type', 'Rate', 'Travel', 'Stay/Day', 'Currency', 'Valid'].map(h => (
                             <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
                           ))}
                         </tr>
@@ -307,6 +313,7 @@ export default function InspectionCostPage() {
                         {allContracts.map(c => (
                           <tr key={c.contract_id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                             <td style={{ padding: '9px 12px', fontWeight: '600' }}>{c.agency_name || c.agency_code}</td>
+                            <td style={{ padding: '9px 12px', color: '#111827', fontWeight: '500' }}>{c.contract_name || '—'}</td>
                             <td style={{ padding: '9px 12px', color: '#6b7280' }}>{c.rate_type === 'manday' ? 'Manday' : '% PO'}</td>
                             <td style={{ padding: '9px 12px' }}>{c.rate_value}</td>
                             <td style={{ padding: '9px 12px', color: '#6b7280' }}>{c.travel_allowance}</td>
@@ -433,8 +440,9 @@ export default function InspectionCostPage() {
                     <option value="">— Manual entry —</option>
                     {contracts.map(c => (
                       <option key={c.contract_id} value={c.contract_id}>
-                        {c.rate_type === 'manday' ? `Manday @ ${c.rate_value} ${c.currency}/day` : `${c.rate_value}% of PO value`}
-                        {c.valid_to ? ` (valid till ${c.valid_to})` : ''}
+                        {c.contract_name || 'Standard Rate'} —{' '}
+                        {c.rate_type === 'manday' ? `${c.rate_value} ${c.currency}/manday` : `${c.rate_value}% of PO value`}
+                        {c.valid_to ? ` (till ${c.valid_to})` : ''}
                       </option>
                     ))}
                   </select>

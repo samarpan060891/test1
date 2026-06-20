@@ -5,6 +5,7 @@ CREATE SEQUENCE IF NOT EXISTS qc_inspection.ica_ref_seq START 1;
 CREATE TABLE IF NOT EXISTS qc_inspection.agency_contract (
   contract_id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   agency_code         TEXT        NOT NULL REFERENCES qc_inspection.quality_agency_master(agency_code),
+  contract_name       TEXT        NOT NULL DEFAULT 'Standard Rate',  -- e.g. "Weekend Rate", "International"
   rate_type           TEXT        NOT NULL CHECK (rate_type IN ('percentage', 'manday')),
   rate_value          NUMERIC(10,2) NOT NULL,        -- % or per-manday rate
   travel_allowance    NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -16,6 +17,10 @@ CREATE TABLE IF NOT EXISTS qc_inspection.agency_contract (
   created_by          INTEGER     REFERENCES qc_inspection.team_stakeholder(user_id),
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- If table already exists, add contract_name column (safe to re-run)
+ALTER TABLE qc_inspection.agency_contract
+  ADD COLUMN IF NOT EXISTS contract_name TEXT NOT NULL DEFAULT 'Standard Rate';
 
 -- ── Inspection Charges Advice ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS qc_inspection.inspection_charges_advice (
