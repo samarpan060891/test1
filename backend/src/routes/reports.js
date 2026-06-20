@@ -60,7 +60,10 @@ router.get('/download', async (req, res) => {
       ])
     ];
     const wsJobs = XLSX.utils.aoa_to_sheet(jobRows);
-    wsJobs['!cols'] = [10,12,10,24,14,28,12,20,14,22,18,18,18,18,14,30,18].map(w => ({ wch: w }));
+    wsJobs['!cols'] = [16,14,10,28,14,28,12,20,14,22,20,20,20,20,14,30,20].map(w => ({ wch: w }));
+    // Bold header row
+    const jobHeaders = Object.keys(wsJobs).filter(k => k.match(/^[A-Z]+1$/) && k !== '!ref');
+    jobHeaders.forEach(k => { if (wsJobs[k]) wsJobs[k].s = { font: { bold: true } }; });
     XLSX.utils.book_append_sheet(wb, wsJobs, 'Inspection Jobs');
 
     // ── 2. CHECKLIST RESPONSES SHEET ─────────────────────────────────────────
