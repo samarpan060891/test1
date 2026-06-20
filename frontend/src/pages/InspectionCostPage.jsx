@@ -35,6 +35,8 @@ export default function InspectionCostPage() {
 
   const [advices, setAdvices]         = useState([])
   const [loading, setLoading]         = useState(true)
+  const [eligibleJobs, setEligibleJobs] = useState([])
+  const [jobsLoading, setJobsLoading] = useState(false)
   const [showCreate, setShowCreate]   = useState(false)
   const [showApprove, setShowApprove] = useState(null)  // { advice, action: 'approve'|'reject' }
   const [actionNote, setActionNote]   = useState('')
@@ -69,7 +71,16 @@ export default function InspectionCostPage() {
     getAdvices().then(r => setAdvices(r.data)).catch(() => {}).finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  const loadEligibleJobs = async () => {
+    if (role !== 'agency_user') return
+    setJobsLoading(true)
+    try {
+      const r = await getJobs()
+      setEligibleJobs((r.data || []).filter(j => ['submitted_pending_qa', 'qa_approved', 'qa_rejected'].includes(j.status)))
+    } catch {} finally { setJobsLoading(false) }
+  }
+
+  useEffect(() => { load(); loadEligibleJobs() }, [])
 
   const loadContracts = async () => {
     try {
@@ -92,12 +103,12 @@ export default function InspectionCostPage() {
     } finally { setContractSaving(false) }
   }
 
-  const openCreate = async () => {
-    setSelectedJobs([]); setRateType('manday'); setRateValue(''); setNumMandays('')
+  const openCreate = async (preSelectJobId = null) => {
+    setSelectedJobs(preSelectJobId ? [preSelectJobId] : [])
+    setRateType('manday'); setRateValue(''); setNumMandays('')
     setTravel(''); setStay(''); setCurrency('USD'); setAdviceNotes(''); setSelectedContract(''); setCreateMsg('')
     try {
       const [jobsRes, contractsRes] = await Promise.all([getJobs(), getContracts()])
-      // Show all conducted inspections eligible for raising charges
       setJobs((jobsRes.data || []).filter(j => ['submitted_pending_qa', 'qa_approved', 'qa_rejected'].includes(j.status)))
       setContracts(contractsRes.data || [])
     } catch {}
@@ -144,6 +155,7 @@ export default function InspectionCostPage() {
       })
       setShowCreate(false)
       load()
+      loadEligibleJobs()
     } catch (err) {
       setCreateMsg(err?.response?.data?.error || 'Failed to create advice')
     } finally { setCreating(false) }
@@ -187,11 +199,62 @@ export default function InspectionCostPage() {
             </p>
           </div>
           {role === 'agency_user' && (
-            <button onClick={openCreate} style={{ backgroundColor: '#1e40af', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+            <button onClick={() => openCreate()} style={{ backgroundColor: '#1e40af', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
               {t('costs_new_advice')}
             </button>
           )}
         </div>
+
+        {/* Eligible Jobs (agency_user only) */}
+        {role === 'agency_user' && (
+          <div style={{ backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '28px', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: '700', fontSize: '15px', color: '#111827' }}>Completed Inspections</span>
+              <span style={{ fontSize: '13px', color: '#6b7280' }}>{eligibleJobs.length} job(s) ready for charges advice</span>
+            </div>
+            {jobsLoading ? (
+              <p style={{ padding: '20px', color: '#6b7280', fontSize: '14px' }}>{t('common_loading')}</p>
+            ) : eligibleJobs.length === 0 ? (
+              <p style={{ padding: '24px', color: '#9ca3af', fontSize: '14px', textAlign: 'center' }}>No completed inspections found</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f8fafc' }}>
+                    {['Job Ref', 'PO No', 'Item', 'Supplier', 'Inspection Date', 'Stage', 'Status', ''].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {eligibleJobs.map(j => (
+                    <tr key={j.job_id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: '700', color: '#1e40af' }}>{j.job_ref || j.job_id?.slice(0, 8)}</td>
+                      <td style={{ padding: '10px 14px', color: '#374151' }}>{j.po_no}</td>
+                      <td style={{ padding: '10px 14px', color: '#374151' }}>{j.item_name || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: '#6b7280' }}>{j.supplier_name || j.supplier_code}</td>
+                      <td style={{ padding: '10px 14px', color: '#6b7280' }}>{j.inspection_date || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: '#6b7280', textTransform: 'capitalize' }}>{j.inspection_stage || '—'}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{
+                          backgroundColor: j.status === 'qa_approved' ? '#f0fdf4' : j.status === 'qa_rejected' ? '#fef2f2' : '#eff6ff',
+                          color: j.status === 'qa_approved' ? '#166534' : j.status === 'qa_rejected' ? '#991b1b' : '#1d4ed8',
+                          padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700'
+                        }}>
+                          {j.status === 'qa_approved' ? 'QA Approved' : j.status === 'qa_rejected' ? 'QA Rejected' : 'Submitted'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <button onClick={() => openCreate(j.job_id)} style={{ backgroundColor: '#1e40af', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: '5px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          + Raise Advice
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
 
         {/* Stats row for qa/buying */}
         {(role === 'qa' || role === 'buying') && (
@@ -331,7 +394,10 @@ export default function InspectionCostPage() {
           </div>
         )}
 
-        {/* List */}
+        {/* Charges Advice List */}
+        {role === 'agency_user' && (
+          <h2 style={{ margin: '0 0 14px', fontSize: '16px', fontWeight: '700', color: '#111827' }}>Submitted Charges Advice</h2>
+        )}
         {loading ? <p style={{ color: '#6b7280' }}>{t('common_loading')}</p> : advices.length === 0 ? (
           <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '48px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
             <p style={{ color: '#9ca3af', fontSize: '15px' }}>{t('costs_no_records')}</p>
