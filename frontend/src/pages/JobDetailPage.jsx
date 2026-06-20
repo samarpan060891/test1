@@ -249,7 +249,7 @@ export default function JobDetailPage() {
 
           {/* Action buttons */}
           <div style={{ marginTop: '24px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            {['qa', 'buying'].includes(user?.role) && job.status === 'qa_rejected' && (
+            {user?.role === 'qa' && job.status === 'qa_rejected' && (
               <button
                 onClick={() => setShowReinspect(true)}
                 style={{
