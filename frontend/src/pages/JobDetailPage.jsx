@@ -188,9 +188,6 @@ export default function JobDetailPage() {
               <h1 style={{ margin: '0 0 6px', fontSize: '22px', fontWeight: '700', color: '#111827' }}>
                 {t('job_detail_title')}
               </h1>
-              <code style={{ fontSize: '13px', color: '#6b7280', backgroundColor: '#f3f4f6', padding: '3px 8px', borderRadius: '4px' }}>
-                {jobId}
-              </code>
             </div>
             <StatusBadge status={job.status} large t={t} />
           </div>
