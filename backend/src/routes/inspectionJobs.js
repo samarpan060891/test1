@@ -280,7 +280,7 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
     }
 
     const updated = await client.query(
-      `UPDATE qc_inspection.inspection_job SET status = 'submitted_pending_qa', updated_at = NOW()
+      `UPDATE qc_inspection.inspection_job SET status = 'submitted_pending_qa', submitted_at = NOW()
        WHERE job_id = $1 RETURNING *`,
       [req.params.id]
     );
@@ -348,7 +348,7 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
 
     const updated = await client.query(
       `UPDATE qc_inspection.inspection_job
-       SET status = $1, final_outcome = $2, qa_remarks = $3, updated_at = NOW()
+       SET status = $1, final_outcome = $2, qa_remarks = $3, decided_at = NOW()
        WHERE job_id = $4 RETURNING *`,
       [newStatus, outcome, remarks || null, req.params.id]
     );
