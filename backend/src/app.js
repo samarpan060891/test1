@@ -10,6 +10,7 @@ const logEntryRoutes = require('./routes/logEntries');
 const notificationRoutes = require('./routes/notifications');
 const mastersRoutes = require('./routes/masters');
 const reportsRoutes = require('./routes/reports');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/log-entries', logEntryRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/masters', mastersRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

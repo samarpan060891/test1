@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
+const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -56,6 +57,38 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * PUT /api/auth/change-password
+ * Authenticated. Any role can change their own password.
+ */
+router.put('/change-password', authenticate, async (req, res) => {
+  const { current_password, new_password } = req.body;
+  if (!current_password || !new_password)
+    return res.status(400).json({ error: 'current_password and new_password are required' });
+  if (new_password.length < 6)
+    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+
+  try {
+    const result = await db.query(
+      'SELECT password_hash FROM qc_inspection.team_stakeholder WHERE user_id = $1',
+      [req.user.user_id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+
+    const match = await bcrypt.compare(current_password, result.rows[0].password_hash);
+    if (!match) return res.status(401).json({ error: 'Current password is incorrect' });
+
+    const hash = await bcrypt.hash(new_password, 10);
+    await db.query(
+      'UPDATE qc_inspection.team_stakeholder SET password_hash = $1 WHERE user_id = $2',
+      [hash, req.user.user_id]
+    );
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

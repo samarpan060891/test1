@@ -63,6 +63,13 @@ export default function Navbar() {
               Checklist Templates
             </Link>
           )}
+
+          {role === 'admin' && (
+            <>
+              <Link to="/admin/users" style={navLinkStyle('/admin/users')}>Users</Link>
+              <Link to="/admin/masters" style={navLinkStyle('/admin/masters')}>Masters</Link>
+            </>
+          )}
         </div>
       </div>
 
@@ -86,6 +93,9 @@ export default function Navbar() {
             </span>
           </>
         )}
+        <Link to="/change-password" style={{ ...navLinkStyle('/change-password'), fontSize: '13px', padding: '5px 10px' }}>
+          Change Password
+        </Link>
         <button
           onClick={logout}
           style={{

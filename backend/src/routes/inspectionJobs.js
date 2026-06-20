@@ -30,7 +30,9 @@ router.get('/', async (req, res) => {
     const params = [];
     const conditions = [];
 
-    if (req.user.role === 'agency_user') {
+    if (['qa', 'buying', 'admin'].includes(req.user.role)) {
+      // see all jobs — no filter
+    } else if (req.user.role === 'agency_user') {
       params.push(req.user.agency_code);
       conditions.push(`j.agency_code = $${params.length}`);
     } else if (req.user.role === 'supplier_user') {

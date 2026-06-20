@@ -10,6 +10,9 @@ import ChecklistFillPage from './pages/ChecklistFillPage.jsx'
 import QAReviewPage from './pages/QAReviewPage.jsx'
 import POLogPage from './pages/POLogPage.jsx'
 import ChecklistTemplatesPage from './pages/ChecklistTemplatesPage.jsx'
+import AdminUsersPage from './pages/AdminUsersPage.jsx'
+import AdminMastersPage from './pages/AdminMastersPage.jsx'
+import ChangePasswordPage from './pages/ChangePasswordPage.jsx'
 
 export default function App() {
   return (
@@ -77,6 +80,33 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['qa']}>
               <ChecklistTemplatesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminUsersPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/masters"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminMastersPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePasswordPage />
             </ProtectedRoute>
           }
         />
