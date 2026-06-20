@@ -81,6 +81,10 @@ const translations = {
     job_review: 'Review',
     job_re_inspect: 'Re-Inspect',
     job_created_at: 'Created At',
+    job_final_outcome: 'Final Outcome',
+    job_qa_remarks: 'QA Remarks',
+    job_activity_log: 'Activity Log',
+    job_post_remark: 'Post a Remark',
 
     // Checklist
     checklist_title: 'Checklist',
@@ -253,6 +257,10 @@ const translations = {
     job_review: '审核',
     job_re_inspect: '重新检验',
     job_created_at: '创建时间',
+    job_final_outcome: '最终结果',
+    job_qa_remarks: 'QA备注',
+    job_activity_log: '活动记录',
+    job_post_remark: '发表备注',
 
     checklist_title: '检查清单',
     checklist_submit: '提交检验',

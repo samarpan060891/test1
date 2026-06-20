@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
 import { getJob } from '../api/inspectionJobs.js'
 import { getLogs, createLog } from '../api/logEntries.js'
 import { searchAgencies } from '../api/masters.js'
@@ -15,14 +16,13 @@ const statusColors = {
   qa_rejected: { backgroundColor: '#fee2e2', color: '#dc2626' }
 }
 
-const statusLabel = {
-  mapped_awaiting_inspection: 'Awaiting Inspection',
-  submitted_pending_qa: 'Pending QA Review',
-  qa_approved: 'Approved',
-  qa_rejected: 'Rejected'
-}
-
-function StatusBadge({ status, large }) {
+function StatusBadge({ status, large, t }) {
+  const statusLabel = {
+    mapped_awaiting_inspection: t('status_mapped'),
+    submitted_pending_qa: t('status_pending_review'),
+    qa_approved: t('status_approved'),
+    qa_rejected: t('status_rejected')
+  }
   const style = statusColors[status] || { backgroundColor: '#f3f4f6', color: '#374151' }
   return (
     <span style={{
@@ -47,6 +47,7 @@ const roleBadgeColors = {
 export default function JobDetailPage() {
   const { id } = useParams()
   const { user } = useAuth()
+  const { t } = useLanguage()
   const navigate = useNavigate()
 
   const [job, setJob] = useState(null)
@@ -142,7 +143,7 @@ export default function JobDetailPage() {
       <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
         <Navbar />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
-          <p style={{ color: '#6b7280' }}>Loading job details...</p>
+          <p style={{ color: '#6b7280' }}>{t('common_loading')}</p>
         </div>
       </div>
     )
@@ -154,7 +155,7 @@ export default function JobDetailPage() {
         <Navbar />
         <div style={{ maxWidth: '700px', margin: '60px auto', padding: '0 24px', textAlign: 'center' }}>
           <p style={{ color: '#dc2626', fontSize: '16px' }}>{error || 'Job not found.'}</p>
-          <Link to="/dashboard" style={{ color: '#1e40af', fontSize: '14px' }}>Back to Dashboard</Link>
+          <Link to="/dashboard" style={{ color: '#1e40af', fontSize: '14px' }}>{t('nav_dashboard')}</Link>
         </div>
       </div>
     )
@@ -169,7 +170,7 @@ export default function JobDetailPage() {
       <div style={{ maxWidth: '960px', margin: '0 auto', padding: '32px 24px' }}>
         {/* Breadcrumb */}
         <div style={{ marginBottom: '20px', fontSize: '13px', color: '#6b7280' }}>
-          <Link to="/dashboard" style={{ color: '#1e40af', textDecoration: 'none' }}>Dashboard</Link>
+          <Link to="/dashboard" style={{ color: '#1e40af', textDecoration: 'none' }}>{t('nav_dashboard')}</Link>
           <span style={{ margin: '0 8px' }}>/</span>
           <span>Job {job?.job_ref || String(jobId).slice(0, 8) + '...'}</span>
         </div>
@@ -185,35 +186,40 @@ export default function JobDetailPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
             <div>
               <h1 style={{ margin: '0 0 6px', fontSize: '22px', fontWeight: '700', color: '#111827' }}>
-                Inspection Job
+                {t('job_detail_title')}
               </h1>
               <code style={{ fontSize: '13px', color: '#6b7280', backgroundColor: '#f3f4f6', padding: '3px 8px', borderRadius: '4px' }}>
                 {jobId}
               </code>
             </div>
-            <StatusBadge status={job.status} large />
+            <StatusBadge status={job.status} large t={t} />
           </div>
 
           {/* Fields */}
           <div>
-            {fieldRow('Job Reference', job.job_ref || '—')}
-            {job.inspection_stage && fieldRow('Inspection Stage', (() => {
-              const map = { pre_production: 'Pre-Production Sample', inline: 'In-Line Production', final: 'Final Inspection', loading: 'Container Loading' }
+            {fieldRow(t('job_reference'), job.job_ref || '—')}
+            {job.inspection_stage && fieldRow(t('job_inspection_stage'), (() => {
+              const map = {
+                pre_production: t('stage_pre_production_full'),
+                inline: t('stage_inline_full'),
+                final: t('stage_final_full'),
+                loading: t('stage_loading_full')
+              }
               const colors = { pre_production: ['#fef3c7','#92400e'], inline: ['#dbeafe','#1e40af'], final: ['#dcfce7','#166534'], loading: ['#f3e8ff','#6b21a8'] }
               const [bg, color] = colors[job.inspection_stage] || ['#f3f4f6','#374151']
               return <span style={{ backgroundColor: bg, color, padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '700' }}>{map[job.inspection_stage] || job.inspection_stage}</span>
             })())}
-            {fieldRow('PO Number', job.po_no)}
-            {fieldRow('Item Code', job.item_code)}
-            {fieldRow('Supplier Code', job.supplier_code)}
-            {fieldRow('Agency Code', job.agency_code)}
-            {fieldRow('Planned Inspection Date', job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : null)}
-            {fieldRow('Actual Inspection Date', job.actual_inspection_date ? new Date(job.actual_inspection_date).toLocaleDateString() : '—')}
-            {fieldRow('Submitted At', job.submitted_at ? new Date(job.submitted_at).toLocaleString() : '—')}
-            {fieldRow('QA Decision At', job.decided_at ? new Date(job.decided_at).toLocaleString() : '—')}
-            {fieldRow('Created At', job.created_at ? new Date(job.created_at).toLocaleString() : null)}
-            {job.final_outcome && fieldRow('Final Outcome', job.final_outcome)}
-            {job.qa_remarks && fieldRow('QA Remarks', job.qa_remarks)}
+            {fieldRow(t('job_po_number'), job.po_no)}
+            {fieldRow(t('job_item_code'), job.item_code)}
+            {fieldRow(t('job_supplier'), job.supplier_code)}
+            {fieldRow(t('job_agency'), job.agency_code)}
+            {fieldRow(t('job_planned_date'), job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : null)}
+            {fieldRow(t('job_actual_date'), job.actual_inspection_date ? new Date(job.actual_inspection_date).toLocaleDateString() : '—')}
+            {fieldRow(t('job_submitted_at'), job.submitted_at ? new Date(job.submitted_at).toLocaleString() : '—')}
+            {fieldRow(t('job_decided_at'), job.decided_at ? new Date(job.decided_at).toLocaleString() : '—')}
+            {fieldRow(t('job_created_at'), job.created_at ? new Date(job.created_at).toLocaleString() : null)}
+            {job.final_outcome && fieldRow(t('job_final_outcome') || 'Final Outcome', job.final_outcome)}
+            {job.qa_remarks && fieldRow(t('job_qa_remarks') || 'QA Remarks', job.qa_remarks)}
           </div>
 
           {/* Action buttons */}
@@ -227,7 +233,7 @@ export default function JobDetailPage() {
                   fontWeight: '600', cursor: 'pointer'
                 }}
               >
-                Create Re-inspection
+                {t('job_re_inspect')}
               </button>
             )}
             {user?.role === 'agency_user' && job.status === 'mapped_awaiting_inspection' && job.inspection_type !== 'self' && (
@@ -244,7 +250,7 @@ export default function JobDetailPage() {
                   cursor: 'pointer'
                 }}
               >
-                Fill Checklist
+                {t('job_fill_checklist')}
               </button>
             )}
             {user?.role === 'supplier_user' && job.status === 'mapped_awaiting_inspection' && job.inspection_type === 'self' && (
@@ -261,7 +267,7 @@ export default function JobDetailPage() {
                   cursor: 'pointer'
                 }}
               >
-                Fill Checklist (Self Inspection)
+                {t('job_fill_checklist_self')}
               </button>
             )}
             {user?.role === 'qa' && job.status === 'submitted_pending_qa' && (
@@ -278,7 +284,7 @@ export default function JobDetailPage() {
                   cursor: 'pointer'
                 }}
               >
-                Review & Decide
+                {t('job_review')}
               </button>
             )}
             <Link
@@ -294,7 +300,7 @@ export default function JobDetailPage() {
                 textDecoration: 'none'
               }}
             >
-              View PO Log
+              {t('nav_po_log')}
             </Link>
           </div>
         </div>
@@ -310,7 +316,7 @@ export default function JobDetailPage() {
               width: '100%', maxWidth: '480px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
             }}>
               <h2 style={{ margin: '0 0 6px', fontSize: '20px', fontWeight: '700', color: '#111827' }}>
-                Create Re-inspection
+                {t('job_re_inspect')}
               </h2>
               <p style={{ margin: '0 0 24px', fontSize: '13px', color: '#6b7280' }}>
                 PO: <strong>{job.po_no}</strong> — a new inspection job will be created.
@@ -325,7 +331,7 @@ export default function JobDetailPage() {
               <form onSubmit={handleReinspect}>
                 {/* Inspection Type */}
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', color: '#374151' }}>Inspection Type</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', color: '#374151' }}>{t('map_type')}</label>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     {[{ value: 'agency', label: '🏢 Agency' }, { value: 'self', label: '🏭 Self' }].map(opt => (
                       <div key={opt.value} onClick={() => { setReinspectType(opt.value); setReinspectAgency(null) }}
@@ -356,7 +362,7 @@ export default function JobDetailPage() {
                 {/* Date */}
                 <div style={{ marginBottom: '24px' }}>
                   <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#374151' }}>
-                    Inspection Date <span style={{ color: '#dc2626' }}>*</span>
+                    {t('map_date')} <span style={{ color: '#dc2626' }}>*</span>
                   </label>
                   <input type="date" value={reinspectDate} onChange={e => setReinspectDate(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }} />
@@ -365,11 +371,11 @@ export default function JobDetailPage() {
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button type="submit" disabled={reinspectLoading}
                     style={{ flex: 1, backgroundColor: reinspectLoading ? '#93c5fd' : '#d97706', color: '#fff', border: 'none', padding: '11px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: reinspectLoading ? 'not-allowed' : 'pointer' }}>
-                    {reinspectLoading ? 'Creating...' : 'Create Job'}
+                    {reinspectLoading ? t('common_saving') : t('job_re_inspect')}
                   </button>
                   <button type="button" onClick={() => { setShowReinspect(false); setReinspectError('') }}
                     style={{ flex: 1, backgroundColor: '#fff', color: '#374151', border: '1px solid #d1d5db', padding: '11px', borderRadius: '7px', fontSize: '14px', cursor: 'pointer' }}>
-                    Cancel
+                    {t('common_cancel')}
                   </button>
                 </div>
               </form>
@@ -385,15 +391,15 @@ export default function JobDetailPage() {
           overflow: 'hidden'
         }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
-            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#111827' }}>Activity Log</h2>
+            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#111827' }}>{t('job_activity_log') || 'Activity Log'}</h2>
           </div>
 
           {/* Timeline */}
           <div style={{ padding: '8px 24px', maxHeight: '360px', overflowY: 'auto' }}>
             {logsLoading ? (
-              <p style={{ color: '#6b7280', padding: '16px 0', fontSize: '14px' }}>Loading logs...</p>
+              <p style={{ color: '#6b7280', padding: '16px 0', fontSize: '14px' }}>{t('common_loading')}</p>
             ) : logs.length === 0 ? (
-              <p style={{ color: '#9ca3af', padding: '20px 0', fontSize: '14px', textAlign: 'center' }}>No log entries yet.</p>
+              <p style={{ color: '#9ca3af', padding: '20px 0', fontSize: '14px', textAlign: 'center' }}>{t('common_no_data')}</p>
             ) : (
               <div style={{ position: 'relative', paddingLeft: '20px' }}>
                 {/* Vertical line */}
@@ -452,7 +458,7 @@ export default function JobDetailPage() {
 
           {/* New log form */}
           <div style={{ padding: '20px 24px', borderTop: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '600', color: '#374151' }}>Post a Remark</h3>
+            <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '600', color: '#374151' }}>{t('job_post_remark') || 'Post a Remark'}</h3>
             {logError && (
               <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '8px' }}>{logError}</div>
             )}
@@ -492,7 +498,7 @@ export default function JobDetailPage() {
                   cursor: (logSubmitting || !logMessage.trim()) ? 'not-allowed' : 'pointer'
                 }}
               >
-                {logSubmitting ? 'Posting...' : 'Post Remark'}
+                {logSubmitting ? t('common_saving') : (t('job_post_remark') || 'Post Remark')}
               </button>
             </form>
           </div>
