@@ -192,6 +192,34 @@ export default function JobDetailPage() {
             <StatusBadge status={job.status} large t={t} />
           </div>
 
+          {/* Re-inspection triggered banner */}
+          {job.reinspection_job && (
+            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '18px' }}>🔁</span>
+                <div>
+                  <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#92400e' }}>
+                    Re-inspection triggered by {job.reinspection_job.triggered_by_role === 'qa' ? 'QA' : job.reinspection_job.triggered_by_role}
+                    {job.reinspection_job.triggered_by_name ? ` — ${job.reinspection_job.triggered_by_name}` : ''}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#b45309' }}>
+                    New job: <strong>{job.reinspection_job.job_ref}</strong>
+                    &nbsp;·&nbsp;
+                    Status: <strong>{job.reinspection_job.status?.replace(/_/g, ' ')}</strong>
+                    &nbsp;·&nbsp;
+                    {new Date(job.reinspection_job.mapped_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <Link
+                to={`/jobs/${job.reinspection_job.job_id}`}
+                style={{ backgroundColor: '#d97706', color: '#fff', padding: '6px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', textDecoration: 'none', whiteSpace: 'nowrap' }}
+              >
+                View Re-inspection →
+              </Link>
+            </div>
+          )}
+
           {/* Fields */}
           <div>
             {fieldRow(t('job_reference'), job.job_ref || '—')}

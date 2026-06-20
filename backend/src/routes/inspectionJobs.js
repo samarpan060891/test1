@@ -94,6 +94,19 @@ router.get('/:id', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    // Fetch child re-inspection job if one was triggered
+    const childResult = await db.query(
+      `SELECT j.job_id, j.job_ref, j.status, j.inspection_date, j.mapped_at,
+              creator.name AS triggered_by_name, creator.role AS triggered_by_role
+       FROM qc_inspection.inspection_job j
+       LEFT JOIN qc_inspection.team_stakeholder creator ON creator.user_id = j.mapped_by
+       WHERE j.parent_job_id = $1
+       ORDER BY j.mapped_at DESC
+       LIMIT 1`,
+      [req.params.id]
+    );
+    job.reinspection_job = childResult.rows[0] || null;
+
     res.json(job);
   } catch (err) {
     console.error('Get job error:', err);
