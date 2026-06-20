@@ -427,7 +427,7 @@ export default function ChecklistTemplatesPage() {
       await activateTemplate(templateId)
       fetchTemplates()
     } catch (err) {
-      alert(err?.response?.data?.message || 'Failed to activate template.')
+      alert(err?.response?.data?.error || err?.response?.data?.message || 'Failed to activate template.')
     }
   }
 
