@@ -119,7 +119,10 @@ export default function JobDetailPage() {
         inspection_date: reinspectDate,
         inspection_type: reinspectType,
       })
-      navigate(`/jobs/${res.data.job_id}`)
+      const newJobId = res.data.job_id || res.data.jobId || (res.data.job && res.data.job.job_id)
+      if (!newJobId) throw new Error('No job ID returned from server')
+      setShowReinspect(false)
+      navigate(`/jobs/${newJobId}`)
     } catch (err) {
       setReinspectError(err?.response?.data?.error || 'Failed to create re-inspection.')
     } finally {
