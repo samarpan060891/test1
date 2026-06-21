@@ -1,5 +1,8 @@
 <svg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 192 192'>
-  <rect width='192' height='192' rx='34.56' fill='#1e40af'/>
-  <circle cx='96' cy='96' r='72.96000000000001' fill='#3b82f6'/>
-  <text x='96' y='96' font-family='Arial,sans-serif' font-size='61.44' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='central'>QC</text>
+  <!-- Brand dark brown background -->
+  <rect width='192' height='192' rx='38' fill='#1C1208'/>
+  <!-- Bold italic R in brand orange, styled like homesrus logo -->
+  <text x='96' y='108' font-family='Georgia,serif' font-size='100' font-weight='900' font-style='italic' fill='#E8470F' text-anchor='middle' dominant-baseline='auto'>R</text>
+  <!-- QIP label below -->
+  <text x='96' y='168' font-family='Arial,sans-serif' font-size='26' font-weight='700' fill='white' text-anchor='middle' dominant-baseline='auto' letter-spacing='4'>QIP</text>
 </svg>
