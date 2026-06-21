@@ -79,7 +79,8 @@ router.get('/', async (req, res) => {
                  json_build_object(
                    'job_id', j.job_id, 'job_ref', j.job_ref,
                    'po_no', j.po_no, 'supplier_code', j.supplier_code,
-                   'item_name', im.name, 'inspection_date', j.inspection_date
+                   'item_name', im.name, 'inspection_date', j.inspection_date,
+                   'status', j.status, 'result', j.result
                  )
                ) FILTER (WHERE j.job_id IS NOT NULL), '[]'
              ) AS jobs

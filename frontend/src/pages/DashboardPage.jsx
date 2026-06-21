@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { getJobs } from '../api/inspectionJobs.js'
 import { getNotifications } from '../api/notifications.js'
+import { getAdvices } from '../api/inspectionCosts.js'
+import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
 import client from '../api/client.js'
 
 const STATUS_META = {
@@ -45,6 +47,7 @@ export default function DashboardPage() {
   const { t } = useLanguage()
   const [jobs, setJobs] = useState([])
   const [notifications, setNotifications] = useState([])
+  const [advices, setAdvices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -52,10 +55,12 @@ export default function DashboardPage() {
     if (!silent) setLoading(true)
     return Promise.all([
       getJobs().catch(() => ({ data: [] })),
-      getNotifications().catch(() => ({ data: [] }))
-    ]).then(([jobsRes, notifRes]) => {
+      getNotifications().catch(() => ({ data: [] })),
+      getAdvices().catch(() => ({ data: [] })),
+    ]).then(([jobsRes, notifRes, adviceRes]) => {
       setJobs(Array.isArray(jobsRes.data) ? jobsRes.data : jobsRes.data?.jobs || [])
       setNotifications(Array.isArray(notifRes.data) ? notifRes.data : notifRes.data?.notifications || [])
+      setAdvices(Array.isArray(adviceRes.data) ? adviceRes.data : [])
     }).catch(() => {
       if (!silent) setError('Failed to load dashboard data.')
     }).finally(() => { if (!silent) setLoading(false) })
@@ -181,6 +186,11 @@ export default function DashboardPage() {
             <div className="stat-value">{rejected}</div>
           </div>
         </div>
+
+        {/* Inspection Charges Summary */}
+        {advices.length > 0 && (
+          <InspectionSummaryCard advices={advices} showLink />
+        )}
 
         {/* Main layout */}
         <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
