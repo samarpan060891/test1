@@ -63,18 +63,29 @@ export default function DashboardPage() {
   const rejected = jobs.filter(j => j.status === 'qa_rejected').length
 
   const [downloading, setDownloading] = useState(false)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
   const handleDownloadReport = async () => {
     setDownloading(true)
     try {
-      const res = await client.get('/reports/download', { responseType: 'blob' })
+      const params = new URLSearchParams()
+      if (dateFrom) params.append('from', dateFrom)
+      if (dateTo) params.append('to', dateTo)
+      const res = await client.get(`/reports/download?${params.toString()}`, { responseType: 'blob' })
       const url = window.URL.createObjectURL(new Blob([res.data]))
       const a = document.createElement('a')
       a.href = url
-      a.download = `QC_Inspection_Report_${new Date().toISOString().slice(0,10)}.xlsx`
+      const suffix = dateFrom || dateTo
+        ? `_${dateFrom || 'start'}_to_${dateTo || 'today'}`
+        : `_${new Date().toISOString().slice(0,10)}`
+      a.download = `QC_Inspection_Summary${suffix}.xlsx`
       a.click()
       window.URL.revokeObjectURL(url)
+      setShowDatePicker(false)
     } catch {
-      alert('Failed to download report. Please try again.')
+      alert('Failed to download. Please try again.')
     } finally {
       setDownloading(false)
     }
@@ -109,22 +120,68 @@ export default function DashboardPage() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <button
-              onClick={handleDownloadReport}
-              disabled={downloading}
-              style={{
-                backgroundColor: downloading ? '#6b7280' : '#059669',
-                color: '#fff',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: downloading ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {downloading ? t('common_loading') : `⬇ ${t('dashboard_download_report')}`}
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowDatePicker(p => !p)}
+                disabled={downloading}
+                style={{
+                  backgroundColor: downloading ? '#6b7280' : '#059669',
+                  color: '#fff',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: downloading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {downloading ? t('common_loading') : '⬇ Download Summary'}
+              </button>
+
+              {showDatePicker && (
+                <div style={{
+                  position: 'absolute', top: '44px', right: 0, zIndex: 50,
+                  backgroundColor: '#fff', borderRadius: '10px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                  padding: '16px', width: '280px', border: '1px solid #e5e7eb'
+                }}>
+                  <p style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '700', color: '#111827' }}>Select Period (optional)</p>
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase' }}>From</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={e => setDateFrom(e.target.value)}
+                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase' }}>To</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={e => setDateTo(e.target.value)}
+                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={handleDownloadReport} disabled={downloading} style={{
+                      flex: 1, backgroundColor: '#059669', color: '#fff', border: 'none',
+                      padding: '8px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer'
+                    }}>
+                      {downloading ? 'Downloading...' : '⬇ Download'}
+                    </button>
+                    <button onClick={() => { setShowDatePicker(false); setDateFrom(''); setDateTo('') }} style={{
+                      flex: 1, backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb',
+                      padding: '8px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer'
+                    }}>
+                      Cancel
+                    </button>
+                  </div>
+                  <p style={{ margin: '10px 0 0', fontSize: '11px', color: '#9ca3af', textAlign: 'center' }}>Leave blank to download all data</p>
+                </div>
+              )}
+            </div>
             {(user?.role === 'qa' || user?.role === 'buying') && (
               <Link
                 to="/map-inspection"
