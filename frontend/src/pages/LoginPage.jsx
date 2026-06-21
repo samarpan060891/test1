@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [focusedField, setFocusedField] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -28,135 +29,196 @@ export default function LoginPage() {
     }
   }
 
-  const inputStyle = {
+  const inputStyle = (field) => ({
     width: '100%',
-    padding: '10px 14px',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '15px',
+    padding: '11px 14px',
+    border: `1.5px solid ${focusedField === field ? '#3b82f6' : '#e2e8f0'}`,
+    borderRadius: '8px',
+    fontSize: '14px',
+    color: '#0f172a',
+    background: focusedField === field ? '#fafcff' : '#f8fafc',
     outline: 'none',
     boxSizing: 'border-box',
-    transition: 'border-color 0.15s'
-  }
+    transition: 'all 0.15s',
+    boxShadow: focusedField === field ? '0 0 0 3px rgba(59,130,246,0.15)' : 'none',
+    fontFamily: 'inherit',
+  })
 
-  const labelStyle = {
-    display: 'block',
-    marginBottom: '6px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#374151'
-  }
+  const features = [
+    { icon: '📋', text: 'End-to-end inspection job management' },
+    { icon: '✅', text: 'Multi-stage QA checklist workflows' },
+    { icon: '💰', text: 'Inspection cost tracking & approvals' },
+    { icon: '🔔', text: 'Real-time stakeholder notifications' },
+  ]
 
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f3f4f6',
       display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px'
+      background: '#f1f5f9',
     }}>
+      {/* Left branding panel */}
       <div style={{
-        backgroundColor: '#fff',
-        borderRadius: '12px',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
-        padding: '48px 40px',
-        width: '100%',
-        maxWidth: '420px'
+        width: '42%',
+        background: 'linear-gradient(160deg, #1e3a8a 0%, #1d4ed8 60%, #0ea5e9 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        padding: '60px 56px',
+        position: 'relative',
+        overflow: 'hidden',
       }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        {/* decorative circles */}
+        <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '320px', height: '320px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
+        <div style={{ position: 'absolute', bottom: '-60px', left: '-40px', width: '240px', height: '240px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+
+        <div style={{ position: 'relative' }}>
+          {/* Logo */}
           <div style={{
-            width: '56px',
-            height: '56px',
-            backgroundColor: '#1e40af',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 16px'
-          }}>
-            <span style={{ fontSize: '28px' }}>🔍</span>
-          </div>
-          <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: '0 0 6px' }}>
-            {t('login_title')}
+            width: '60px', height: '60px',
+            background: 'rgba(255,255,255,0.18)',
+            borderRadius: '16px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '28px',
+            marginBottom: '32px',
+            backdropFilter: 'blur(8px)',
+          }}>🔍</div>
+
+          <h1 style={{ color: '#fff', fontSize: '30px', fontWeight: '800', lineHeight: '1.2', marginBottom: '12px', letterSpacing: '-0.5px' }}>
+            Quality Inspection<br />Portal
           </h1>
-          <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>
-            {t('login_subtitle')}
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '15px', lineHeight: '1.6', marginBottom: '48px' }}>
+            Streamline your quality control process across suppliers, agencies, and internal teams.
           </p>
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
-            <div style={{ backgroundColor: '#1e40af', borderRadius: '8px', padding: '4px' }}>
-              <LanguageSwitcher />
-            </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {features.map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '36px', height: '36px',
+                  background: 'rgba(255,255,255,0.12)',
+                  borderRadius: '10px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '18px', flexShrink: 0,
+                }}>
+                  {f.icon}
+                </div>
+                <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: '14px', fontWeight: '450' }}>{f.text}</span>
+              </div>
+            ))}
           </div>
         </div>
+      </div>
 
-        {/* Error */}
-        {error && (
-          <div style={{
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            color: '#dc2626',
-            padding: '12px 16px',
-            borderRadius: '6px',
-            marginBottom: '20px',
-            fontSize: '14px'
-          }}>
-            {error}
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={labelStyle}>{t('login_email')}</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              style={inputStyle}
-              onFocus={e => e.target.style.borderColor = '#1e40af'}
-              onBlur={e => e.target.style.borderColor = '#d1d5db'}
-            />
+      {/* Right login panel */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '48px 40px',
+      }}>
+        <div style={{ width: '100%', maxWidth: '400px' }}>
+          {/* Language switcher */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '40px' }}>
+            <LanguageSwitcher />
           </div>
 
-          <div style={{ marginBottom: '28px' }}>
-            <label style={labelStyle}>{t('login_password')}</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              style={inputStyle}
-              onFocus={e => e.target.style.borderColor = '#1e40af'}
-              onBlur={e => e.target.style.borderColor = '#d1d5db'}
-            />
+          {/* Heading */}
+          <div style={{ marginBottom: '32px' }}>
+            <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.4px', marginBottom: '6px' }}>
+              Welcome back
+            </h2>
+            <p style={{ fontSize: '14px', color: '#64748b' }}>
+              Sign in to your account to continue
+            </p>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              backgroundColor: loading ? '#93c5fd' : '#1e40af',
-              color: '#fff',
-              border: 'none',
-              padding: '12px',
-              borderRadius: '6px',
-              fontSize: '15px',
-              fontWeight: '600',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.15s'
-            }}
-            onMouseEnter={e => { if (!loading) e.target.style.backgroundColor = '#1d4ed8' }}
-            onMouseLeave={e => { if (!loading) e.target.style.backgroundColor = '#1e40af' }}
-          >
-            {loading ? t('login_loading') : t('login_button')}
-          </button>
-        </form>
+          {/* Error */}
+          {error && (
+            <div style={{
+              background: '#fef2f2',
+              border: '1px solid #fca5a5',
+              color: '#dc2626',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              fontSize: '13.5px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '8px',
+            }}>
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+                {t('login_email')}
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                required
+                style={inputStyle('email')}
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+                {t('login_password')}
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                style={inputStyle('password')}
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                marginTop: '6px',
+                width: '100%',
+                background: loading
+                  ? '#93c5fd'
+                  : 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)',
+                color: '#fff',
+                border: 'none',
+                padding: '13px',
+                borderRadius: '9px',
+                fontSize: '15px',
+                fontWeight: '700',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                boxShadow: loading ? 'none' : '0 4px 14px rgba(29,78,216,0.35)',
+                transition: 'all 0.15s',
+                letterSpacing: '0.01em',
+              }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 20px rgba(29,78,216,0.45)' }}
+              onMouseLeave={e => { if (!loading) e.currentTarget.style.boxShadow = '0 4px 14px rgba(29,78,216,0.35)' }}
+            >
+              {loading ? t('login_loading') : t('login_button')}
+            </button>
+          </form>
+
+          <p style={{ marginTop: '40px', fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
+            Quality Inspection Portal © {new Date().getFullYear()}
+          </p>
+        </div>
       </div>
     </div>
   )

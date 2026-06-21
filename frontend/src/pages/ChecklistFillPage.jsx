@@ -125,7 +125,7 @@ export default function ChecklistFillPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+      <div className="page">
         <Navbar />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
           <p style={{ color: '#6b7280' }}>{t('common_loading')}</p>
@@ -136,7 +136,7 @@ export default function ChecklistFillPage() {
 
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+      <div className="page">
         <Navbar />
         <div style={{ maxWidth: '700px', margin: '60px auto', padding: '0 24px', textAlign: 'center' }}>
           <p style={{ color: '#dc2626', fontSize: '16px' }}>{error}</p>
@@ -148,7 +148,7 @@ export default function ChecklistFillPage() {
 
   if (success) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+      <div className="page">
         <Navbar />
         <div style={{ maxWidth: '600px', margin: '80px auto', padding: '0 24px', textAlign: 'center' }}>
           <div style={{
@@ -187,7 +187,7 @@ export default function ChecklistFillPage() {
   const progressPct = items.length > 0 ? Math.round((filledCount / items.length) * 100) : 0
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div className="page">
       <Navbar />
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 24px' }}>

@@ -129,12 +129,12 @@ export default function MapInspectionPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div className="page">
       <Navbar />
-      <div style={{ maxWidth: '700px', margin: '0 auto', padding: '40px 24px' }}>
+      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '36px 28px' }}>
 
         <div style={{ marginBottom: '28px' }}>
-          <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '700', color: '#111827' }}>
+          <h1 className="page-title">
             {t('map_title')}
           </h1>
           <p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: '14px' }}>

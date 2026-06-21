@@ -120,7 +120,7 @@ export default function AdminMastersPage() {
   const colKeys = cfg.fields.map(f => f.key)
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div className="page">
       <Navbar />
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
         <h1 style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '700', color: '#111827' }}>{t('admin_masters_title')}</h1>

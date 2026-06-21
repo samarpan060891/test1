@@ -160,7 +160,7 @@ export default function QAReviewPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+      <div className="page">
         <Navbar />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
           <p style={{ color: '#6b7280' }}>{t('common_loading')}</p>
@@ -171,7 +171,7 @@ export default function QAReviewPage() {
 
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+      <div className="page">
         <Navbar />
         <div style={{ maxWidth: '700px', margin: '60px auto', padding: '0 24px', textAlign: 'center' }}>
           <p style={{ color: '#dc2626' }}>{error}</p>
@@ -183,7 +183,7 @@ export default function QAReviewPage() {
 
   if (success) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+      <div className="page">
         <Navbar />
         <div style={{ maxWidth: '500px', margin: '80px auto', padding: '0 24px', textAlign: 'center' }}>
           <div style={{ backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 1px 8px rgba(0,0,0,0.1)', padding: '48px' }}>
@@ -210,7 +210,7 @@ export default function QAReviewPage() {
   }, {})
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div className="page">
       <Navbar />
 
       <div style={{ maxWidth: '960px', margin: '0 auto', padding: '32px 24px' }}>

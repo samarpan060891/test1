@@ -483,7 +483,7 @@ export default function ChecklistTemplatesPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div className="page">
       <Navbar />
 
       <div style={{ maxWidth: '960px', margin: '0 auto', padding: '32px 24px' }}>

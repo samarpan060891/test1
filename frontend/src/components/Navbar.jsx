@@ -1,128 +1,158 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import LanguageSwitcher from './LanguageSwitcher.jsx'
 
-const roleBadgeColors = {
-  qa: { backgroundColor: '#7c3aed', color: '#fff' },
-  buying: { backgroundColor: '#0891b2', color: '#fff' },
-  agency_user: { backgroundColor: '#059669', color: '#fff' },
-  admin: { backgroundColor: '#dc2626', color: '#fff' }
+const roleMeta = {
+  qa:            { label: 'QA',       bg: '#4f46e5', color: '#fff' },
+  buying:        { label: 'Buying',   bg: '#0284c7', color: '#fff' },
+  agency_user:   { label: 'Agency',   bg: '#059669', color: '#fff' },
+  supplier_user: { label: 'Supplier', bg: '#7c3aed', color: '#fff' },
+  admin:         { label: 'Admin',    bg: '#dc2626', color: '#fff' },
 }
 
 export default function Navbar() {
   const { user, logout } = useAuth()
   const { t } = useLanguage()
   const location = useLocation()
-
-  const navLinkStyle = (path) => ({
-    color: location.pathname === path ? '#93c5fd' : '#e2e8f0',
-    textDecoration: 'none',
-    padding: '6px 12px',
-    borderRadius: '6px',
-    fontSize: '14px',
-    fontWeight: location.pathname === path ? '600' : '400',
-    backgroundColor: location.pathname === path ? 'rgba(255,255,255,0.1)' : 'transparent',
-    transition: 'background-color 0.15s'
-  })
-
   const role = user?.role
+  const [hoveredLink, setHoveredLink] = useState(null)
+
+  const isActive = (path) => location.pathname === path
+
+  const navLink = (to, label, key) => {
+    const active = isActive(to)
+    const hovered = hoveredLink === key
+    return (
+      <Link
+        key={key}
+        to={to}
+        onMouseEnter={() => setHoveredLink(key)}
+        onMouseLeave={() => setHoveredLink(null)}
+        style={{
+          color: active ? '#fff' : hovered ? '#fff' : 'rgba(255,255,255,0.72)',
+          textDecoration: 'none',
+          padding: '6px 13px',
+          borderRadius: '6px',
+          fontSize: '13.5px',
+          fontWeight: active ? '600' : '450',
+          backgroundColor: active
+            ? 'rgba(255,255,255,0.18)'
+            : hovered ? 'rgba(255,255,255,0.1)' : 'transparent',
+          transition: 'all 0.15s',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+      </Link>
+    )
+  }
+
+  const rm = roleMeta[role] || { label: role, bg: '#475569', color: '#fff' }
 
   return (
     <nav style={{
-      backgroundColor: '#1e40af',
-      padding: '0 24px',
-      height: '60px',
+      background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)',
+      padding: '0 28px',
+      height: '62px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+      boxShadow: '0 2px 12px rgba(30,58,138,0.35)',
       position: 'sticky',
       top: 0,
-      zIndex: 100
+      zIndex: 100,
     }}>
-      {/* Left: Title + Nav Links */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-        <span style={{
-          color: '#fff',
-          fontWeight: '700',
-          fontSize: '18px',
-          letterSpacing: '-0.3px'
-        }}>
-          Quality Inspection Portal
-        </span>
+      {/* Left */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+        {/* Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          <div style={{
+            width: '32px', height: '32px',
+            background: 'rgba(255,255,255,0.18)',
+            borderRadius: '8px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '16px',
+          }}>🔍</div>
+          <span style={{
+            color: '#fff',
+            fontWeight: '700',
+            fontSize: '16px',
+            letterSpacing: '-0.2px',
+            whiteSpace: 'nowrap',
+          }}>
+            Quality Inspection Portal
+          </span>
+        </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Link to="/dashboard" style={navLinkStyle('/dashboard')}>{t('nav_dashboard')}</Link>
-          <Link to="/po-log" style={navLinkStyle('/po-log')}>{t('nav_po_log')}</Link>
-
-          {(role === 'qa' || role === 'buying') && (
-            <Link to="/map-inspection" style={navLinkStyle('/map-inspection')}>{t('nav_map_inspection')}</Link>
-          )}
-
-          {(role === 'qa' || role === 'admin') && (
-            <Link to="/checklist-templates" style={navLinkStyle('/checklist-templates')}>
-              {t('nav_checklist_templates')}
-            </Link>
-          )}
-
-          {(role === 'qa' || role === 'buying' || role === 'agency_user' || role === 'admin') && (
-            <Link to="/inspection-costs" style={navLinkStyle('/inspection-costs')}>{t('nav_inspection_costs')}</Link>
-          )}
-
-          {role === 'supplier_user' && (
-            <Link to="/inspection-costs" style={navLinkStyle('/inspection-costs')}>Inspection Charges</Link>
-          )}
-
-          {role === 'admin' && (
-            <>
-              <Link to="/admin/users" style={navLinkStyle('/admin/users')}>{t('nav_users')}</Link>
-              <Link to="/admin/masters" style={navLinkStyle('/admin/masters')}>{t('nav_masters')}</Link>
-            </>
-          )}
+        {/* Nav links */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+          {navLink('/dashboard', t('nav_dashboard'), 'dash')}
+          {navLink('/po-log', t('nav_po_log'), 'po')}
+          {(role === 'qa' || role === 'buying') && navLink('/map-inspection', t('nav_map_inspection'), 'map')}
+          {(role === 'qa' || role === 'admin') && navLink('/checklist-templates', t('nav_checklist_templates'), 'tmpl')}
+          {(role === 'qa' || role === 'buying' || role === 'agency_user' || role === 'admin') &&
+            navLink('/inspection-costs', t('nav_inspection_costs'), 'costs')}
+          {role === 'supplier_user' && navLink('/inspection-costs', 'Inspection Charges', 'costs-s')}
+          {role === 'admin' && navLink('/admin/users', t('nav_users'), 'users')}
+          {role === 'admin' && navLink('/admin/masters', t('nav_masters'), 'masters')}
         </div>
       </div>
 
-      {/* Right: User info + Logout */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      {/* Right */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         {user && (
           <>
-            <span style={{ color: '#e2e8f0', fontSize: '14px' }}>
+            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user.email}
             </span>
             <span style={{
-              ...(roleBadgeColors[user.role] || { backgroundColor: '#374151', color: '#fff' }),
+              backgroundColor: rm.bg,
+              color: rm.color,
               padding: '3px 10px',
               borderRadius: '9999px',
-              fontSize: '12px',
-              fontWeight: '600',
+              fontSize: '11px',
+              fontWeight: '700',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em'
+              letterSpacing: '0.06em',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
             }}>
-              {user.role?.replace('_', ' ')}
+              {rm.label}
             </span>
           </>
         )}
-        <LanguageSwitcher />
-        <Link to="/change-password" style={{ ...navLinkStyle('/change-password'), fontSize: '13px', padding: '5px 10px' }}>
+        <div style={{ opacity: 0.85 }}><LanguageSwitcher /></div>
+        <Link
+          to="/change-password"
+          style={{
+            color: 'rgba(255,255,255,0.72)',
+            textDecoration: 'none',
+            fontSize: '13px',
+            padding: '5px 10px',
+            borderRadius: '6px',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; e.currentTarget.style.background = 'transparent' }}
+        >
           {t('nav_change_password')}
         </Link>
         <button
           onClick={logout}
           style={{
-            backgroundColor: 'rgba(255,255,255,0.15)',
+            background: 'rgba(255,255,255,0.12)',
             color: '#fff',
-            border: '1px solid rgba(255,255,255,0.3)',
-            padding: '6px 14px',
-            borderRadius: '6px',
+            border: '1px solid rgba(255,255,255,0.25)',
+            padding: '6px 16px',
+            borderRadius: '7px',
             fontSize: '13px',
+            fontWeight: '600',
             cursor: 'pointer',
-            fontWeight: '500',
-            transition: 'background-color 0.15s'
+            transition: 'all 0.15s',
           }}
-          onMouseEnter={e => e.target.style.backgroundColor = 'rgba(255,255,255,0.25)'}
-          onMouseLeave={e => e.target.style.backgroundColor = 'rgba(255,255,255,0.15)'}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)' }}
         >
           {t('nav_logout')}
         </button>

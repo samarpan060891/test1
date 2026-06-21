@@ -7,32 +7,35 @@ import { getJobs } from '../api/inspectionJobs.js'
 import { getNotifications } from '../api/notifications.js'
 import client from '../api/client.js'
 
-const statusColors = {
-  mapped_awaiting_inspection: { backgroundColor: '#dbeafe', color: '#1d4ed8' },
-  submitted_pending_qa: { backgroundColor: '#fef3c7', color: '#d97706' },
-  qa_approved: { backgroundColor: '#d1fae5', color: '#065f46' },
-  qa_rejected: { backgroundColor: '#fee2e2', color: '#dc2626' }
+const STATUS_META = {
+  mapped_awaiting_inspection: { label: 'Awaiting Inspection', bg: '#eff6ff', color: '#1d4ed8' },
+  submitted_pending_qa:       { label: 'Pending QA Review',  bg: '#fefce8', color: '#92400e' },
+  qa_approved:                { label: 'Approved',           bg: '#f0fdf4', color: '#15803d' },
+  qa_rejected:                { label: 'Rejected',           bg: '#fef2f2', color: '#dc2626' },
 }
 
-const statusLabel = {
-  mapped_awaiting_inspection: 'Awaiting Inspection',
-  submitted_pending_qa: 'Pending QA Review',
-  qa_approved: 'Approved',
-  qa_rejected: 'Rejected'
+const STAGE_META = {
+  pre_production: { label: 'Pre-Prod', bg: '#fefce8', color: '#92400e' },
+  inline:         { label: 'Inline',   bg: '#eff6ff', color: '#1d4ed8' },
+  final:          { label: 'Final',    bg: '#f0fdf4', color: '#15803d' },
+  loading:        { label: 'Loading',  bg: '#faf5ff', color: '#7e22ce' },
 }
 
 function StatusBadge({ status }) {
-  const style = statusColors[status] || { backgroundColor: '#f3f4f6', color: '#374151' }
+  const m = STATUS_META[status] || { label: status, bg: '#f1f5f9', color: '#475569' }
   return (
-    <span style={{
-      ...style,
-      padding: '3px 10px',
-      borderRadius: '9999px',
-      fontSize: '12px',
-      fontWeight: '600',
-      whiteSpace: 'nowrap'
-    }}>
-      {statusLabel[status] || status}
+    <span style={{ background: m.bg, color: m.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+      {m.label}
+    </span>
+  )
+}
+
+function StageBadge({ stage, t }) {
+  const m = STAGE_META[stage]
+  if (!m) return <span style={{ color: '#94a3b8', fontSize: '12px' }}>—</span>
+  return (
+    <span style={{ background: m.bg, color: m.color, padding: '2px 9px', borderRadius: '5px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+      {m.label}
     </span>
   )
 }
@@ -66,8 +69,8 @@ export default function DashboardPage() {
 
   const totalJobs = jobs.length
   const pendingQA = jobs.filter(j => j.status === 'submitted_pending_qa').length
-  const approved = jobs.filter(j => j.status === 'qa_approved').length
-  const rejected = jobs.filter(j => j.status === 'qa_rejected').length
+  const approved  = jobs.filter(j => j.status === 'qa_approved').length
+  const rejected  = jobs.filter(j => j.status === 'qa_rejected').length
 
   const [downloading, setDownloading] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -86,7 +89,7 @@ export default function DashboardPage() {
       a.href = url
       const suffix = dateFrom || dateTo
         ? `_${dateFrom || 'start'}_to_${dateTo || 'today'}`
-        : `_${new Date().toISOString().slice(0,10)}`
+        : `_${new Date().toISOString().slice(0, 10)}`
       a.download = `Quality_Inspection_Summary${suffix}.xlsx`
       a.click()
       window.URL.revokeObjectURL(url)
@@ -98,212 +101,134 @@ export default function DashboardPage() {
     }
   }
 
-  const statCard = (label, value, color) => (
-    <div style={{
-      backgroundColor: '#fff',
-      borderRadius: '10px',
-      padding: '20px 24px',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-      borderLeft: `4px solid ${color}`,
-      minWidth: '140px',
-      flex: 1
-    }}>
-      <p style={{ margin: 0, fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>{label}</p>
-      <p style={{ margin: '4px 0 0', fontSize: '32px', fontWeight: '700', color }}>{value}</p>
-    </div>
-  )
-
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div className="page">
       <Navbar />
 
-      <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '32px 24px' }}>
+      <div className="page-content">
         {/* Page header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+        <div className="flex-between mb-6" style={{ flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '700', color: '#111827' }}>{t('dashboard_title')}</h1>
-            <p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: '14px' }}>
-              {t('dashboard_welcome')}, {user?.email}
-            </p>
+            <h1 className="page-title">{t('dashboard_title')}</h1>
+            <p className="page-subtitle">{t('dashboard_welcome')}, <strong>{user?.email}</strong></p>
           </div>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Download button */}
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setShowDatePicker(p => !p)}
                 disabled={downloading}
-                style={{
-                  backgroundColor: downloading ? '#6b7280' : '#059669',
-                  color: '#fff',
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: downloading ? 'not-allowed' : 'pointer'
-                }}
+                className="btn btn-success"
               >
-                {downloading ? t('common_loading') : '⬇ Download Summary'}
+                {downloading ? '⏳ Downloading…' : '⬇ Download Summary'}
               </button>
 
               {showDatePicker && (
                 <div style={{
                   position: 'absolute', top: '44px', right: 0, zIndex: 50,
-                  backgroundColor: '#fff', borderRadius: '10px',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                  padding: '16px', width: '280px', border: '1px solid #e5e7eb'
+                  background: '#fff', borderRadius: '12px',
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
+                  padding: '20px', width: '290px',
+                  border: '1px solid #e2e8f0',
                 }}>
-                  <p style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: '700', color: '#111827' }}>Select Period (optional)</p>
-                  <div style={{ marginBottom: '10px' }}>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase' }}>From</label>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={e => setDateFrom(e.target.value)}
-                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}
-                    />
+                  <p style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Select Date Range</p>
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>From</label>
+                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input" style={{ padding: '8px 12px', fontSize: '13px' }} />
                   </div>
-                  <div style={{ marginBottom: '14px' }}>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase' }}>To</label>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={e => setDateTo(e.target.value)}
-                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}
-                    />
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>To</label>
+                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input" style={{ padding: '8px 12px', fontSize: '13px' }} />
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={handleDownloadReport} disabled={downloading} style={{
-                      flex: 1, backgroundColor: '#059669', color: '#fff', border: 'none',
-                      padding: '8px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer'
-                    }}>
-                      {downloading ? 'Downloading...' : '⬇ Download'}
+                    <button onClick={handleDownloadReport} disabled={downloading} className="btn btn-success" style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }}>
+                      {downloading ? 'Downloading…' : '⬇ Download'}
                     </button>
-                    <button onClick={() => { setShowDatePicker(false); setDateFrom(''); setDateTo('') }} style={{
-                      flex: 1, backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb',
-                      padding: '8px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer'
-                    }}>
+                    <button onClick={() => { setShowDatePicker(false); setDateFrom(''); setDateTo('') }} className="btn btn-ghost" style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }}>
                       Cancel
                     </button>
                   </div>
-                  <p style={{ margin: '10px 0 0', fontSize: '11px', color: '#9ca3af', textAlign: 'center' }}>Leave blank to download all data</p>
+                  <p style={{ margin: '12px 0 0', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>Leave blank to download all data</p>
                 </div>
               )}
             </div>
+
             {(user?.role === 'qa' || user?.role === 'buying') && (
-              <Link
-                to="/map-inspection"
-                style={{
-                  backgroundColor: '#1e40af',
-                  color: '#fff',
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  textDecoration: 'none',
-                  fontSize: '14px',
-                  fontWeight: '600'
-                }}
-              >
+              <Link to="/map-inspection" className="btn btn-primary">
                 + Map New Inspection
               </Link>
             )}
           </div>
         </div>
 
-        {/* Stats row */}
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '28px', flexWrap: 'wrap' }}>
-          {statCard(t('dashboard_total_jobs'), totalJobs, '#1e40af')}
-          {statCard(t('dashboard_pending_qa'), pendingQA, '#d97706')}
-          {statCard(t('dashboard_approved'), approved, '#059669')}
-          {statCard(t('dashboard_rejected'), rejected, '#dc2626')}
+        {/* Stats */}
+        <div className="stat-grid mb-6">
+          <div className="stat-card blue">
+            <div className="stat-label">{t('dashboard_total_jobs')}</div>
+            <div className="stat-value">{totalJobs}</div>
+          </div>
+          <div className="stat-card amber">
+            <div className="stat-label">{t('dashboard_pending_qa')}</div>
+            <div className="stat-value">{pendingQA}</div>
+          </div>
+          <div className="stat-card green">
+            <div className="stat-label">{t('dashboard_approved')}</div>
+            <div className="stat-value">{approved}</div>
+          </div>
+          <div className="stat-card red">
+            <div className="stat-label">{t('dashboard_rejected')}</div>
+            <div className="stat-value">{rejected}</div>
+          </div>
         </div>
 
-        {/* Main content: table + notifications */}
+        {/* Main layout */}
         <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
           {/* Jobs table */}
-          <div style={{ flex: 1, backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
-              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#111827' }}>{t('dashboard_inspection_jobs')}</h2>
+          <div className="card" style={{ flex: 1, overflow: 'hidden' }}>
+            <div className="card-header">
+              <h2 className="section-title">{t('dashboard_inspection_jobs')}</h2>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>{jobs.length} total</span>
             </div>
 
             {loading ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>{t('common_loading')}</div>
+              <div className="loading-center"><div className="spinner" /></div>
             ) : error ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#dc2626' }}>{error}</div>
+              <div style={{ padding: '32px 24px' }}><div className="alert alert-error">{error}</div></div>
             ) : jobs.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>{t('dashboard_no_jobs')}</div>
+              <div className="empty-state">
+                <div style={{ fontSize: '40px' }}>📋</div>
+                <p>{t('dashboard_no_jobs')}</p>
+              </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div className="table-wrap">
+                <table className="data-table">
                   <thead>
-                    <tr style={{ backgroundColor: '#f9fafb' }}>
+                    <tr>
                       {[t('th_job_id'), t('th_stage'), t('th_po_no'), t('th_item'), t('th_supplier'), t('th_agency'), t('th_status'), t('th_date'), t('th_actions')].map(h => (
-                        <th key={h} style={{
-                          padding: '12px 16px',
-                          textAlign: 'left',
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          color: '#6b7280',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                          borderBottom: '1px solid #e5e7eb',
-                          whiteSpace: 'nowrap'
-                        }}>{h}</th>
+                        <th key={h}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {jobs.map((job, idx) => (
-                      <tr key={job.job_id || job.id || idx} style={{
-                        borderBottom: '1px solid #f3f4f6',
-                        transition: 'background-color 0.1s'
-                      }}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                        onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
-                      >
-                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#374151', fontFamily: 'monospace' }}>
-                          {job.job_ref || String(job.job_id || '').slice(0, 8) + '...'}
+                      <tr key={job.job_id || job.id || idx}>
+                        <td className="text-mono" style={{ color: '#475569' }}>
+                          {job.job_ref || String(job.job_id || '').slice(0, 8) + '…'}
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          {job.inspection_stage ? (
-                            <span style={{
-                              fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px',
-                              backgroundColor: { pre_production: '#fef3c7', inline: '#dbeafe', final: '#dcfce7', loading: '#f3e8ff' }[job.inspection_stage] || '#f3f4f6',
-                              color: { pre_production: '#92400e', inline: '#1e40af', final: '#166534', loading: '#6b21a8' }[job.inspection_stage] || '#374151',
-                            }}>
-                              {({ pre_production: t('stage_pre_production'), inline: t('stage_inline'), final: t('stage_final'), loading: t('stage_loading') })[job.inspection_stage] || job.inspection_stage}
-                            </span>
-                          ) : <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>}
+                        <td><StageBadge stage={job.inspection_stage} t={t} /></td>
+                        <td style={{ fontWeight: '600', color: '#0f172a' }}>{job.po_no || '—'}</td>
+                        <td>{job.item_code || '—'}</td>
+                        <td>{job.supplier_code || '—'}</td>
+                        <td>{job.agency_code || '—'}</td>
+                        <td><StatusBadge status={job.status} /></td>
+                        <td style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                          {job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : '—'}
                         </td>
-                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#374151', fontWeight: '500' }}>
-                          {job.po_no || '-'}
-                        </td>
-                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#374151' }}>
-                          {job.item_code || '-'}
-                        </td>
-                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#374151' }}>
-                          {job.supplier_code || '-'}
-                        </td>
-                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#374151' }}>
-                          {job.agency_code || '-'}
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <StatusBadge status={job.status} />
-                        </td>
-                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#6b7280', whiteSpace: 'nowrap' }}>
-                          {job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : '-'}
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>
+                        <td>
                           <Link
                             to={`/jobs/${job.job_id || job.id}`}
-                            style={{
-                              color: '#1e40af',
-                              fontSize: '13px',
-                              fontWeight: '500',
-                              textDecoration: 'none',
-                              padding: '4px 10px',
-                              border: '1px solid #bfdbfe',
-                              borderRadius: '5px',
-                              backgroundColor: '#eff6ff'
-                            }}
+                            className="btn btn-outline btn-sm"
                           >
                             {t('th_view')}
                           </Link>
@@ -316,36 +241,33 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Notifications panel */}
-          <div style={{
-            width: '300px',
-            flexShrink: 0,
-            backgroundColor: '#fff',
-            borderRadius: '10px',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-            overflow: 'hidden'
-          }}>
-            <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #e5e7eb' }}>
-              <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '600', color: '#111827' }}>
-                {t('dashboard_notifications')}
-              </h2>
+          {/* Notifications */}
+          <div className="card" style={{ width: '300px', flexShrink: 0, overflow: 'hidden' }}>
+            <div className="card-header">
+              <h2 className="section-title">{t('dashboard_notifications')}</h2>
+              {notifications.length > 0 && (
+                <span style={{
+                  background: '#1d4ed8', color: '#fff',
+                  fontSize: '11px', fontWeight: '700',
+                  padding: '2px 8px', borderRadius: '9999px',
+                }}>
+                  {notifications.length}
+                </span>
+              )}
             </div>
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
               {notifications.length === 0 ? (
-                <div style={{ padding: '32px 20px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>
-                  {t('dashboard_no_notifications')}
+                <div className="empty-state" style={{ padding: '36px 20px' }}>
+                  <div style={{ fontSize: '32px' }}>🔔</div>
+                  <p>{t('dashboard_no_notifications')}</p>
                 </div>
               ) : (
                 notifications.map((n, idx) => (
-                  <div key={n.id || idx} style={{
-                    padding: '14px 20px',
-                    borderBottom: '1px solid #f3f4f6',
-                    borderLeft: `3px solid ${n.read ? '#e5e7eb' : '#3b82f6'}`
-                  }}>
-                    <p style={{ margin: 0, fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>
+                  <div key={n.id || idx} className={`notif-item ${!n.read ? 'unread' : ''}`}>
+                    <p className="notif-text">
                       {n.message || n.body || n.event_type || JSON.stringify(n)}
                     </p>
-                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#9ca3af' }}>
+                    <p className="notif-time">
                       {new Date(n.sent_at || n.created_at).toLocaleString()}
                     </p>
                   </div>

@@ -31,7 +31,7 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div className="page">
       <Navbar />
       <div style={{ maxWidth: '480px', margin: '60px auto', padding: '0 24px' }}>
         <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '36px', boxShadow: '0 1px 6px rgba(0,0,0,0.1)' }}>
