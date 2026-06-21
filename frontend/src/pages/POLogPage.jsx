@@ -48,6 +48,8 @@ export default function POLogPage() {
 
   useEffect(() => {
     fetchLogs(appliedPoNo, appliedJobId)
+    const interval = setInterval(() => fetchLogs(appliedPoNo, appliedJobId), 30000)
+    return () => clearInterval(interval)
   }, [appliedPoNo, appliedJobId])
 
   const handleFilter = (e) => {

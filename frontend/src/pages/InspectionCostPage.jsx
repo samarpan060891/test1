@@ -80,7 +80,13 @@ export default function InspectionCostPage() {
     } catch {} finally { setJobsLoading(false) }
   }
 
-  useEffect(() => { load(); loadEligibleJobs() }, [])
+  useEffect(() => {
+    load(); loadEligibleJobs()
+    const interval = setInterval(() => {
+      load(); loadEligibleJobs()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   const loadContracts = async () => {
     try {

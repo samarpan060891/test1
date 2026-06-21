@@ -97,13 +97,17 @@ export default function JobDetailPage() {
       .finally(() => setLogsLoading(false))
   }
 
-  useEffect(() => {
+  const fetchJob = () => {
     getJob(id)
       .then(res => setJob(res.data?.job || res.data))
       .catch(() => setError('Failed to load job details.'))
       .finally(() => setJobLoading(false))
+  }
 
-    fetchLogs()
+  useEffect(() => {
+    fetchJob(); fetchLogs()
+    const interval = setInterval(() => { fetchJob(); fetchLogs() }, 30000)
+    return () => clearInterval(interval)
   }, [id])
 
   const handleLogSubmit = async (e) => {

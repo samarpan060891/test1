@@ -25,7 +25,11 @@ export default function AdminUsersPage() {
     getUsers().then(r => setUsers(r.data)).catch(() => {}).finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    const interval = setInterval(load, 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   const openCreate = () => { setEditUser(null); setForm(emptyForm); setError(''); setShowForm(true) }
   const openEdit = (u) => {

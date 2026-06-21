@@ -78,6 +78,8 @@ export default function AdminMastersPage() {
     setFormMsg('')
     setBulkMsg('')
     load()
+    const interval = setInterval(load, 60000)
+    return () => clearInterval(interval)
   }, [activeTab])
 
   const handleSingle = async (e) => {
