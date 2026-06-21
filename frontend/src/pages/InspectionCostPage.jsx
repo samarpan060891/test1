@@ -7,7 +7,7 @@ import { getAdvices, createAdvice, approveAdvice, rejectAdvice, getContracts, cr
 import { getJobs } from '../api/inspectionJobs.js'
 
 const STATUS_META = {
-  pending_qa:     { bg: '#eff6ff', color: '#1d4ed8', label: 'Pending QA' },
+  pending_qa:     { bg: '#FEF0EB', color: '#E8470F', label: 'Pending QA' },
   pending_buying: { bg: '#fefce8', color: '#92400e', label: 'Pending Buying' },
   approved:       { bg: '#f0fdf4', color: '#15803d', label: 'Approved' },
   rejected:       { bg: '#fef2f2', color: '#991b1b', label: 'Rejected' },
@@ -209,7 +209,7 @@ export default function InspectionCostPage() {
                       <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>Raised on {new Date(a.created_at).toLocaleDateString()}</p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
                         {(a.jobs || []).map(j => (
-                          <span key={j.job_id} style={{ background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: '5px', fontSize: '12px', fontWeight: '600' }}>
+                          <span key={j.job_id} style={{ background: '#FEF0EB', color: '#E8470F', padding: '2px 8px', borderRadius: '5px', fontSize: '12px', fontWeight: '600' }}>
                             {j.job_ref || j.po_no}
                           </span>
                         ))}
@@ -267,7 +267,7 @@ export default function InspectionCostPage() {
                   <tbody>
                     {eligibleJobs.map(j => (
                       <tr key={j.job_id}>
-                        <td className="text-mono" style={{ fontWeight: '700', color: '#1d4ed8' }}>{j.job_ref || j.job_id?.slice(0, 8)}</td>
+                        <td className="text-mono" style={{ fontWeight: '700', color: '#E8470F' }}>{j.job_ref || j.job_id?.slice(0, 8)}</td>
                         <td style={{ fontWeight: '600' }}>{j.po_no}</td>
                         <td>{j.item_name || '—'}</td>
                         <td style={{ color: '#64748b' }}>{j.supplier_name || j.supplier_code}</td>
@@ -275,8 +275,8 @@ export default function InspectionCostPage() {
                         <td style={{ textTransform: 'capitalize', color: '#64748b' }}>{j.inspection_stage || '—'}</td>
                         <td>
                           <span style={{
-                            background: j.status === 'qa_approved' ? '#f0fdf4' : j.status === 'qa_rejected' ? '#fef2f2' : '#eff6ff',
-                            color: j.status === 'qa_approved' ? '#15803d' : j.status === 'qa_rejected' ? '#991b1b' : '#1d4ed8',
+                            background: j.status === 'qa_approved' ? '#f0fdf4' : j.status === 'qa_rejected' ? '#fef2f2' : '#FEF0EB',
+                            color: j.status === 'qa_approved' ? '#15803d' : j.status === 'qa_rejected' ? '#991b1b' : '#E8470F',
                             padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700',
                           }}>
                             {j.status === 'qa_approved' ? 'QA Approved' : j.status === 'qa_rejected' ? 'QA Rejected' : 'Submitted'}
@@ -461,7 +461,7 @@ export default function InspectionCostPage() {
                     </p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {(a.jobs || []).map(j => (
-                        <span key={j.job_id} style={{ background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: '5px', fontSize: '12px', fontWeight: '600' }}>
+                        <span key={j.job_id} style={{ background: '#FEF0EB', color: '#E8470F', padding: '2px 8px', borderRadius: '5px', fontSize: '12px', fontWeight: '600' }}>
                           {j.job_ref || j.po_no}
                         </span>
                       ))}

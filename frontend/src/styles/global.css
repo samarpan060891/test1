@@ -1,10 +1,17 @@
 /* ─── Design Tokens ─────────────────────────────────────────────── */
 :root {
-  --primary:        #1e3a8a;
-  --primary-mid:    #1d4ed8;
-  --primary-light:  #3b82f6;
-  --primary-faint:  #eff6ff;
-  --accent:         #0ea5e9;
+  /* homesrus brand */
+  --brand-dark:     #1C1208;   /* espresso brown — navbar, headings */
+  --brand-mid:      #2E1D0E;   /* slightly lighter brown */
+  --brand-orange:   #E8470F;   /* accent orange — CTAs, active, highlights */
+  --brand-orange-hover: #C93A08;
+  --brand-orange-faint: #FEF0EB;
+
+  --primary:        #1C1208;
+  --primary-mid:    #E8470F;
+  --primary-light:  #F47043;
+  --primary-faint:  #FEF0EB;
+  --accent:         #E8470F;
 
   --success:        #059669;
   --success-faint:  #ecfdf5;
@@ -95,8 +102,8 @@ body {
   line-height: 1;
 }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.btn-primary { background: var(--primary-mid); color: var(--white); }
-.btn-primary:hover:not(:disabled) { background: var(--primary); }
+.btn-primary { background: var(--brand-orange); color: var(--white); }
+.btn-primary:hover:not(:disabled) { background: var(--brand-orange-hover); }
 .btn-success { background: var(--success); color: var(--white); }
 .btn-success:hover:not(:disabled) { background: #047857; }
 .btn-warning { background: var(--warning); color: var(--white); }
@@ -105,8 +112,8 @@ body {
 .btn-danger:hover:not(:disabled) { background: #b91c1c; }
 .btn-ghost { background: var(--gray-100); color: var(--gray-700); border: 1px solid var(--gray-200); }
 .btn-ghost:hover:not(:disabled) { background: var(--gray-200); }
-.btn-outline { background: transparent; color: var(--primary-mid); border: 1px solid var(--primary-light); }
-.btn-outline:hover:not(:disabled) { background: var(--primary-faint); }
+.btn-outline { background: transparent; color: var(--brand-orange); border: 1px solid var(--brand-orange); }
+.btn-outline:hover:not(:disabled) { background: var(--brand-orange-faint); }
 .btn-sm { padding: 6px 13px; font-size: 13px; border-radius: var(--radius-sm); }
 .btn-lg { padding: 12px 28px; font-size: 15px; }
 
@@ -129,8 +136,8 @@ body {
   font-family: inherit;
 }
 .input:focus, .select:focus, .textarea:focus {
-  border-color: var(--primary-light);
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  border-color: var(--brand-orange);
+  box-shadow: 0 0 0 3px rgba(232,71,15,0.12);
 }
 .textarea { resize: vertical; }
 
@@ -176,7 +183,7 @@ table.data-table tbody tr:hover td { background: var(--gray-50); }
 .alert-error   { background: var(--danger-faint);  border: 1px solid #fca5a5; color: var(--danger); }
 .alert-success { background: var(--success-faint); border: 1px solid #6ee7b7; color: var(--success); }
 .alert-warning { background: var(--warning-faint); border: 1px solid #fcd34d; color: var(--warning); }
-.alert-info    { background: var(--primary-faint); border: 1px solid #bfdbfe; color: var(--primary); }
+.alert-info    { background: var(--brand-orange-faint); border: 1px solid #f4a07a; color: var(--brand-orange-hover); }
 
 /* ─── Modal overlay ─────────────────────────────────────────────── */
 .modal-overlay {
@@ -213,13 +220,13 @@ table.data-table tbody tr:hover td { background: var(--gray-50); }
   top: 0; left: 0; right: 0;
   height: 3px;
 }
-.stat-card.blue::before  { background: var(--primary-mid); }
+.stat-card.blue::before  { background: var(--brand-orange); }
 .stat-card.amber::before { background: var(--warning); }
 .stat-card.green::before { background: var(--success); }
 .stat-card.red::before   { background: var(--danger); }
 .stat-label { font-size: 12px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.05em; }
 .stat-value { font-size: 34px; font-weight: 800; margin-top: 6px; letter-spacing: -1px; }
-.stat-card.blue  .stat-value { color: var(--primary-mid); }
+.stat-card.blue  .stat-value { color: var(--brand-orange); }
 .stat-card.amber .stat-value { color: var(--warning); }
 .stat-card.green .stat-value { color: var(--success); }
 .stat-card.red   .stat-value { color: var(--danger); }
@@ -230,7 +237,7 @@ table.data-table tbody tr:hover td { background: var(--gray-50); }
 
 /* ─── Breadcrumb ────────────────────────────────────────────────── */
 .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 20px; }
-.breadcrumb a { color: var(--primary-mid); text-decoration: none; }
+.breadcrumb a { color: var(--brand-orange); text-decoration: none; }
 .breadcrumb a:hover { text-decoration: underline; }
 .breadcrumb-sep { color: var(--gray-400); }
 .breadcrumb-current { color: var(--gray-500); }
@@ -247,9 +254,9 @@ table.data-table tbody tr:hover td { background: var(--gray-50); }
   position: absolute; left: -20px; top: 5px;
   width: 12px; height: 12px;
   border-radius: 50%;
-  background: var(--primary-light);
+  background: var(--brand-orange);
   border: 2px solid var(--white);
-  box-shadow: 0 0 0 2px var(--primary-light);
+  box-shadow: 0 0 0 2px var(--brand-orange);
 }
 .timeline-card {
   background: var(--gray-50);
@@ -265,7 +272,7 @@ table.data-table tbody tr:hover td { background: var(--gray-50); }
   border-left: 3px solid transparent;
   transition: background 0.1s;
 }
-.notif-item.unread { border-left-color: var(--primary-light); background: #fafcff; }
+.notif-item.unread { border-left-color: var(--brand-orange); background: #fff9f7; }
 .notif-item:hover { background: var(--gray-50); }
 .notif-text { font-size: 13px; color: var(--gray-700); line-height: 1.45; }
 .notif-time { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
@@ -275,7 +282,7 @@ table.data-table tbody tr:hover td { background: var(--gray-50); }
 .spinner {
   width: 32px; height: 32px;
   border: 3px solid var(--gray-200);
-  border-top-color: var(--primary-mid);
+  border-top-color: var(--brand-orange);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }

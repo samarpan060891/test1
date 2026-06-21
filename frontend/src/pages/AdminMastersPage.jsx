@@ -131,9 +131,9 @@ export default function AdminMastersPage() {
           {TABS.map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               padding: '10px 20px', fontSize: '14px', fontWeight: activeTab === tab ? '700' : '500',
-              color: activeTab === tab ? '#1e40af' : '#6b7280',
+              color: activeTab === tab ? '#1C1208' : '#6b7280',
               backgroundColor: 'transparent', border: 'none', cursor: 'pointer',
-              borderBottom: activeTab === tab ? '2px solid #1e40af' : '2px solid transparent',
+              borderBottom: activeTab === tab ? '2px solid #1C1208' : '2px solid transparent',
               marginBottom: '-2px'
             }}>{tab}</button>
           ))}
@@ -165,7 +165,7 @@ export default function AdminMastersPage() {
                   <p style={{ margin: '0 0 10px', fontSize: '13px', color: formMsg.includes('success') ? '#059669' : '#dc2626' }}>{formMsg}</p>
                 )}
                 <button type="submit" disabled={saving} style={{
-                  width: '100%', backgroundColor: saving ? '#93c5fd' : '#1e40af', color: '#fff',
+                  width: '100%', backgroundColor: saving ? '#93c5fd' : '#1C1208', color: '#fff',
                   border: 'none', padding: '9px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer'
                 }}>
                   {saving ? t('common_saving') : t('admin_save')}

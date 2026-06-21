@@ -269,11 +269,11 @@ export default function MapInspectionPage() {
                       onClick={() => { setInspectionType(opt.value); setSelectedAgency(null) }}
                       style={{
                         flex: 1, padding: '14px 16px', borderRadius: '8px', cursor: 'pointer',
-                        border: `2px solid ${inspectionType === opt.value ? '#1e40af' : '#e5e7eb'}`,
-                        backgroundColor: inspectionType === opt.value ? '#eff6ff' : '#fff',
+                        border: `2px solid ${inspectionType === opt.value ? '#1C1208' : '#e5e7eb'}`,
+                        backgroundColor: inspectionType === opt.value ? '#FEF0EB' : '#fff',
                       }}
                     >
-                      <div style={{ fontWeight: '600', fontSize: '14px', color: inspectionType === opt.value ? '#1e40af' : '#374151', marginBottom: '4px' }}>
+                      <div style={{ fontWeight: '600', fontSize: '14px', color: inspectionType === opt.value ? '#1C1208' : '#374151', marginBottom: '4px' }}>
                         {opt.label}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>{opt.desc}</div>
@@ -305,12 +305,12 @@ export default function MapInspectionPage() {
                     <label key={stage.key} onClick={() => toggleStage(stage.key)} style={{
                       display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 16px',
                       borderRadius: '8px', cursor: 'pointer',
-                      border: `2px solid ${selectedStages.includes(stage.key) ? '#1e40af' : '#e5e7eb'}`,
-                      backgroundColor: selectedStages.includes(stage.key) ? '#eff6ff' : '#fff',
+                      border: `2px solid ${selectedStages.includes(stage.key) ? '#1C1208' : '#e5e7eb'}`,
+                      backgroundColor: selectedStages.includes(stage.key) ? '#FEF0EB' : '#fff',
                     }}>
-                      <input type="checkbox" checked={selectedStages.includes(stage.key)} onChange={() => {}} style={{ marginTop: '2px', accentColor: '#1e40af', width: '16px', height: '16px', flexShrink: 0 }} />
+                      <input type="checkbox" checked={selectedStages.includes(stage.key)} onChange={() => {}} style={{ marginTop: '2px', accentColor: '#1C1208', width: '16px', height: '16px', flexShrink: 0 }} />
                       <div>
-                        <div style={{ fontWeight: '600', fontSize: '14px', color: selectedStages.includes(stage.key) ? '#1e40af' : '#374151' }}>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: selectedStages.includes(stage.key) ? '#1C1208' : '#374151' }}>
                           {idx + 1}. {stage.label}
                         </div>
                         <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{stage.desc}</div>
@@ -319,7 +319,7 @@ export default function MapInspectionPage() {
                   ))}
                 </div>
                 {selectedStages.length > 1 && (
-                  <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#1d4ed8', fontWeight: '500' }}>
+                  <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#E8470F', fontWeight: '500' }}>
                     {t('map_stages_selected') || `${selectedStages.length} stages selected — ${selectedStages.length} separate jobs will be created`}
                   </p>
                 )}
@@ -335,7 +335,7 @@ export default function MapInspectionPage() {
                   value={inspectionDate}
                   onChange={e => setInspectionDate(e.target.value)}
                   style={inputStyle}
-                  onFocus={e => e.target.style.borderColor = '#1e40af'}
+                  onFocus={e => e.target.style.borderColor = '#1C1208'}
                   onBlur={e => e.target.style.borderColor = '#d1d5db'}
                 />
               </div>
@@ -345,7 +345,7 @@ export default function MapInspectionPage() {
                   type="submit"
                   disabled={loading}
                   style={{
-                    backgroundColor: loading ? '#93c5fd' : '#1e40af',
+                    backgroundColor: loading ? '#93c5fd' : '#1C1208',
                     color: '#fff', border: 'none', padding: '11px 28px',
                     borderRadius: '7px', fontSize: '14px', fontWeight: '600',
                     cursor: loading ? 'not-allowed' : 'pointer',

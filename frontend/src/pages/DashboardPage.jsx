@@ -247,7 +247,7 @@ export default function DashboardPage() {
               <h2 className="section-title">{t('dashboard_notifications')}</h2>
               {notifications.length > 0 && (
                 <span style={{
-                  background: '#1d4ed8', color: '#fff',
+                  background: '#E8470F', color: '#fff',
                   fontSize: '11px', fontWeight: '700',
                   padding: '2px 8px', borderRadius: '9999px',
                 }}>

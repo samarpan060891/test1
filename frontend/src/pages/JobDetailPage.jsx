@@ -12,7 +12,7 @@ import client from '../api/client.js'
 import { generateInspectionReport } from '../utils/generateInspectionReport.js'
 
 const STATUS_META = {
-  mapped_awaiting_inspection: { label: 'Awaiting Inspection', bg: '#eff6ff', color: '#1d4ed8' },
+  mapped_awaiting_inspection: { label: 'Awaiting Inspection', bg: '#FEF0EB', color: '#E8470F' },
   submitted_pending_qa:       { label: 'Pending QA Review',  bg: '#fefce8', color: '#92400e' },
   qa_approved:                { label: 'Approved',           bg: '#f0fdf4', color: '#15803d' },
   qa_rejected:                { label: 'Rejected',           bg: '#fef2f2', color: '#dc2626' },
@@ -20,7 +20,7 @@ const STATUS_META = {
 
 const STAGE_META = {
   pre_production: { label: 'Pre-Production', bg: '#fefce8', color: '#92400e' },
-  inline:         { label: 'Inline',         bg: '#eff6ff', color: '#1d4ed8' },
+  inline:         { label: 'Inline',         bg: '#FEF0EB', color: '#E8470F' },
   final:          { label: 'Final',          bg: '#f0fdf4', color: '#15803d' },
   loading:        { label: 'Loading',        bg: '#faf5ff', color: '#7e22ce' },
 }
@@ -312,10 +312,10 @@ export default function JobDetailPage() {
                         onClick={() => { setReinspectType(opt.value); setReinspectAgency(null) }}
                         style={{
                           flex: 1, padding: '10px', borderRadius: '8px', cursor: 'pointer', textAlign: 'center',
-                          border: `2px solid ${reinspectType === opt.value ? '#1d4ed8' : '#e2e8f0'}`,
-                          background: reinspectType === opt.value ? '#eff6ff' : '#f8fafc',
+                          border: `2px solid ${reinspectType === opt.value ? '#E8470F' : '#e2e8f0'}`,
+                          background: reinspectType === opt.value ? '#FEF0EB' : '#f8fafc',
                           fontWeight: '600', fontSize: '13px',
-                          color: reinspectType === opt.value ? '#1d4ed8' : '#475569',
+                          color: reinspectType === opt.value ? '#E8470F' : '#475569',
                           transition: 'all 0.15s',
                         }}>
                         {opt.label}
@@ -404,8 +404,8 @@ export default function JobDetailPage() {
                 rows={3}
                 className="textarea"
                 style={{
-                  borderColor: logFocused ? '#3b82f6' : '#e2e8f0',
-                  boxShadow: logFocused ? '0 0 0 3px rgba(59,130,246,0.15)' : 'none',
+                  borderColor: logFocused ? '#E8470F' : '#e2e8f0',
+                  boxShadow: logFocused ? '0 0 0 3px rgba(232,71,15,0.12)' : 'none',
                   background: '#fff',
                 }}
                 onFocus={() => setLogFocused(true)}

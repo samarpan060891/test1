@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import LanguageSwitcher from './LanguageSwitcher.jsx'
+import BrandLogo from './BrandLogo.jsx'
 
 const roleMeta = {
   qa:            { label: 'QA',       bg: '#4f46e5', color: '#fff' },
@@ -31,15 +32,16 @@ export default function Navbar() {
         onMouseEnter={() => setHoveredLink(key)}
         onMouseLeave={() => setHoveredLink(null)}
         style={{
-          color: active ? '#fff' : hovered ? '#fff' : 'rgba(255,255,255,0.72)',
+          color: active ? '#E8470F' : hovered ? '#fff' : 'rgba(255,255,255,0.72)',
           textDecoration: 'none',
           padding: '6px 13px',
           borderRadius: '6px',
           fontSize: '13.5px',
-          fontWeight: active ? '600' : '450',
+          fontWeight: active ? '700' : '450',
           backgroundColor: active
-            ? 'rgba(255,255,255,0.18)'
-            : hovered ? 'rgba(255,255,255,0.1)' : 'transparent',
+            ? 'rgba(232,71,15,0.15)'
+            : hovered ? 'rgba(255,255,255,0.08)' : 'transparent',
+          borderBottom: active ? '2px solid #E8470F' : '2px solid transparent',
           transition: 'all 0.15s',
           whiteSpace: 'nowrap',
         }}
@@ -53,13 +55,13 @@ export default function Navbar() {
 
   return (
     <nav style={{
-      background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)',
+      background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)',
       padding: '0 28px',
       height: '62px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      boxShadow: '0 2px 12px rgba(30,58,138,0.35)',
+      boxShadow: '0 2px 12px rgba(28,18,8,0.5)',
       position: 'sticky',
       top: 0,
       zIndex: 100,
@@ -67,24 +69,7 @@ export default function Navbar() {
       {/* Left */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
         {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-          <div style={{
-            width: '32px', height: '32px',
-            background: 'rgba(255,255,255,0.18)',
-            borderRadius: '8px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '16px',
-          }}>🔍</div>
-          <span style={{
-            color: '#fff',
-            fontWeight: '700',
-            fontSize: '16px',
-            letterSpacing: '-0.2px',
-            whiteSpace: 'nowrap',
-          }}>
-            Quality Inspection Portal
-          </span>
-        </div>
+        <BrandLogo size="md" showTagline />
 
         {/* Nav links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>

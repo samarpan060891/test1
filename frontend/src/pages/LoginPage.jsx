@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import LanguageSwitcher from '../components/LanguageSwitcher.jsx'
+import BrandLogo from '../components/BrandLogo.jsx'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -32,7 +33,7 @@ export default function LoginPage() {
   const inputStyle = (field) => ({
     width: '100%',
     padding: '11px 14px',
-    border: `1.5px solid ${focusedField === field ? '#3b82f6' : '#e2e8f0'}`,
+    border: `1.5px solid ${focusedField === field ? '#E8470F' : '#e2e8f0'}`,
     borderRadius: '8px',
     fontSize: '14px',
     color: '#0f172a',
@@ -40,7 +41,7 @@ export default function LoginPage() {
     outline: 'none',
     boxSizing: 'border-box',
     transition: 'all 0.15s',
-    boxShadow: focusedField === field ? '0 0 0 3px rgba(59,130,246,0.15)' : 'none',
+    boxShadow: focusedField === field ? '0 0 0 3px rgba(232,71,15,0.12)' : 'none',
     fontFamily: 'inherit',
   })
 
@@ -60,7 +61,7 @@ export default function LoginPage() {
       {/* Left branding panel */}
       <div style={{
         width: '42%',
-        background: 'linear-gradient(160deg, #1e3a8a 0%, #1d4ed8 60%, #0ea5e9 100%)',
+        background: 'linear-gradient(160deg, #1C1208 0%, #2E1D0E 55%, #4A2E18 100%)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -74,17 +75,11 @@ export default function LoginPage() {
 
         <div style={{ position: 'relative' }}>
           {/* Logo */}
-          <div style={{
-            width: '60px', height: '60px',
-            background: 'rgba(255,255,255,0.18)',
-            borderRadius: '16px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '28px',
-            marginBottom: '32px',
-            backdropFilter: 'blur(8px)',
-          }}>🔍</div>
+          <div style={{ marginBottom: '36px' }}>
+            <BrandLogo size="lg" />
+          </div>
 
-          <h1 style={{ color: '#fff', fontSize: '30px', fontWeight: '800', lineHeight: '1.2', marginBottom: '12px', letterSpacing: '-0.5px' }}>
+          <h1 style={{ color: '#fff', fontSize: '26px', fontWeight: '800', lineHeight: '1.2', marginBottom: '12px', letterSpacing: '-0.4px' }}>
             Quality Inspection<br />Portal
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '15px', lineHeight: '1.6', marginBottom: '48px' }}>
@@ -195,8 +190,8 @@ export default function LoginPage() {
                 marginTop: '6px',
                 width: '100%',
                 background: loading
-                  ? '#93c5fd'
-                  : 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)',
+                  ? '#f0a080'
+                  : 'linear-gradient(135deg, #E8470F 0%, #C93A08 100%)',
                 color: '#fff',
                 border: 'none',
                 padding: '13px',
@@ -204,12 +199,12 @@ export default function LoginPage() {
                 fontSize: '15px',
                 fontWeight: '700',
                 cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow: loading ? 'none' : '0 4px 14px rgba(29,78,216,0.35)',
+                boxShadow: loading ? 'none' : '0 4px 14px rgba(232,71,15,0.4)',
                 transition: 'all 0.15s',
                 letterSpacing: '0.01em',
               }}
-              onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 20px rgba(29,78,216,0.45)' }}
-              onMouseLeave={e => { if (!loading) e.currentTarget.style.boxShadow = '0 4px 14px rgba(29,78,216,0.35)' }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 6px 20px rgba(232,71,15,0.5)' }}
+              onMouseLeave={e => { if (!loading) e.currentTarget.style.boxShadow = '0 4px 14px rgba(232,71,15,0.4)' }}
             >
               {loading ? t('login_loading') : t('login_button')}
             </button>

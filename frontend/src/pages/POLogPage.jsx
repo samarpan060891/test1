@@ -120,7 +120,7 @@ export default function POLogPage() {
           {hasFilter && (
             <div style={{ marginTop: '12px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '12px', color: '#94a3b8' }}>Filtering by:</span>
-              {appliedPoNo && <span style={{ background: '#eff6ff', color: '#1d4ed8', padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>PO: {appliedPoNo}</span>}
+              {appliedPoNo && <span style={{ background: '#FEF0EB', color: '#E8470F', padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>PO: {appliedPoNo}</span>}
               {appliedJobId && <span style={{ background: '#f5f3ff', color: '#7c3aed', padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>Job: {appliedJobId.slice(0, 12)}…</span>}
             </div>
           )}
@@ -173,7 +173,7 @@ export default function POLogPage() {
                           </span>
                           {log.po_no && <span style={{ fontSize: '12px', color: '#64748b' }}>PO: <strong>{log.po_no}</strong></span>}
                           {log.job_id && (
-                            <Link to={`/jobs/${log.job_id}`} style={{ fontSize: '12px', color: '#1d4ed8', textDecoration: 'none', fontWeight: '500' }}>
+                            <Link to={`/jobs/${log.job_id}`} style={{ fontSize: '12px', color: '#E8470F', textDecoration: 'none', fontWeight: '500' }}>
                               Job: {log.job_ref || String(log.job_id).slice(0, 8) + '…'}
                             </Link>
                           )}
@@ -207,8 +207,8 @@ export default function POLogPage() {
               disabled={!hasFilter}
               className="textarea"
               style={{
-                borderColor: textFocused ? '#3b82f6' : '#e2e8f0',
-                boxShadow: textFocused ? '0 0 0 3px rgba(59,130,246,0.15)' : 'none',
+                borderColor: textFocused ? '#E8470F' : '#e2e8f0',
+                boxShadow: textFocused ? '0 0 0 3px rgba(232,71,15,0.12)' : 'none',
                 background: !hasFilter ? '#f8fafc' : '#fff',
               }}
               onFocus={() => setTextFocused(true)}
