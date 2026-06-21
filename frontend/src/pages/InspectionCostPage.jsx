@@ -187,7 +187,11 @@ export default function InspectionCostPage() {
       }
       setShowApprove(null); setActionNote(''); load()
     } catch (err) {
-      setActionMsg(err?.response?.data?.error || 'Action failed')
+      const errMsg = err?.response?.data?.error || 'Action failed'
+      setActionMsg(errMsg)
+      // Reload so the list reflects actual status, then close modal after delay
+      load()
+      setTimeout(() => { setShowApprove(null); setActionMsg('') }, 2500)
     } finally { setActionSaving(false) }
   }
 
