@@ -23,18 +23,9 @@ router.get('/', async (req, res) => {
     const params = [];
     const conditions = [];
 
-    // Scope by role
-    if (req.user.role === 'agency_user') {
-      params.push(req.user.agency_code);
-      conditions.push(`(j.agency_code = $${params.length} OR n.recipient_role = 'agency_user')`);
-    } else if (req.user.role === 'supplier_user') {
-      params.push(req.user.supplier_code);
-      conditions.push(`(j.supplier_code = $${params.length} OR n.recipient_role = 'supplier_user')`);
-    } else {
-      // qa and buying see their role's notifications
-      params.push(req.user.role);
-      conditions.push(`n.recipient_role = $${params.length}`);
-    }
+    // Each user only sees notifications addressed to their role
+    params.push(req.user.role);
+    conditions.push(`n.recipient_role = $${params.length}`);
 
     if (job_id) {
       params.push(job_id);
