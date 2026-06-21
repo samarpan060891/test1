@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
+const { sendNotification } = require('../services/notifications');
 
 const router = express.Router();
 router.use(authenticate);
@@ -124,6 +125,33 @@ router.post('/', async (req, res) => {
        RETURNING *`,
       [resolvedPoNo, job_id || null, req.user.user_id, req.user.role, message.trim()]
     );
+
+    // Notify all other stakeholders on this job that a remark was posted
+    if (job_id) {
+      const posterRole = req.user.role;
+      const posterLabel = { qa: 'QA', buying: 'Buying', agency_user: 'Agency', supplier_user: 'Supplier' }[posterRole] || posterRole;
+      const notifMsg = `${posterLabel} posted a remark on job (PO: ${resolvedPoNo}): "${message.trim().slice(0, 100)}${message.trim().length > 100 ? '…' : ''}"`;
+
+      // Get all stakeholder contacts for this job
+      const jobInfo = await db.query(
+        `SELECT j.agency_code, j.supplier_code,
+                a.contact_emails AS agency_emails,
+                s.contact_email AS supplier_email
+         FROM qc_inspection.inspection_job j
+         LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+         LEFT JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+         WHERE j.job_id = $1`, [job_id]
+      );
+      const ji = jobInfo.rows[0] || {};
+      const qaUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa' AND email IS NOT NULL");
+      const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying' AND email IS NOT NULL");
+
+      // Notify everyone EXCEPT the poster
+      if (posterRole !== 'qa') sendNotification(job_id, 'REMARK_POSTED', 'qa', qaUsers.rows.map(u => u.email), notifMsg);
+      if (posterRole !== 'buying') sendNotification(job_id, 'REMARK_POSTED', 'buying', buyingUsers.rows.map(u => u.email), notifMsg);
+      if (posterRole !== 'agency_user') sendNotification(job_id, 'REMARK_POSTED', 'agency_user', ji.agency_emails || [], notifMsg);
+      if (posterRole !== 'supplier_user') sendNotification(job_id, 'REMARK_POSTED', 'supplier_user', ji.supplier_email ? [ji.supplier_email] : [], notifMsg);
+    }
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
