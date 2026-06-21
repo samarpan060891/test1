@@ -45,16 +45,23 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    Promise.all([
+  const fetchData = (silent = false) => {
+    if (!silent) setLoading(true)
+    return Promise.all([
       getJobs().catch(() => ({ data: [] })),
       getNotifications().catch(() => ({ data: [] }))
     ]).then(([jobsRes, notifRes]) => {
       setJobs(Array.isArray(jobsRes.data) ? jobsRes.data : jobsRes.data?.jobs || [])
       setNotifications(Array.isArray(notifRes.data) ? notifRes.data : notifRes.data?.notifications || [])
-    }).catch(err => {
-      setError('Failed to load dashboard data.')
-    }).finally(() => setLoading(false))
+    }).catch(() => {
+      if (!silent) setError('Failed to load dashboard data.')
+    }).finally(() => { if (!silent) setLoading(false) })
+  }
+
+  useEffect(() => {
+    fetchData()
+    const interval = setInterval(() => fetchData(true), 30000)
+    return () => clearInterval(interval)
   }, [])
 
   const totalJobs = jobs.length

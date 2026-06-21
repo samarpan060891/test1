@@ -1,11 +1,9 @@
-const CACHE_NAME = 'qc-inspection-v1';
+const CACHE_NAME = 'qc-inspection-v2';
 
-// On install — cache nothing (app requires live API)
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
-// On activate — clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -15,12 +13,16 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch — network first, no offline caching for API calls
 self.addEventListener('fetch', (event) => {
-  // Let API calls go straight to network
   if (event.request.url.includes('/api/')) return;
-
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );
+});
+
+// Tell all open tabs to reload when a new SW version takes over
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
