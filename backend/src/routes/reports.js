@@ -13,6 +13,7 @@ const fmtDateTime = (val) => (val ? new Date(val).toLocaleString('en-GB') : '');
 router.get('/download', async (req, res) => {
   try {
     const { role, agency_code, supplier_code } = req.user;
+    const { from, to } = req.query;
     const wb = XLSX.utils.book_new();
 
     // ── 1. INSPECTION JOBS SHEET ─────────────────────────────────────────────
@@ -32,14 +33,27 @@ router.get('/download', async (req, res) => {
       LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
       ORDER BY j.created_at DESC
     `;
-    const jobParams = [];
+    let jobParams = [];
 
+    // Role filter
     if (role === 'agency_user') {
-      jobQuery = jobQuery.replace('ORDER BY', `WHERE j.agency_code = $1 ORDER BY`);
       jobParams.push(agency_code);
+      jobQuery = jobQuery.replace('ORDER BY', `WHERE j.agency_code = $${jobParams.length} ORDER BY`);
     } else if (role === 'supplier_user') {
-      jobQuery = jobQuery.replace('ORDER BY', `WHERE j.supplier_code = $1 ORDER BY`);
       jobParams.push(supplier_code);
+      jobQuery = jobQuery.replace('ORDER BY', `WHERE j.supplier_code = $${jobParams.length} ORDER BY`);
+    }
+
+    // Date filter
+    const hasWhere = jobQuery.includes('WHERE');
+    const dateConditions = [];
+    if (from) { jobParams.push(from); dateConditions.push(`j.created_at >= $${jobParams.length}::date`); }
+    if (to) { jobParams.push(to); dateConditions.push(`j.created_at < ($${jobParams.length}::date + interval '1 day')`); }
+    if (dateConditions.length) {
+      const clause = dateConditions.join(' AND ');
+      jobQuery = hasWhere
+        ? jobQuery.replace('ORDER BY', `AND ${clause} ORDER BY`)
+        : jobQuery.replace('ORDER BY', `WHERE ${clause} ORDER BY`);
     }
 
     const jobs = await db.query(jobQuery, jobParams);
@@ -81,13 +95,23 @@ router.get('/download', async (req, res) => {
         JOIN qc_inspection.checklist_item ci ON ci.item_id = r.checklist_item_id
         ORDER BY j.created_at DESC, ci.sort_order
       `;
-      const respParams = [];
+      let respParams = [];
       if (role === 'agency_user') {
-        respQuery = respQuery.replace('ORDER BY', `WHERE j.agency_code = $1 ORDER BY`);
         respParams.push(agency_code);
+        respQuery = respQuery.replace('ORDER BY', `WHERE j.agency_code = $${respParams.length} ORDER BY`);
       } else if (role === 'supplier_user') {
-        respQuery = respQuery.replace('ORDER BY', `WHERE j.supplier_code = $1 ORDER BY`);
         respParams.push(supplier_code);
+        respQuery = respQuery.replace('ORDER BY', `WHERE j.supplier_code = $${respParams.length} ORDER BY`);
+      }
+      const hasRespWhere = respQuery.includes('WHERE');
+      const respDateConds = [];
+      if (from) { respParams.push(from); respDateConds.push(`j.created_at >= $${respParams.length}::date`); }
+      if (to) { respParams.push(to); respDateConds.push(`j.created_at < ($${respParams.length}::date + interval '1 day')`); }
+      if (respDateConds.length) {
+        const clause = respDateConds.join(' AND ');
+        respQuery = hasRespWhere
+          ? respQuery.replace('ORDER BY', `AND ${clause} ORDER BY`)
+          : respQuery.replace('ORDER BY', `WHERE ${clause} ORDER BY`);
       }
 
       const responses = await db.query(respQuery, respParams);
@@ -189,20 +213,26 @@ router.get('/download', async (req, res) => {
         LEFT JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
         LEFT JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
       `;
-      const chargesParams = [];
+      let chargesParams = [];
+      let hasChargesWhere = false;
 
       if (role === 'agency_user') {
-        chargesQuery += ` WHERE a.agency_code = $1`;
         chargesParams.push(agency_code);
+        chargesQuery += ` WHERE a.agency_code = $${chargesParams.length}`;
+        hasChargesWhere = true;
       } else if (role === 'supplier_user') {
+        chargesParams.push(supplier_code);
         chargesQuery += ` WHERE a.cost_bearer = 'supplier'
           AND EXISTS (
             SELECT 1 FROM qc_inspection.ica_jobs ij2
             JOIN qc_inspection.inspection_job j2 ON j2.job_id = ij2.job_id
-            WHERE ij2.advice_id = a.advice_id AND j2.supplier_code = $1
+            WHERE ij2.advice_id = a.advice_id AND j2.supplier_code = $${chargesParams.length}
           )`;
-        chargesParams.push(supplier_code);
+        hasChargesWhere = true;
       }
+
+      if (from) { chargesParams.push(from); chargesQuery += ` ${hasChargesWhere ? 'AND' : 'WHERE'} a.created_at >= $${chargesParams.length}::date`; hasChargesWhere = true; }
+      if (to) { chargesParams.push(to); chargesQuery += ` ${hasChargesWhere ? 'AND' : 'WHERE'} a.created_at < ($${chargesParams.length}::date + interval '1 day')`; hasChargesWhere = true; }
 
       chargesQuery += ` GROUP BY a.advice_id, ag.name, creator.name, qa_u.name, buy_u.name ORDER BY a.created_at DESC`;
 
