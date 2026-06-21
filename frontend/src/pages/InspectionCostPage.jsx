@@ -183,7 +183,10 @@ export default function InspectionCostPage() {
 
   const load = () => {
     setLoading(true)
-    getAdvices().then(r => setAdvices(r.data)).catch(() => {}).finally(() => setLoading(false))
+    getAdvices()
+      .then(r => setAdvices(r.data))
+      .catch(err => console.error('getAdvices error:', err?.response?.data?.error || err.message))
+      .finally(() => setLoading(false))
   }
 
   const loadEligibleJobs = async () => {

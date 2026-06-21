@@ -5,7 +5,7 @@ const db = require('./db');
 const PORT = process.env.PORT || 4000;
 
 async function runMigrations() {
-  // Add unit_price to po_master if not present
+  // 008: unit_price on po_master
   await db.query(`
     ALTER TABLE qc_inspection.po_master
       ADD COLUMN IF NOT EXISTS unit_price NUMERIC(12,2) NOT NULL DEFAULT 0.00
@@ -27,6 +27,13 @@ async function runMigrations() {
       ELSE ROUND((RANDOM() * 90 + 10)::NUMERIC, 2)
     END WHERE unit_price = 0
   `);
+
+  // 009: result column on inspection_job (may be missing on some installs)
+  await db.query(`
+    ALTER TABLE qc_inspection.inspection_job
+      ADD COLUMN IF NOT EXISTS result TEXT CHECK (result IN ('pass','fail','na'))
+  `);
+
   console.log('✅ Migrations applied');
 }
 

@@ -110,7 +110,10 @@ router.get('/', async (req, res) => {
 
     const r = await db.query(q, params);
     res.json(r.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('[GET /inspection-costs] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get('/:id', async (req, res) => {
