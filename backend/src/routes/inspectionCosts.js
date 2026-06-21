@@ -174,13 +174,13 @@ router.post('/', authorize('agency_user'), async (req, res) => {
 
     // Always fetch PO value so % to PO can be shown for any rate type
     const poRes = await db.query(
-      `SELECT COALESCE(SUM(pm.quantity * 1), 0) AS total_qty
+      `SELECT COALESCE(SUM(pm.quantity * pm.unit_price), 0) AS total_po_value
        FROM qc_inspection.inspection_job j
        LEFT JOIN qc_inspection.po_master pm ON pm.po_no = j.po_no
        WHERE j.job_id = ANY($1::uuid[])`,
       [job_ids]
     );
-    po_value = parseFloat(poRes.rows[0].total_qty) || 0;
+    po_value = parseFloat(poRes.rows[0].total_po_value) || 0;
 
     if (rate_type === 'manday') {
       total_cost = (parseFloat(rate_value) * parseFloat(num_mandays)) +

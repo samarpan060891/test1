@@ -51,7 +51,7 @@ export default function InspectionSummaryCard({ advices = [], showLink = false }
           {pctToPo != null ? <span style={{ color: pctToPo > 5 ? '#f87171' : pctToPo > 3 ? '#fbbf24' : '#4ade80' }}>{pctToPo.toFixed(2)}%</span> : <span style={{ color: 'rgba(255,255,255,0.3)' }}>—</span>}
         </div>
         <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '4px' }}>
-          inspection cost vs PO qty {totalPoValue > 0 ? `(${totalPoValue.toLocaleString()} units)` : ''}
+          of total PO value {totalPoValue > 0 ? `(${fmt(totalPoValue, currency)})` : ''}
         </div>
       </div>
 
