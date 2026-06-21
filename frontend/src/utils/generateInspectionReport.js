@@ -17,7 +17,7 @@ export async function generateInspectionReport(job, responses = [], logs = []) {
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
-  doc.text('QC Inspection', margin, 11)
+  doc.text('Quality Inspection Portal', margin, 11)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   doc.text('Inspection Report', margin, 19)
@@ -197,7 +197,7 @@ export async function generateInspectionReport(job, responses = [], logs = []) {
     doc.setTextColor(...gray)
     doc.setFont('helvetica', 'normal')
     doc.text(`Page ${i} of ${pageCount}`, pageW / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' })
-    doc.text('QC Inspection System — Confidential', margin, doc.internal.pageSize.getHeight() - 8)
+    doc.text('Quality Inspection Portal System — Confidential', margin, doc.internal.pageSize.getHeight() - 8)
   }
 
   doc.save(`Inspection-Report-${job.job_ref || job.job_id?.slice(0, 8)}.pdf`)

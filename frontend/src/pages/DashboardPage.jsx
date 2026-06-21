@@ -87,7 +87,7 @@ export default function DashboardPage() {
       const suffix = dateFrom || dateTo
         ? `_${dateFrom || 'start'}_to_${dateTo || 'today'}`
         : `_${new Date().toISOString().slice(0,10)}`
-      a.download = `QC_Inspection_Summary${suffix}.xlsx`
+      a.download = `Quality_Inspection_Summary${suffix}.xlsx`
       a.click()
       window.URL.revokeObjectURL(url)
       setShowDatePicker(false)

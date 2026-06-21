@@ -1,6 +1,6 @@
 {
-  "name": "QC Inspection",
-  "short_name": "QC Inspection",
+  "name": "Quality Inspection Portal",
+  "short_name": "Quality Inspection Portal",
   "description": "Quality Control Inspection Management System",
   "start_url": "/",
   "display": "standalone",

@@ -50,7 +50,7 @@ export default function Navbar() {
           fontSize: '18px',
           letterSpacing: '-0.3px'
         }}>
-          QC Inspection
+          Quality Inspection Portal
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

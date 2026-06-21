@@ -12,7 +12,7 @@ const translations = {
     nav_logout: 'Logout',
 
     // Login
-    login_title: 'QC Inspection Portal',
+    login_title: 'Quality Inspection Portal',
     login_subtitle: 'Homes R Us — Quality Control',
     login_email: 'Email Address',
     login_password: 'Password',
