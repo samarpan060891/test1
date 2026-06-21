@@ -172,19 +172,21 @@ router.post('/', authorize('agency_user'), async (req, res) => {
     let total_cost = 0;
     let po_value = null;
 
+    // Always fetch PO value so % to PO can be shown for any rate type
+    const poRes = await db.query(
+      `SELECT COALESCE(SUM(pm.quantity * 1), 0) AS total_qty
+       FROM qc_inspection.inspection_job j
+       LEFT JOIN qc_inspection.po_master pm ON pm.po_no = j.po_no
+       WHERE j.job_id = ANY($1::uuid[])`,
+      [job_ids]
+    );
+    po_value = parseFloat(poRes.rows[0].total_qty) || 0;
+
     if (rate_type === 'manday') {
       total_cost = (parseFloat(rate_value) * parseFloat(num_mandays)) +
                    parseFloat(travel_allowance || 0) +
                    parseFloat(stay_allowance || 0);
     } else {
-      const poRes = await db.query(
-        `SELECT COALESCE(SUM(pm.quantity * 1), 0) AS total_qty
-         FROM qc_inspection.inspection_job j
-         LEFT JOIN qc_inspection.po_master pm ON pm.po_no = j.po_no
-         WHERE j.job_id = ANY($1::uuid[])`,
-        [job_ids]
-      );
-      po_value = parseFloat(poRes.rows[0].total_qty) || 0;
       total_cost = (po_value * parseFloat(rate_value)) / 100;
     }
 
