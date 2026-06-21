@@ -122,7 +122,7 @@ export default function JobDetailPage() {
       setLogSuccess('Log entry posted.')
       fetchLogs()
     } catch (err) {
-      setLogError('Failed to post log entry.')
+      setLogError(err?.response?.data?.error || 'Failed to post log entry.')
     } finally {
       setLogSubmitting(false)
     }

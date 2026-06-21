@@ -119,10 +119,10 @@ router.post('/', async (req, res) => {
     }
 
     const result = await db.query(
-      `INSERT INTO qc_inspection.log_entry (po_no, item_code, job_id, author_role, author_email, message)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [resolvedPoNo, itemCode, job_id || null, req.user.role, req.user.email, message.trim()]
+      [resolvedPoNo, job_id || null, req.user.user_id, req.user.role, message.trim()]
     );
 
     res.status(201).json(result.rows[0]);
