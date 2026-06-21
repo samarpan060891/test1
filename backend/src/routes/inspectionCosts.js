@@ -19,14 +19,12 @@ async function getInternalTeamEmails() {
 // Helper: get agency emails + first linked job_id for an advice
 async function getAdviceContext(adviceId) {
   const r = await db.query(
-    `SELECT a.advice_ref, a.agency_code, a.total_cost, a.currency, a.cost_bearer,
+    `SELECT a.advice_ref, a.advice_id, a.agency_code, a.total_cost, a.currency, a.cost_bearer,
             ag.name AS agency_name, ag.contact_emails AS agency_emails,
-            MIN(ij.job_id) AS first_job_id
+            (SELECT ij2.job_id FROM qc_inspection.ica_jobs ij2 WHERE ij2.advice_id = a.advice_id LIMIT 1) AS first_job_id
      FROM qc_inspection.inspection_charges_advice a
      JOIN qc_inspection.quality_agency_master ag USING (agency_code)
-     LEFT JOIN qc_inspection.ica_jobs ij ON ij.advice_id = a.advice_id
-     WHERE a.advice_id = $1
-     GROUP BY a.advice_id, ag.name, ag.contact_emails`,
+     WHERE a.advice_id = $1`,
     [adviceId]
   );
   return r.rows[0] || null;
@@ -213,8 +211,8 @@ router.post('/', authorize('agency_user'), async (req, res) => {
     const agencyName = ctx?.agency_name || req.user.agency_code;
     const msg = `${agencyName} has submitted an inspection charges advice (${advice.advice_ref || advice.advice_id.slice(0,8)}) for ${advice.currency} ${parseFloat(advice.total_cost).toFixed(2)}. Pending QA approval.`;
 
-    sendNotification(ctx?.first_job_id || null, 'CHARGES_SUBMITTED', 'qa', qaEmails, msg);
-    sendNotification(ctx?.first_job_id || null, 'CHARGES_SUBMITTED', 'buying', buyingEmails, msg);
+    sendNotification(ctx?.first_job_id || null, 'CHARGES_SUBMITTED', 'qa', qaEmails, msg, ctx?.advice_id || null);
+    sendNotification(ctx?.first_job_id || null, 'CHARGES_SUBMITTED', 'buying', buyingEmails, msg, ctx?.advice_id || null);
 
     res.status(201).json(advice);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -250,9 +248,9 @@ router.put('/:id/approve', authorize('qa', 'buying'), async (req, res) => {
       const agencyEmails = ctx?.agency_emails || [];
       const ref = advice.advice_ref || advice.advice_id.slice(0, 8);
       sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'buying', buyingEmails,
-        `Inspection charges advice ${ref} has been approved by QA and is now pending your (Buying) approval.`);
+        `Inspection charges advice ${ref} has been approved by QA and is now pending your (Buying) approval.`, ctx?.advice_id || null);
       sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'agency_user', agencyEmails,
-        `Your inspection charges advice ${ref} has been approved by QA and is now pending Buying approval.`);
+        `Your inspection charges advice ${ref} has been approved by QA and is now pending Buying approval.`, ctx?.advice_id || null);
 
     } else {
       if (advice.status !== 'pending_buying') return res.status(400).json({ error: 'Not pending Buying approval' });
@@ -269,7 +267,7 @@ router.put('/:id/approve', authorize('qa', 'buying'), async (req, res) => {
       const ref = advice.advice_ref || advice.advice_id.slice(0, 8);
       const amt = `${advice.currency} ${parseFloat(advice.total_cost).toFixed(2)}`;
       sendNotification(ctx?.first_job_id || null, 'CHARGES_APPROVED', 'agency_user', agencyEmails,
-        `Your inspection charges advice ${ref} for ${amt} has been fully approved by Buying.`);
+        `Your inspection charges advice ${ref} for ${amt} has been fully approved by Buying.`, ctx?.advice_id || null);
 
       if (advice.cost_bearer === 'supplier') {
         // Get supplier email via linked jobs
@@ -283,7 +281,7 @@ router.put('/:id/approve', authorize('qa', 'buying'), async (req, res) => {
         );
         const supplierEmails = suppRes.rows.map(r => r.contact_email).filter(Boolean);
         sendNotification(ctx?.first_job_id || null, 'CHARGES_APPROVED', 'supplier_user', supplierEmails,
-          `An inspection charges advice ${ref} for ${amt} that you are liable for has been approved.`);
+          `An inspection charges advice ${ref} for ${amt} that you are liable for has been approved.`, ctx?.advice_id || null);
       }
     }
 
@@ -315,14 +313,14 @@ router.put('/:id/reject', authorize('qa', 'buying'), async (req, res) => {
     const rejectedBy = role === 'qa' ? 'QA' : 'Buying';
     const msg = `Your inspection charges advice ${ref} has been rejected by ${rejectedBy}. Reason: ${reason}`;
 
-    sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'agency_user', agencyEmails, msg);
+    sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'agency_user', agencyEmails, msg, ctx?.advice_id || null);
     // Also notify the other internal team
     if (role === 'qa') {
       sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'buying', buyingEmails,
-        `Inspection charges advice ${ref} was rejected by QA. Reason: ${reason}`);
+        `Inspection charges advice ${ref} was rejected by QA. Reason: ${reason}`, ctx?.advice_id || null);
     } else {
       sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'qa', qaEmails,
-        `Inspection charges advice ${ref} was rejected by Buying. Reason: ${reason}`);
+        `Inspection charges advice ${ref} was rejected by Buying. Reason: ${reason}`, ctx?.advice_id || null);
     }
 
     res.json(advice);
