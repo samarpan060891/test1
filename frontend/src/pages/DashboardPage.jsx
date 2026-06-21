@@ -343,13 +343,11 @@ export default function DashboardPage() {
                     borderLeft: `3px solid ${n.read ? '#e5e7eb' : '#3b82f6'}`
                   }}>
                     <p style={{ margin: 0, fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>
-                      {n.message || n.body || JSON.stringify(n)}
+                      {n.message || n.body || n.event_type || JSON.stringify(n)}
                     </p>
-                    {n.created_at && (
-                      <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#9ca3af' }}>
-                        {new Date(n.created_at).toLocaleString()}
-                      </p>
-                    )}
+                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#9ca3af' }}>
+                      {new Date(n.sent_at || n.created_at).toLocaleString()}
+                    </p>
                   </div>
                 ))
               )}

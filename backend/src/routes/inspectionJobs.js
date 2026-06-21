@@ -252,7 +252,10 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
     const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying'");
     stakeMap['buying'] = buyingUsers.rows.map(u => u.email);
 
-    const msg = `A new inspection job has been mapped for PO ${po_no}. Planned date: ${inspection_date}.`;
+    const stagesSummary = stages.length > 1
+      ? `${stages.length} stages (${stages.map(s => s.replace('_', ' ')).join(', ')})`
+      : stages[0].replace('_', ' ') + ' stage';
+    const msg = `A new inspection job has been mapped for PO ${po_no} — ${stagesSummary}. Planned date: ${inspection_date}.`;
     for (const [role, emails] of Object.entries(stakeMap)) {
       sendNotification(firstJobId, 'JOB_MAPPED', role, emails, msg);
     }
