@@ -1,8 +1,7 @@
 <svg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 192 192'>
-  <!-- Brand dark brown background -->
   <rect width='192' height='192' rx='38' fill='#1C1208'/>
-  <!-- Bold italic R in brand orange, styled like homesrus logo -->
-  <text x='96' y='108' font-family='Georgia,serif' font-size='100' font-weight='900' fill='#E8470F' text-anchor='middle' dominant-baseline='auto'>R</text>
-  <!-- QIP label below -->
-  <text x='96' y='168' font-family='Arial,sans-serif' font-size='26' font-weight='700' fill='white' text-anchor='middle' dominant-baseline='auto' letter-spacing='4'>QIP</text>
+  <!-- Large brand R -->
+  <text x='72' y='138' font-family='Georgia,serif' font-size='130' font-weight='900' fill='#E8470F' text-anchor='middle' dominant-baseline='auto'>R</text>
+  <!-- small 'ip' superscript-style in white -->
+  <text x='128' y='108' font-family='Arial,sans-serif' font-size='36' font-weight='700' fill='white' text-anchor='start' dominant-baseline='auto'>ip</text>
 </svg>
