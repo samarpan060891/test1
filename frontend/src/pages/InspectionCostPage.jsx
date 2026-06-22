@@ -364,6 +364,11 @@ export default function InspectionCostPage() {
           )}
         </div>
 
+        {/* Summary Card — all roles, at the top */}
+        {!loading && advices.length > 0 && (
+          <InspectionSummaryCard advices={advices} />
+        )}
+
         {/* Eligible Jobs (agency only) */}
         {role === 'agency_user' && (
           <div className="card mb-6" style={{ overflow: 'hidden' }}>
@@ -432,12 +437,79 @@ export default function InspectionCostPage() {
           </div>
         )}
 
+        {/* Advice list */}
+        {role === 'agency_user' && (
+          <div style={{ marginBottom: '14px' }}>
+            <h2 className="section-title">Submitted Charges Advice</h2>
+          </div>
+        )}
+        {loading ? (
+          <div className="loading-center"><div className="spinner" /></div>
+        ) : advices.length === 0 ? (
+          <div className="card"><div className="empty-state"><div style={{ fontSize: '40px' }}>📋</div><p>{t('costs_no_records')}</p></div></div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {advices.map(a => (
+              <div key={a.advice_id} className="card" style={{ padding: '20px 24px' }}>
+                <div className="flex-between" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div className="flex-center" style={{ marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                      <span style={{ fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>{a.advice_ref}</span>
+                      <StatusBadge status={a.status} />
+                      <span style={{
+                        background: a.cost_bearer === 'supplier' ? '#fefce8' : '#f5f3ff',
+                        color: a.cost_bearer === 'supplier' ? '#92400e' : '#5b21b6',
+                        padding: '2px 9px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700',
+                      }}>
+                        {a.cost_bearer === 'supplier' ? t('costs_supplier') : t('costs_homes_r_us')}
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+                      Agency: <strong style={{ color: '#334155' }}>{a.agency_name}</strong> ·{' '}
+                      {a.rate_type === 'manday' ? `${a.num_mandays} mandays @ ${fmt(a.rate_value, a.currency)}/day` : `${a.rate_value}% of PO value`} ·{' '}
+                      <strong style={{ color: '#0f172a' }}>Total: {fmt(a.total_cost, a.currency)}</strong>
+                    </p>
+                    <p style={{ margin: '4px 0 8px', fontSize: '12px', color: '#94a3b8' }}>
+                      {(a.jobs || []).length} job(s) · Created by {a.created_by_name} on {new Date(a.created_at).toLocaleDateString()}
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {(a.jobs || []).map(j => (
+                        <span key={j.job_id} style={{ background: '#FEF0EB', color: '#E8470F', padding: '2px 8px', borderRadius: '5px', fontSize: '12px', fontWeight: '600' }}>
+                          {j.job_ref || j.po_no}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  {canApprove(a) && (
+                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                      <button onClick={() => { setShowApprove({ advice: a, action: 'approve' }); setActionNote(''); setActionMsg('') }}
+                        style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '6px 14px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                        ✓ {t('costs_approve')}
+                      </button>
+                      <button onClick={() => { setShowApprove({ advice: a, action: 'reject' }); setActionNote(''); setActionMsg('') }}
+                        style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', padding: '6px 14px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                        ✕ {t('costs_reject')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {(a.qa_user_name || a.buying_user_name || a.rejected_by_name) && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '12px', color: '#64748b' }}>
+                    {a.qa_user_name && <span>✅ QA: <strong>{a.qa_user_name}</strong>{a.qa_notes ? ` — "${a.qa_notes}"` : ''}</span>}
+                    {a.buying_user_name && <span>✅ Buying: <strong>{a.buying_user_name}</strong>{a.buying_notes ? ` — "${a.buying_notes}"` : ''}</span>}
+                    {a.status === 'rejected' && <span style={{ color: '#991b1b' }}>❌ Rejected: {a.rejection_reason}</span>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Agency Breakdown — QA / Buying / Admin */}
         {(role === 'qa' || role === 'buying' || role === 'admin') && !loading && advices.length > 0 && (
           <AgencyBreakdown advices={advices} />
         )}
-
-        {/* Rates / Contracts section placeholder for spacing */}
 
         {/* Standard Contracts toggle */}
         {(role === 'qa' || role === 'buying' || role === 'admin') && (
@@ -546,80 +618,6 @@ export default function InspectionCostPage() {
               </div>
             )}
           </div>
-        )}
-
-        {/* Advice list */}
-        {role === 'agency_user' && (
-          <div style={{ marginBottom: '14px' }}>
-            <h2 className="section-title">Submitted Charges Advice</h2>
-          </div>
-        )}
-        {loading ? (
-          <div className="loading-center"><div className="spinner" /></div>
-        ) : advices.length === 0 ? (
-          <div className="card"><div className="empty-state"><div style={{ fontSize: '40px' }}>📋</div><p>{t('costs_no_records')}</p></div></div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {advices.map(a => (
-              <div key={a.advice_id} className="card" style={{ padding: '20px 24px' }}>
-                <div className="flex-between" style={{ flexWrap: 'wrap', gap: '12px' }}>
-                  <div style={{ flex: 1 }}>
-                    <div className="flex-center" style={{ marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                      <span style={{ fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>{a.advice_ref}</span>
-                      <StatusBadge status={a.status} />
-                      <span style={{
-                        background: a.cost_bearer === 'supplier' ? '#fefce8' : '#f5f3ff',
-                        color: a.cost_bearer === 'supplier' ? '#92400e' : '#5b21b6',
-                        padding: '2px 9px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700',
-                      }}>
-                        {a.cost_bearer === 'supplier' ? t('costs_supplier') : t('costs_homes_r_us')}
-                      </span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                      Agency: <strong style={{ color: '#334155' }}>{a.agency_name}</strong> ·{' '}
-                      {a.rate_type === 'manday' ? `${a.num_mandays} mandays @ ${fmt(a.rate_value, a.currency)}/day` : `${a.rate_value}% of PO value`} ·{' '}
-                      <strong style={{ color: '#0f172a' }}>Total: {fmt(a.total_cost, a.currency)}</strong>
-                    </p>
-                    <p style={{ margin: '4px 0 8px', fontSize: '12px', color: '#94a3b8' }}>
-                      {(a.jobs || []).length} job(s) · Created by {a.created_by_name} on {new Date(a.created_at).toLocaleDateString()}
-                    </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {(a.jobs || []).map(j => (
-                        <span key={j.job_id} style={{ background: '#FEF0EB', color: '#E8470F', padding: '2px 8px', borderRadius: '5px', fontSize: '12px', fontWeight: '600' }}>
-                          {j.job_ref || j.po_no}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  {canApprove(a) && (
-                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                      <button onClick={() => { setShowApprove({ advice: a, action: 'approve' }); setActionNote(''); setActionMsg('') }}
-                        style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '6px 14px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-                        ✓ {t('costs_approve')}
-                      </button>
-                      <button onClick={() => { setShowApprove({ advice: a, action: 'reject' }); setActionNote(''); setActionMsg('') }}
-                        style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', padding: '6px 14px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-                        ✕ {t('costs_reject')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {(a.qa_user_name || a.buying_user_name || a.rejected_by_name) && (
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '12px', color: '#64748b' }}>
-                    {a.qa_user_name && <span>✅ QA: <strong>{a.qa_user_name}</strong>{a.qa_notes ? ` — "${a.qa_notes}"` : ''}</span>}
-                    {a.buying_user_name && <span>✅ Buying: <strong>{a.buying_user_name}</strong>{a.buying_notes ? ` — "${a.buying_notes}"` : ''}</span>}
-                    {a.status === 'rejected' && <span style={{ color: '#991b1b' }}>❌ Rejected: {a.rejection_reason}</span>}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Summary Card — all roles, at the bottom */}
-        {!loading && advices.length > 0 && (
-          <InspectionSummaryCard advices={advices} />
         )}
       </div>
 
