@@ -68,14 +68,21 @@ async function runMigrations() {
       ADD COLUMN IF NOT EXISTS result TEXT CHECK (result IN ('pass','fail','na'))
   `);
 
-  // Ensure admin account exists with known password (Password@123)
-  const adminHash = await bcrypt.hash('Password@123', 10);
-  await db.query(
-    `INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role)
-     VALUES ('Admin', 'admin@homesrus.com', $1, 'admin')
-     ON CONFLICT (email) DO UPDATE SET password_hash = $1`,
-    [adminHash]
-  );
+  // Ensure default accounts exist with known passwords
+  const defaultUsers = [
+    { name: 'Admin',    email: 'admin@homesrus.com',    role: 'admin' },
+    { name: 'Imports',  email: 'imports@homesrus.com',  role: 'imports' },
+    { name: 'Accounts', email: 'accounts@homesrus.com', role: 'accounts' },
+  ];
+  for (const u of defaultUsers) {
+    const hash = await bcrypt.hash('Password@123', 10);
+    await db.query(
+      `INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (email) DO UPDATE SET password_hash = $3, role = $4`,
+      [u.name, u.email, hash, u.role]
+    );
+  }
 
   console.log('✅ Migrations applied');
 }
