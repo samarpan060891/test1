@@ -227,6 +227,18 @@ const translations = {
     common_search: 'Search...',
     common_no_data: 'No data found',
     common_select_language: 'Language',
+
+    // Inspection Summary Card
+    summary_total_charges: 'Total Approved Charges',
+    summary_approved_advices: 'approved advice',
+    summary_approved_advices_plural: 'approved advices',
+    summary_pct_to_po: '% to PO Value',
+    summary_of_po_value: 'of total PO value',
+    summary_pending_approval: 'Pending Approval',
+    summary_awaiting_qa: 'awaiting QA / Buying',
+    summary_total_advices: 'Total Advices',
+    summary_all_time: 'all time',
+    summary_view_details: 'View details →',
   },
 
   zh: {
@@ -438,6 +450,17 @@ const translations = {
     common_search: '搜索...',
     common_no_data: '未找到数据',
     common_select_language: '语言',
+
+    summary_total_charges: '已批准费用总额',
+    summary_approved_advices: '条已批准通知',
+    summary_approved_advices_plural: '条已批准通知',
+    summary_pct_to_po: '占PO值百分比',
+    summary_of_po_value: '占PO总值',
+    summary_pending_approval: '待审批',
+    summary_awaiting_qa: '等待QA / 采购审批',
+    summary_total_advices: '通知总数',
+    summary_all_time: '全部时间',
+    summary_view_details: '查看详情 →',
   },
 
   tr: {
@@ -649,6 +672,17 @@ const translations = {
     common_search: 'Ara...',
     common_no_data: 'Veri bulunamadı',
     common_select_language: 'Dil',
+
+    summary_total_charges: 'Toplam Onaylanan Ücretler',
+    summary_approved_advices: 'onaylanan tavsiye',
+    summary_approved_advices_plural: 'onaylanan tavsiye',
+    summary_pct_to_po: 'SAS Değerine %',
+    summary_of_po_value: 'toplam SAS değerinin',
+    summary_pending_approval: 'Onay Bekliyor',
+    summary_awaiting_qa: 'KK / Satın Alma bekliyor',
+    summary_total_advices: 'Toplam Tavsiyeler',
+    summary_all_time: 'tüm zamanlar',
+    summary_view_details: 'Detayları gör →',
   },
 
   ms: {
@@ -860,6 +894,17 @@ const translations = {
     common_search: 'Cari...',
     common_no_data: 'Tiada data ditemui',
     common_select_language: 'Bahasa',
+
+    summary_total_charges: 'Jumlah Caj Diluluskan',
+    summary_approved_advices: 'nasihat diluluskan',
+    summary_approved_advices_plural: 'nasihat diluluskan',
+    summary_pct_to_po: '% kepada Nilai PO',
+    summary_of_po_value: 'daripada jumlah nilai PO',
+    summary_pending_approval: 'Menunggu Kelulusan',
+    summary_awaiting_qa: 'menunggu QA / Pembelian',
+    summary_total_advices: 'Jumlah Nasihat',
+    summary_all_time: 'semua masa',
+    summary_view_details: 'Lihat butiran →',
   },
 
   vi: {
@@ -1071,6 +1116,17 @@ const translations = {
     common_search: 'Tìm kiếm...',
     common_no_data: 'Không tìm thấy dữ liệu',
     common_select_language: 'Ngôn Ngữ',
+
+    summary_total_charges: 'Tổng Chi Phí Đã Duyệt',
+    summary_approved_advices: 'đề nghị đã duyệt',
+    summary_approved_advices_plural: 'đề nghị đã duyệt',
+    summary_pct_to_po: '% so với Giá trị PO',
+    summary_of_po_value: 'trên tổng giá trị PO',
+    summary_pending_approval: 'Chờ Duyệt',
+    summary_awaiting_qa: 'chờ QA / Mua hàng',
+    summary_total_advices: 'Tổng Đề Nghị',
+    summary_all_time: 'tất cả thời gian',
+    summary_view_details: 'Xem chi tiết →',
   },
 
   id: {
@@ -1282,6 +1338,17 @@ const translations = {
     common_search: 'Cari...',
     common_no_data: 'Data tidak ditemukan',
     common_select_language: 'Bahasa',
+
+    summary_total_charges: 'Total Biaya Disetujui',
+    summary_approved_advices: 'saran disetujui',
+    summary_approved_advices_plural: 'saran disetujui',
+    summary_pct_to_po: '% dari Nilai PO',
+    summary_of_po_value: 'dari total nilai PO',
+    summary_pending_approval: 'Menunggu Persetujuan',
+    summary_awaiting_qa: 'menunggu QA / Pembelian',
+    summary_total_advices: 'Total Saran',
+    summary_all_time: 'sepanjang waktu',
+    summary_view_details: 'Lihat detail →',
   },
 
   th: {
@@ -1493,6 +1560,17 @@ const translations = {
     common_search: 'ค้นหา...',
     common_no_data: 'ไม่พบข้อมูล',
     common_select_language: 'ภาษา',
+
+    summary_total_charges: 'ค่าใช้จ่ายที่อนุมัติทั้งหมด',
+    summary_approved_advices: 'คำแนะนำที่อนุมัติ',
+    summary_approved_advices_plural: 'คำแนะนำที่อนุมัติ',
+    summary_pct_to_po: '% ของมูลค่า PO',
+    summary_of_po_value: 'ของมูลค่า PO รวม',
+    summary_pending_approval: 'รอการอนุมัติ',
+    summary_awaiting_qa: 'รอ QA / ฝ่ายจัดซื้อ',
+    summary_total_advices: 'คำแนะนำทั้งหมด',
+    summary_all_time: 'ตลอดเวลา',
+    summary_view_details: 'ดูรายละเอียด →',
   },
 
   fil: {
@@ -1704,6 +1782,17 @@ const translations = {
     common_search: 'Maghanap...',
     common_no_data: 'Walang nahanap na data',
     common_select_language: 'Wika',
+
+    summary_total_charges: 'Kabuuang Naaprubahang Bayad',
+    summary_approved_advices: 'naaprubahang payo',
+    summary_approved_advices_plural: 'naaprubahang payo',
+    summary_pct_to_po: '% sa Halaga ng PO',
+    summary_of_po_value: 'ng kabuuang halaga ng PO',
+    summary_pending_approval: 'Naghihintay ng Aprubado',
+    summary_awaiting_qa: 'naghihintay ng QA / Pagbili',
+    summary_total_advices: 'Kabuuang Payo',
+    summary_all_time: 'lahat ng oras',
+    summary_view_details: 'Tingnan ang detalye →',
   },
 }
 
