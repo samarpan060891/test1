@@ -66,8 +66,10 @@ async function runMigrations() {
   await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS accounts_approved_at TIMESTAMPTZ`, 'accounts_approved_at');
   await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS accounts_notes TEXT`, 'accounts_notes');
 
-  // Migrate old 'approved' rows to 'paid'
-  await safeQuery(`UPDATE qc_inspection.inspection_charges_advice SET status = 'paid' WHERE status = 'approved'`, 'migrate approved→paid');
+  // Migrate old 'approved' rows into the new workflow at pending_imports
+  await safeQuery(`UPDATE qc_inspection.inspection_charges_advice SET status = 'pending_imports' WHERE status = 'approved'`, 'migrate approved→pending_imports');
+  // Also fix any rows that were incorrectly set to 'paid' by a previous migration run
+  await safeQuery(`UPDATE qc_inspection.inspection_charges_advice SET status = 'pending_imports' WHERE status = 'paid' AND imports_user_id IS NULL`, 'fix paid→pending_imports');
 
   // Ensure default accounts exist
   const defaultUsers = [
