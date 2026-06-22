@@ -180,10 +180,14 @@ router.get('/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// POST — agency raises a new charges advice
-// Notifies: QA + Buying
-router.post('/', authorize('agency_user'), async (req, res) => {
-  const { job_ids, rate_type, rate_value, num_mandays, travel_allowance, stay_allowance, currency, contract_id, notes } = req.body;
+// POST — agency raises a new charges advice (multipart: invoice file mandatory)
+router.post('/', authorize('agency_user'), upload.single('invoice'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Agency invoice is required. Please upload the invoice (PDF/JPG/PNG).' });
+
+  // Fields come as form-data strings; job_ids is JSON-encoded array
+  const { rate_type, rate_value, num_mandays, travel_allowance, stay_allowance, currency, contract_id, notes } = req.body;
+  const job_ids = typeof req.body.job_ids === 'string' ? JSON.parse(req.body.job_ids) : req.body.job_ids;
+
   if (!job_ids || !job_ids.length) return res.status(400).json({ error: 'At least one job is required' });
   if (!rate_type || !rate_value) return res.status(400).json({ error: 'rate_type and rate_value are required' });
   if (rate_type === 'manday' && !num_mandays) return res.status(400).json({ error: 'num_mandays is required for manday rate type' });
@@ -228,11 +232,13 @@ router.post('/', authorize('agency_user'), async (req, res) => {
     const r = await db.query(
       `INSERT INTO qc_inspection.inspection_charges_advice
          (agency_code, contract_id, rate_type, rate_value, num_mandays, travel_allowance, stay_allowance,
-          currency, po_value, total_cost, cost_bearer, notes, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+          currency, po_value, total_cost, cost_bearer, notes, created_by,
+          invoice_file_name, invoice_file_data, invoice_file_type, invoice_uploaded_at, invoice_uploaded_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW(),$13) RETURNING *`,
       [req.user.agency_code, contract_id || null, rate_type, rate_value, num_mandays || null,
        travel_allowance || 0, stay_allowance || 0, currency || 'USD',
-       po_value, total_cost, cost_bearer, notes || null, req.user.user_id]
+       po_value, total_cost, cost_bearer, notes || null, req.user.user_id,
+       req.file.originalname, req.file.buffer, req.file.mimetype]
     );
     const advice = r.rows[0];
 
@@ -304,7 +310,6 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
 
     } else if (role === 'imports') {
       if (advice.status !== 'pending_imports') return res.status(400).json({ error: 'Not pending Imports approval' });
-      if (!advice.invoice_file_data) return res.status(400).json({ error: 'Please upload the agency invoice before approving' });
       update = await db.query(
         `UPDATE qc_inspection.inspection_charges_advice
          SET status = 'pending_accounts', imports_user_id = $1, imports_approved_at = NOW(), imports_notes = $2
@@ -366,8 +371,8 @@ router.put('/:id/reject', authorize('qa', 'buying', 'imports', 'accounts'), asyn
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// POST /:id/invoice — imports uploads agency invoice (mandatory before approval)
-router.post('/:id/invoice', authorize('imports', 'agency_user', 'qa', 'buying', 'admin'), upload.single('invoice'), async (req, res) => {
+// POST /:id/invoice — admin/qa can replace invoice if needed (agency uploads at creation)
+router.post('/:id/invoice', authorize('admin', 'qa'), upload.single('invoice'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
     const r = await db.query(
