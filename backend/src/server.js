@@ -34,6 +34,13 @@ async function runMigrations() {
       ADD COLUMN IF NOT EXISTS result TEXT CHECK (result IN ('pass','fail','na'))
   `);
 
+  // Ensure admin account exists with known password (Password@123)
+  await db.query(`
+    INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role)
+    VALUES ('Admin', 'admin@homesrus.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'admin')
+    ON CONFLICT (email) DO UPDATE SET password_hash = '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.'
+  `);
+
   console.log('✅ Migrations applied');
 }
 
