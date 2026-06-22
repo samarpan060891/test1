@@ -490,12 +490,12 @@ export default function InspectionCostPage() {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
-                        <label style={labelSt}>Travel Allowance</label>
-                        <input type="number" min="0" step="0.01" value={contractForm.travel_allowance} onChange={e => setContractForm(p => ({ ...p, travel_allowance: e.target.value }))} placeholder="0" style={inputSt} />
+                        <label style={{ ...labelSt, color: contractForm.rate_type === 'percentage' ? '#94a3b8' : undefined }}>Travel Allowance</label>
+                        <input type="number" min="0" step="0.01" value={contractForm.travel_allowance} onChange={e => setContractForm(p => ({ ...p, travel_allowance: e.target.value }))} placeholder="0" disabled={contractForm.rate_type === 'percentage'} style={{ ...inputSt, opacity: contractForm.rate_type === 'percentage' ? 0.4 : 1, cursor: contractForm.rate_type === 'percentage' ? 'not-allowed' : 'auto' }} />
                       </div>
                       <div>
-                        <label style={labelSt}>Stay/Day</label>
-                        <input type="number" min="0" step="0.01" value={contractForm.stay_allowance_per_day} onChange={e => setContractForm(p => ({ ...p, stay_allowance_per_day: e.target.value }))} placeholder="0" style={inputSt} />
+                        <label style={{ ...labelSt, color: contractForm.rate_type === 'percentage' ? '#94a3b8' : undefined }}>Stay/Day</label>
+                        <input type="number" min="0" step="0.01" value={contractForm.stay_allowance_per_day} onChange={e => setContractForm(p => ({ ...p, stay_allowance_per_day: e.target.value }))} placeholder="0" disabled={contractForm.rate_type === 'percentage'} style={{ ...inputSt, opacity: contractForm.rate_type === 'percentage' ? 0.4 : 1, cursor: contractForm.rate_type === 'percentage' ? 'not-allowed' : 'auto' }} />
                       </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -692,8 +692,14 @@ export default function InspectionCostPage() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                <div><label style={labelSt}>Travel Allowance</label><input type="number" min="0" step="0.01" value={travel} onChange={e => setTravel(e.target.value)} placeholder="0" style={inputSt} /></div>
-                <div><label style={labelSt}>Stay Allowance</label><input type="number" min="0" step="0.01" value={stay} onChange={e => setStay(e.target.value)} placeholder="0" style={inputSt} /></div>
+                <div>
+                  <label style={{ ...labelSt, color: rateType === 'percentage' ? '#94a3b8' : undefined }}>Travel Allowance</label>
+                  <input type="number" min="0" step="0.01" value={rateType === 'percentage' ? '' : travel} onChange={e => setTravel(e.target.value)} placeholder="0" style={{ ...inputSt, opacity: rateType === 'percentage' ? 0.4 : 1, cursor: rateType === 'percentage' ? 'not-allowed' : 'auto' }} disabled={rateType === 'percentage'} />
+                </div>
+                <div>
+                  <label style={{ ...labelSt, color: rateType === 'percentage' ? '#94a3b8' : undefined }}>Stay Allowance</label>
+                  <input type="number" min="0" step="0.01" value={rateType === 'percentage' ? '' : stay} onChange={e => setStay(e.target.value)} placeholder="0" style={{ ...inputSt, opacity: rateType === 'percentage' ? 0.4 : 1, cursor: rateType === 'percentage' ? 'not-allowed' : 'auto' }} disabled={rateType === 'percentage'} />
+                </div>
                 <div>
                   <label style={labelSt}>Currency</label>
                   <select value={currency} onChange={e => setCurrency(e.target.value)} style={inputSt}>
