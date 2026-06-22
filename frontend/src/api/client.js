@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const baseURL = 'https://test1-production-6593.up.railway.app/api'
+const baseURL = '/api'
 const client = axios.create({ baseURL })
 
 client.interceptors.request.use(config => {
