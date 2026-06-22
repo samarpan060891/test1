@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
-import { getAdvices, createAdvice, approveAdvice, rejectAdvice, getContracts, createContract } from '../api/inspectionCosts.js'
+import { getAdvices, createAdvice, approveAdvice, rejectAdvice, getContracts, createContract, uploadInvoice, getInvoiceUrl } from '../api/inspectionCosts.js'
 import { getJobs } from '../api/inspectionJobs.js'
 import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
 
@@ -161,6 +161,9 @@ export default function InspectionCostPage() {
   const [showApprove, setShowApprove]   = useState(null)
   const [actionNote, setActionNote]     = useState('')
   const [actionMsg, setActionMsg]       = useState('')
+  const [invoiceFile, setInvoiceFile]   = useState(null)
+  const [invoiceUploading, setInvoiceUploading] = useState(false)
+  const [invoiceMsg, setInvoiceMsg]     = useState('')
   const [actionSaving, setActionSaving] = useState(false)
 
   const [showContracts, setShowContracts] = useState(false)
@@ -186,9 +189,9 @@ export default function InspectionCostPage() {
 
   const load = () => {
     setLoading(true)
-    getAdvices()
-      .then(r => setAdvices(r.data))
-      .catch(err => console.error('getAdvices error:', err?.response?.data?.error || err.message))
+    return getAdvices()
+      .then(r => { setAdvices(r.data); return r.data })
+      .catch(err => { console.error('getAdvices error:', err?.response?.data?.error || err.message); return [] })
       .finally(() => setLoading(false))
   }
 
@@ -275,6 +278,24 @@ export default function InspectionCostPage() {
     } catch (err) {
       setCreateMsg(err?.response?.data?.error || 'Failed to create advice')
     } finally { setCreating(false) }
+  }
+
+  const handleInvoiceUpload = async (adviceId, file) => {
+    if (!file) return
+    setInvoiceUploading(true); setInvoiceMsg('')
+    try {
+      const res = await uploadInvoice(adviceId, file)
+      setInvoiceMsg('Invoice uploaded successfully')
+      setInvoiceFile(null)
+      // Update advices list and refresh modal state if open
+      const updated = await load()
+      if (showApprove && showApprove.advice.advice_id === adviceId) {
+        const refreshed = (updated || advices).find(a => a.advice_id === adviceId)
+        if (refreshed) setShowApprove(p => ({ ...p, advice: refreshed }))
+      }
+    } catch (err) {
+      setInvoiceMsg(err?.response?.data?.error || 'Upload failed')
+    } finally { setInvoiceUploading(false) }
   }
 
   const handleAction = async () => {
@@ -510,6 +531,31 @@ export default function InspectionCostPage() {
                     {a.imports_user_name  && <span>✅ Imports: <strong>{a.imports_user_name}</strong>{a.imports_notes ? ` — "${a.imports_notes}"` : ''}</span>}
                     {a.accounts_user_name && <span style={{ color: '#15803d', fontWeight: '700' }}>💰 Paid: <strong>{a.accounts_user_name}</strong>{a.accounts_notes ? ` — "${a.accounts_notes}"` : ''}</span>}
                     {a.status === 'rejected' && <span style={{ color: '#991b1b' }}>❌ Rejected: {a.rejection_reason}</span>}
+                  </div>
+                )}
+
+                {/* Invoice upload — visible to imports (mandatory) and all internal roles */}
+                {(role === 'imports' || role === 'qa' || role === 'buying' || role === 'accounts' || role === 'admin') && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', minWidth: '70px' }}>
+                      📄 Invoice{role === 'imports' && a.status === 'pending_imports' ? <span style={{ color: '#dc2626' }}> *</span> : ''}:
+                    </span>
+                    {a.invoice_file_name ? (
+                      <a href={getInvoiceUrl(a.advice_id)} target="_blank" rel="noreferrer"
+                        style={{ fontSize: '12px', color: '#1d4ed8', fontWeight: '600', textDecoration: 'underline' }}>
+                        {a.invoice_file_name}
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: '12px', color: '#94a3b8' }}>No invoice uploaded</span>
+                    )}
+                    {/* Upload button — imports can upload at pending_imports stage; admin/qa/buying can upload anytime */}
+                    {(role === 'imports' || role === 'admin' || role === 'qa' || role === 'buying') && a.status !== 'paid' && a.status !== 'rejected' && (
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                        {invoiceUploading ? 'Uploading…' : a.invoice_file_name ? '↑ Replace' : '↑ Upload PDF/Image'}
+                        <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} disabled={invoiceUploading}
+                          onChange={e => { if (e.target.files[0]) handleInvoiceUpload(a.advice_id, e.target.files[0]); e.target.value = '' }} />
+                      </label>
+                    )}
                   </div>
                 )}
               </div>
@@ -764,6 +810,36 @@ export default function InspectionCostPage() {
               {showApprove.advice.advice_ref} — <strong>{fmt(showApprove.advice.total_cost, showApprove.advice.currency)}</strong>
             </p>
 
+            {/* Invoice check for imports approve */}
+            {role === 'imports' && showApprove.action === 'approve' && (
+              <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '8px', background: showApprove.advice.invoice_file_name ? '#f0fdf4' : '#fef2f2', border: `1px solid ${showApprove.advice.invoice_file_name ? '#86efac' : '#fca5a5'}` }}>
+                {showApprove.advice.invoice_file_name ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                    <span style={{ color: '#15803d', fontWeight: '700' }}>✓ Invoice uploaded:</span>
+                    <a href={getInvoiceUrl(showApprove.advice.advice_id)} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', textDecoration: 'underline' }}>
+                      {showApprove.advice.invoice_file_name}
+                    </a>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '13px' }}>
+                    <span style={{ color: '#dc2626', fontWeight: '700' }}>⚠ Invoice required.</span>
+                    <span style={{ color: '#64748b', marginLeft: '6px' }}>Upload the agency invoice before approving.</span>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: '10px', cursor: 'pointer', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                      {invoiceUploading ? 'Uploading…' : '↑ Upload now'}
+                      <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} disabled={invoiceUploading}
+                        onChange={async e => {
+                          if (e.target.files[0]) {
+                            await handleInvoiceUpload(showApprove.advice.advice_id, e.target.files[0])
+                            // Refresh the advice in showApprove after upload
+                            e.target.value = ''
+                          }
+                        }} />
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="field">
               <label>{showApprove.action === 'approve' ? 'Notes (optional)' : 'Rejection Reason *'}</label>
               <textarea
@@ -778,9 +854,10 @@ export default function InspectionCostPage() {
             {actionMsg && <div className="alert alert-error mb-4">{actionMsg}</div>}
 
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={handleAction} disabled={actionSaving}
+              <button onClick={handleAction}
+                disabled={actionSaving || (role === 'imports' && showApprove.action === 'approve' && !showApprove.advice.invoice_file_name)}
                 className={showApprove.action === 'approve' ? 'btn btn-success' : 'btn btn-danger'}
-                style={{ flex: 1 }}>
+                style={{ flex: 1, opacity: (role === 'imports' && showApprove.action === 'approve' && !showApprove.advice.invoice_file_name) ? 0.5 : 1 }}>
                 {actionSaving ? t('common_saving') : showApprove.action === 'approve' ? t('costs_confirm_approval') : t('costs_confirm_rejection')}
               </button>
               <button onClick={() => setShowApprove(null)} className="btn btn-ghost" style={{ flex: 1 }}>

@@ -8,3 +8,10 @@ export const rejectAdvice = (id, reason) => client.put(`/inspection-costs/${id}/
 
 export const getContracts = () => client.get('/inspection-costs/contracts')
 export const createContract = (data) => client.post('/inspection-costs/contracts', data)
+
+export const uploadInvoice = (id, file) => {
+  const fd = new FormData()
+  fd.append('invoice', file)
+  return client.post(`/inspection-costs/${id}/invoice`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
+export const getInvoiceUrl = (id) => `/api/inspection-costs/${id}/invoice`

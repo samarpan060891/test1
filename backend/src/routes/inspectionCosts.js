@@ -1,7 +1,18 @@
 const express = require('express');
+const multer = require('multer');
 const db = require('../db');
 const { authenticate, authorize } = require('../middleware/auth');
 const { sendNotification } = require('../services/notifications');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Only PDF, JPG, PNG files are allowed'));
+  },
+});
 
 const router = express.Router();
 router.use(authenticate);
@@ -293,6 +304,7 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
 
     } else if (role === 'imports') {
       if (advice.status !== 'pending_imports') return res.status(400).json({ error: 'Not pending Imports approval' });
+      if (!advice.invoice_file_data) return res.status(400).json({ error: 'Please upload the agency invoice before approving' });
       update = await db.query(
         `UPDATE qc_inspection.inspection_charges_advice
          SET status = 'pending_accounts', imports_user_id = $1, imports_approved_at = NOW(), imports_notes = $2
@@ -351,6 +363,38 @@ router.put('/:id/reject', authorize('qa', 'buying', 'imports', 'accounts'), asyn
       `Advice ${ref} was rejected by ${roleLabel}. Reason: ${reason}`, ctx?.advice_id || null);
 
     res.json(advice);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /:id/invoice — imports uploads agency invoice (mandatory before approval)
+router.post('/:id/invoice', authorize('imports', 'agency_user', 'qa', 'buying', 'admin'), upload.single('invoice'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  try {
+    const r = await db.query(
+      `UPDATE qc_inspection.inspection_charges_advice
+       SET invoice_file_name = $1, invoice_file_data = $2, invoice_file_type = $3,
+           invoice_uploaded_at = NOW(), invoice_uploaded_by = $4
+       WHERE advice_id = $5 RETURNING advice_id, invoice_file_name, invoice_uploaded_at`,
+      [req.file.originalname, req.file.buffer, req.file.mimetype, req.user.user_id, req.params.id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Advice not found' });
+    res.json({ message: 'Invoice uploaded', ...r.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /:id/invoice — download the uploaded invoice
+router.get('/:id/invoice', authenticate, async (req, res) => {
+  try {
+    const r = await db.query(
+      `SELECT invoice_file_name, invoice_file_data, invoice_file_type FROM qc_inspection.inspection_charges_advice WHERE advice_id = $1`,
+      [req.params.id]
+    );
+    if (r.rows.length === 0 || !r.rows[0].invoice_file_data)
+      return res.status(404).json({ error: 'No invoice found' });
+    const { invoice_file_name, invoice_file_data, invoice_file_type } = r.rows[0];
+    res.setHeader('Content-Type', invoice_file_type || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${invoice_file_name}"`);
+    res.send(invoice_file_data);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

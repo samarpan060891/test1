@@ -87,7 +87,14 @@ async function runMigrations() {
   await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS accounts_approved_at TIMESTAMPTZ`, 'accounts_approved_at');
   await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS accounts_notes TEXT`, 'accounts_notes');
 
-  // Migrate old 'approved' rows into the new workflow at pending_imports
+  // 010: invoice upload columns on inspection_charges_advice
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS invoice_file_name TEXT`, 'invoice_file_name');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS invoice_file_data BYTEA`, 'invoice_file_data');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS invoice_file_type TEXT`, 'invoice_file_type');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS invoice_uploaded_at TIMESTAMPTZ`, 'invoice_uploaded_at');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS invoice_uploaded_by UUID REFERENCES qc_inspection.team_stakeholder(user_id)`, 'invoice_uploaded_by');
+
+
   await safeQuery(`UPDATE qc_inspection.inspection_charges_advice SET status = 'pending_imports' WHERE status = 'approved'`, 'migrate approved→pending_imports');
   // Also fix any rows that were incorrectly set to 'paid' by a previous migration run
   await safeQuery(`UPDATE qc_inspection.inspection_charges_advice SET status = 'pending_imports' WHERE status = 'paid' AND imports_user_id IS NULL`, 'fix paid→pending_imports');
