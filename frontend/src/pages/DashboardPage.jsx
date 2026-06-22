@@ -16,6 +16,13 @@ const STATUS_META = {
   qa_rejected:                { label: 'Rejected',           bg: '#fef2f2', color: '#dc2626' },
 }
 
+const PAYMENT_META = {
+  pending_qa:      { label: 'Pending QA',      bg: '#eff6ff', color: '#1d4ed8' },
+  pending_buying:  { label: 'Pending Buying',   bg: '#fefce8', color: '#92400e' },
+  approved:        { label: 'Paid / Approved',  bg: '#f0fdf4', color: '#15803d' },
+  rejected:        { label: 'Advice Rejected',  bg: '#fef2f2', color: '#dc2626' },
+}
+
 const STAGE_META = {
   pre_production: { label: 'Pre-Prod', bg: '#fefce8', color: '#92400e' },
   inline:         { label: 'Inline',   bg: '#eff6ff', color: '#1d4ed8' },
@@ -25,6 +32,16 @@ const STAGE_META = {
 
 function StatusBadge({ status }) {
   const m = STATUS_META[status] || { label: status, bg: '#f1f5f9', color: '#475569' }
+  return (
+    <span style={{ background: m.bg, color: m.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+      {m.label}
+    </span>
+  )
+}
+
+function PaymentBadge({ status }) {
+  if (!status) return <span style={{ color: '#94a3b8', fontSize: '12px' }}>No Advice</span>
+  const m = PAYMENT_META[status] || { label: status, bg: '#f1f5f9', color: '#475569' }
   return (
     <span style={{ background: m.bg, color: m.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>
       {m.label}
@@ -215,7 +232,7 @@ export default function DashboardPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      {[t('th_job_id'), t('th_stage'), t('th_po_no'), t('th_item'), t('th_supplier'), t('th_agency'), t('th_status'), t('th_date'), t('th_actions')].map(h => (
+                      {[t('th_job_id'), t('th_stage'), t('th_po_no'), t('th_item'), t('th_supplier'), t('th_agency'), 'Activity Status', 'Payment Status', t('th_date'), t('th_actions')].map(h => (
                         <th key={h}>{h}</th>
                       ))}
                     </tr>
@@ -232,6 +249,7 @@ export default function DashboardPage() {
                         <td>{job.supplier_code || '—'}</td>
                         <td>{job.agency_code || '—'}</td>
                         <td><StatusBadge status={job.status} /></td>
+                        <td><PaymentBadge status={job.payment_status} /></td>
                         <td style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>
                           {job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : '—'}
                         </td>
