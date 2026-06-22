@@ -39,6 +39,7 @@ const PO_FIELDS = [
   { key: 'supplier_code', label: 'Supplier Code', placeholder: 'SUP-001', required: true },
   { key: 'item_code', label: 'Item Code', placeholder: 'ITM-001', required: true },
   { key: 'quantity', label: 'Quantity', placeholder: '500', required: false, type: 'number' },
+  { key: 'unit_price', label: 'Unit Price (USD)', placeholder: '18.50', required: false, type: 'number' },
   { key: 'order_date', label: 'Order Date', placeholder: '', required: false, type: 'date' },
   { key: 'status', label: 'Status', placeholder: 'open', required: false },
 ]

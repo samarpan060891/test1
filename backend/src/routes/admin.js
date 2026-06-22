@@ -231,14 +231,14 @@ router.get('/masters/po', async (req, res) => {
 });
 
 router.post('/masters/po/single', async (req, res) => {
-  const { po_no, supplier_code, item_code, quantity, order_date, status } = req.body;
+  const { po_no, supplier_code, item_code, quantity, unit_price, order_date, status } = req.body;
   if (!po_no || !supplier_code || !item_code) return res.status(400).json({ error: 'po_no, supplier_code and item_code are required' });
   try {
     const r = await db.query(
-      `INSERT INTO qc_inspection.po_master (po_no, supplier_code, item_code, quantity, order_date, status)
-       VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (po_no) DO UPDATE
-       SET supplier_code=$2, item_code=$3, quantity=$4, order_date=$5, status=$6 RETURNING *`,
-      [po_no, supplier_code, item_code, quantity || null, order_date || null, status || 'open']
+      `INSERT INTO qc_inspection.po_master (po_no, supplier_code, item_code, quantity, unit_price, order_date, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (po_no) DO UPDATE
+       SET supplier_code=$2, item_code=$3, quantity=$4, unit_price=$5, order_date=$6, status=$7 RETURNING *`,
+      [po_no, supplier_code, item_code, quantity || null, unit_price || 0, order_date || null, status || 'open']
     );
     res.status(201).json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -251,6 +251,7 @@ router.post('/masters/po/bulk', async (req, res) => {
       supplier_code: r.supplier_code || r['Supplier Code'],
       item_code: r.item_code || r['Item Code'],
       quantity: parseInt(r.quantity || r['Quantity']) || null,
+      unit_price: parseFloat(r.unit_price || r['Unit Price']) || 0,
       order_date: r.order_date || r['Order Date'] || null,
       status: r.status || r['Status'] || 'open',
     })).filter(r => r.po_no && r.supplier_code && r.item_code);
