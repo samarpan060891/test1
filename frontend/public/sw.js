@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qc-inspection-v2';
+const CACHE_NAME = 'qc-inspection-v3';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
