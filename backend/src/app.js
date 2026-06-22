@@ -17,7 +17,15 @@ const app = express();
 
 // ── Middleware ──────────────────────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    const allowed = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
+    allowed.push('http://localhost:5173');
+    if (!origin || allowed.some(o => origin === o || origin.endsWith('.railway.app'))) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 
