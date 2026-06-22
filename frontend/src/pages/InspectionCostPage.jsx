@@ -62,8 +62,9 @@ function AgencyBreakdown({ advices }) {
         const allJobs = ag.advices.flatMap(a => (a.jobs || []).map(j => ({ ...j, adviceStatus: a.status, totalCost: a.total_cost, poValue: a.po_value, currency: a.currency })))
         const totalJobs = allJobs.length
         const finished = allJobs.filter(j => j.status === 'qa_approved' || j.status === 'qa_rejected').length
-        const totalCharges = ag.advices.filter(a => a.status === 'approved').reduce((s, a) => s + parseFloat(a.total_cost || 0), 0)
-        const totalPoValue = ag.advices.filter(a => a.status === 'approved').reduce((s, a) => s + parseFloat(a.po_value || 0), 0)
+        const finalStatuses = ['paid', 'pending_imports', 'pending_accounts', 'approved']
+        const totalCharges = ag.advices.filter(a => finalStatuses.includes(a.status)).reduce((s, a) => s + parseFloat(a.total_cost || 0), 0)
+        const totalPoValue = ag.advices.filter(a => finalStatuses.includes(a.status)).reduce((s, a) => s + parseFloat(a.po_value || 0), 0)
         const pct = totalPoValue > 0 ? ((totalCharges / totalPoValue) * 100).toFixed(2) : null
 
         return (
@@ -254,12 +255,12 @@ export default function InspectionCostPage() {
       return (parseFloat(rateValue) * parseFloat(numMandays)) + parseFloat(travel || 0) + parseFloat(stay || 0)
     }
     if (rateType === 'percentage') {
-      const totalQty = selectedJobs.reduce((sum, id) => {
+      const totalPoValue = selectedJobs.reduce((sum, id) => {
         const j = jobs.find(j => j.job_id === id)
-        return sum + (parseFloat(j?.quantity) || 0)
+        return sum + (parseFloat(j?.po_value) || parseFloat(j?.quantity) * parseFloat(j?.unit_price) || 0)
       }, 0)
-      if (!totalQty) return null
-      return (totalQty * parseFloat(rateValue)) / 100
+      if (!totalPoValue) return null
+      return (totalPoValue * parseFloat(rateValue)) / 100
     }
     return null
   }

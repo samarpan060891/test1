@@ -9,7 +9,7 @@ function fmt(num, currency = 'USD') {
 
 export default function InspectionSummaryCard({ advices = [], showLink = false }) {
   const { t } = useLanguage()
-  const approved = advices.filter(a => a.status === 'paid' || a.status === 'approved')
+  const approved = advices.filter(a => ['paid', 'pending_imports', 'pending_accounts', 'approved'].includes(a.status))
   const totalCharges = approved.reduce((s, a) => s + parseFloat(a.total_cost || 0), 0)
   const totalPoValue = approved.reduce((s, a) => s + parseFloat(a.po_value || 0), 0)
   const pctToPo = totalPoValue > 0 ? (totalCharges / totalPoValue) * 100 : null

@@ -67,6 +67,8 @@ router.get('/', async (req, res) => {
         s.name AS supplier_name,
         a.name AS agency_name,
         p.quantity,
+        p.unit_price,
+        COALESCE(p.quantity * p.unit_price, 0) AS po_value,
         (
           SELECT ca.status
           FROM qc_inspection.inspection_charges_advice ca

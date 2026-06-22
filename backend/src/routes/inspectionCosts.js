@@ -191,9 +191,14 @@ router.post('/', authorize('agency_user'), async (req, res) => {
     let total_cost = 0;
     let po_value = null;
 
-    // Always fetch PO value so % to PO can be shown for any rate type
+    // Fetch PO value: use quantity * unit_price; if unit_price is 0, try po_master.total_value fallback
     const poRes = await db.query(
-      `SELECT COALESCE(SUM(pm.quantity * pm.unit_price), 0) AS total_po_value
+      `SELECT COALESCE(SUM(
+         CASE WHEN pm.unit_price > 0
+           THEN pm.quantity * pm.unit_price
+           ELSE COALESCE(pm.total_value, 0)
+         END
+       ), 0) AS total_po_value
        FROM qc_inspection.inspection_job j
        LEFT JOIN qc_inspection.po_master pm ON pm.po_no = j.po_no
        WHERE j.job_id = ANY($1::uuid[])`,
