@@ -8,7 +8,9 @@ import BrandLogo from './BrandLogo.jsx'
 const roleMeta = {
   qa:            { label: 'QA',       bg: '#4f46e5', color: '#fff' },
   buying:        { label: 'Buying',   bg: '#0284c7', color: '#fff' },
-  agency_user:   { label: 'Agency',   bg: '#059669', color: '#fff' },
+  imports:       { label: 'Imports',  bg: '#0891b2', color: '#fff' },
+  accounts:      { label: 'Accounts', bg: '#059669', color: '#fff' },
+  agency_user:   { label: 'Agency',   bg: '#d97706', color: '#fff' },
   supplier_user: { label: 'Supplier', bg: '#7c3aed', color: '#fff' },
   admin:         { label: 'Admin',    bg: '#dc2626', color: '#fff' },
 }
@@ -77,7 +79,7 @@ export default function Navbar() {
           {navLink('/po-log', t('nav_po_log'), 'po')}
           {(role === 'qa' || role === 'buying') && navLink('/map-inspection', t('nav_map_inspection'), 'map')}
           {(role === 'qa' || role === 'admin') && navLink('/checklist-templates', t('nav_checklist_templates'), 'tmpl')}
-          {(role === 'qa' || role === 'buying' || role === 'agency_user' || role === 'admin') &&
+          {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'agency_user' || role === 'admin') &&
             navLink('/inspection-costs', t('nav_inspection_costs'), 'costs')}
           {role === 'supplier_user' && navLink('/inspection-costs', 'Inspection Charges', 'costs-s')}
           {role === 'admin' && navLink('/admin/users', t('nav_users'), 'users')}

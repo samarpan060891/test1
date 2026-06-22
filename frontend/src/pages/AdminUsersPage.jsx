@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { getUsers, createUser, updateUser, deleteUser, resetPassword } from '../api/admin.js'
 
-const ROLES = ['qa', 'buying', 'agency_user', 'supplier_user', 'admin']
+const ROLES = ['qa', 'buying', 'imports', 'accounts', 'agency_user', 'supplier_user', 'admin']
 
 const emptyForm = { name: '', email: '', password: '', role: 'agency_user', agency_code: '', supplier_code: '' }
 
@@ -68,7 +68,7 @@ export default function AdminUsersPage() {
     } catch (err) { setResetMsg(err?.response?.data?.error || 'Failed') }
   }
 
-  const roleColor = { qa: '#7c3aed', buying: '#0369a1', agency_user: '#0f766e', supplier_user: '#b45309', admin: '#dc2626' }
+  const roleColor = { qa: '#7c3aed', buying: '#0369a1', imports: '#0891b2', accounts: '#059669', agency_user: '#0f766e', supplier_user: '#b45309', admin: '#dc2626' }
 
   return (
     <div className="page">

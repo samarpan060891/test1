@@ -29,7 +29,40 @@ async function runMigrations() {
     END WHERE unit_price = 0
   `);
 
-  // 009: result column on inspection_job (may be missing on some installs)
+  // 009: imports and accounts roles + extended payment status workflow
+  await db.query(`
+    ALTER TABLE qc_inspection.team_stakeholder
+      DROP CONSTRAINT IF EXISTS team_stakeholder_role_check
+  `);
+  await db.query(`
+    ALTER TABLE qc_inspection.team_stakeholder
+      ADD CONSTRAINT team_stakeholder_role_check
+      CHECK (role IN ('qa','buying','agency_user','supplier_user','admin','imports','accounts'))
+  `);
+  await db.query(`
+    ALTER TABLE qc_inspection.inspection_charges_advice
+      DROP CONSTRAINT IF EXISTS inspection_charges_advice_status_check
+  `);
+  await db.query(`
+    ALTER TABLE qc_inspection.inspection_charges_advice
+      ADD CONSTRAINT inspection_charges_advice_status_check
+      CHECK (status IN ('pending_qa','pending_buying','pending_imports','pending_accounts','paid','rejected'))
+  `);
+  await db.query(`
+    ALTER TABLE qc_inspection.inspection_charges_advice
+      ADD COLUMN IF NOT EXISTS imports_user_id     UUID REFERENCES qc_inspection.team_stakeholder(user_id),
+      ADD COLUMN IF NOT EXISTS imports_approved_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS imports_notes       TEXT,
+      ADD COLUMN IF NOT EXISTS accounts_user_id    UUID REFERENCES qc_inspection.team_stakeholder(user_id),
+      ADD COLUMN IF NOT EXISTS accounts_approved_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS accounts_notes      TEXT
+  `);
+  // Migrate old 'approved' rows to 'paid' (buying was the final step before)
+  await db.query(`
+    UPDATE qc_inspection.inspection_charges_advice SET status = 'paid' WHERE status = 'approved'
+  `);
+
+
   await db.query(`
     ALTER TABLE qc_inspection.inspection_job
       ADD COLUMN IF NOT EXISTS result TEXT CHECK (result IN ('pass','fail','na'))

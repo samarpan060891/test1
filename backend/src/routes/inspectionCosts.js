@@ -6,13 +6,19 @@ const { sendNotification } = require('../services/notifications');
 const router = express.Router();
 router.use(authenticate);
 
-// Helper: get emails for QA and Buying teams
+// Helper: get emails for internal teams
 async function getInternalTeamEmails() {
-  const qa = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa' AND email IS NOT NULL");
-  const buying = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying' AND email IS NOT NULL");
+  const [qa, buying, imports, accounts] = await Promise.all([
+    db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa' AND email IS NOT NULL"),
+    db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying' AND email IS NOT NULL"),
+    db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'imports' AND email IS NOT NULL"),
+    db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'accounts' AND email IS NOT NULL"),
+  ]);
   return {
     qaEmails: qa.rows.map(u => u.email),
     buyingEmails: buying.rows.map(u => u.email),
+    importsEmails: imports.rows.map(u => u.email),
+    accountsEmails: accounts.rows.map(u => u.email),
   };
 }
 
@@ -74,6 +80,9 @@ router.get('/', async (req, res) => {
              creator.name AS created_by_name,
              qa_u.name AS qa_user_name,
              buy_u.name AS buying_user_name,
+             imp_u.name AS imports_user_name,
+             acc_u.name AS accounts_user_name,
+             rej_u.name AS rejected_by_name,
              COALESCE(
                json_agg(
                  json_build_object(
@@ -89,6 +98,9 @@ router.get('/', async (req, res) => {
       JOIN qc_inspection.team_stakeholder creator ON creator.user_id = a.created_by
       LEFT JOIN qc_inspection.team_stakeholder qa_u ON qa_u.user_id = a.qa_user_id
       LEFT JOIN qc_inspection.team_stakeholder buy_u ON buy_u.user_id = a.buying_user_id
+      LEFT JOIN qc_inspection.team_stakeholder imp_u ON imp_u.user_id = a.imports_user_id
+      LEFT JOIN qc_inspection.team_stakeholder acc_u ON acc_u.user_id = a.accounts_user_id
+      LEFT JOIN qc_inspection.team_stakeholder rej_u ON rej_u.user_id = a.rejected_by
       LEFT JOIN qc_inspection.ica_jobs ij ON ij.advice_id = a.advice_id
       LEFT JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
       LEFT JOIN qc_inspection.item_master im ON im.item_code = j.item_code`;
@@ -106,7 +118,7 @@ router.get('/', async (req, res) => {
              )`;
       params.push(req.user.supplier_code);
     }
-    q += ' GROUP BY a.advice_id, ag.name, creator.name, qa_u.name, buy_u.name ORDER BY a.created_at DESC';
+    q += ' GROUP BY a.advice_id, ag.name, creator.name, qa_u.name, buy_u.name, imp_u.name, acc_u.name, rej_u.name ORDER BY a.created_at DESC';
 
     const r = await db.query(q, params);
     res.json(r.rows);
@@ -124,6 +136,8 @@ router.get('/:id', async (req, res) => {
              creator.name AS created_by_name,
              qa_u.name AS qa_user_name,
              buy_u.name AS buying_user_name,
+             imp_u.name AS imports_user_name,
+             acc_u.name AS accounts_user_name,
              rej_u.name AS rejected_by_name,
              COALESCE(
                json_agg(
@@ -140,12 +154,14 @@ router.get('/:id', async (req, res) => {
       JOIN qc_inspection.team_stakeholder creator ON creator.user_id = a.created_by
       LEFT JOIN qc_inspection.team_stakeholder qa_u ON qa_u.user_id = a.qa_user_id
       LEFT JOIN qc_inspection.team_stakeholder buy_u ON buy_u.user_id = a.buying_user_id
+      LEFT JOIN qc_inspection.team_stakeholder imp_u ON imp_u.user_id = a.imports_user_id
+      LEFT JOIN qc_inspection.team_stakeholder acc_u ON acc_u.user_id = a.accounts_user_id
       LEFT JOIN qc_inspection.team_stakeholder rej_u ON rej_u.user_id = a.rejected_by
       LEFT JOIN qc_inspection.ica_jobs ij ON ij.advice_id = a.advice_id
       LEFT JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
       LEFT JOIN qc_inspection.item_master im ON im.item_code = j.item_code
       WHERE a.advice_id = $1
-      GROUP BY a.advice_id, ag.name, creator.name, qa_u.name, buy_u.name, rej_u.name`,
+      GROUP BY a.advice_id, ag.name, creator.name, qa_u.name, buy_u.name, imp_u.name, acc_u.name, rej_u.name`,
       [req.params.id]
     );
     if (r.rows.length === 0) return res.status(404).json({ error: 'Advice not found' });
@@ -224,10 +240,8 @@ router.post('/', authorize('agency_user'), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// PUT /:id/approve — QA or Buying approves
-// QA approves → notifies Buying (their turn) + agency
-// Buying approves → notifies agency (fully approved)
-router.put('/:id/approve', authorize('qa', 'buying'), async (req, res) => {
+// PUT /:id/approve — multi-step: QA → Buying → Imports → Accounts (paid)
+router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), async (req, res) => {
   const { notes } = req.body;
   const { role, user_id } = req.user;
   try {
@@ -236,9 +250,16 @@ router.put('/:id/approve', authorize('qa', 'buying'), async (req, res) => {
     const advice = cur.rows[0];
 
     if (advice.status === 'rejected') return res.status(400).json({ error: 'Advice is already rejected' });
-    if (advice.status === 'approved') return res.status(400).json({ error: 'Advice is already approved' });
+    if (advice.status === 'paid') return res.status(400).json({ error: 'Advice is already paid' });
+
+    const ctx = await getAdviceContext(req.params.id);
+    const { qaEmails, buyingEmails, importsEmails, accountsEmails } = await getInternalTeamEmails();
+    const agencyEmails = ctx?.agency_emails || [];
+    const ref = advice.advice_ref || advice.advice_id.slice(0, 8);
+    const amt = `${advice.currency} ${parseFloat(advice.total_cost).toFixed(2)}`;
 
     let update;
+
     if (role === 'qa') {
       if (advice.status !== 'pending_qa') return res.status(400).json({ error: 'Not pending QA approval' });
       update = await db.query(
@@ -247,57 +268,57 @@ router.put('/:id/approve', authorize('qa', 'buying'), async (req, res) => {
          WHERE advice_id = $3 RETURNING *`,
         [user_id, notes || null, req.params.id]
       );
-
-      // Notify Buying (needs their approval) + Agency (progress update)
-      const ctx = await getAdviceContext(req.params.id);
-      const { buyingEmails } = await getInternalTeamEmails();
-      const agencyEmails = ctx?.agency_emails || [];
-      const ref = advice.advice_ref || advice.advice_id.slice(0, 8);
       sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'buying', buyingEmails,
-        `Inspection charges advice ${ref} has been approved by QA and is now pending your (Buying) approval.`, ctx?.advice_id || null);
+        `Advice ${ref} approved by QA — now pending your Buying approval.`, ctx?.advice_id || null);
       sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'agency_user', agencyEmails,
-        `Your inspection charges advice ${ref} has been approved by QA and is now pending Buying approval.`, ctx?.advice_id || null);
+        `Your advice ${ref} has been approved by QA and is now pending Buying approval.`, ctx?.advice_id || null);
 
-    } else {
+    } else if (role === 'buying') {
       if (advice.status !== 'pending_buying') return res.status(400).json({ error: 'Not pending Buying approval' });
       update = await db.query(
         `UPDATE qc_inspection.inspection_charges_advice
-         SET status = 'approved', buying_user_id = $1, buying_approved_at = NOW(), buying_notes = $2
+         SET status = 'pending_imports', buying_user_id = $1, buying_approved_at = NOW(), buying_notes = $2
          WHERE advice_id = $3 RETURNING *`,
         [user_id, notes || null, req.params.id]
       );
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_BUYING_APPROVED', 'imports', importsEmails,
+        `Advice ${ref} (${amt}) approved by Buying — now pending your Imports approval.`, ctx?.advice_id || null);
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_BUYING_APPROVED', 'agency_user', agencyEmails,
+        `Your advice ${ref} has been approved by Buying and is now pending Imports approval.`, ctx?.advice_id || null);
 
-      // Notify Agency (fully approved) + supplier if cost_bearer = supplier
-      const ctx = await getAdviceContext(req.params.id);
-      const agencyEmails = ctx?.agency_emails || [];
-      const ref = advice.advice_ref || advice.advice_id.slice(0, 8);
-      const amt = `${advice.currency} ${parseFloat(advice.total_cost).toFixed(2)}`;
-      sendNotification(ctx?.first_job_id || null, 'CHARGES_APPROVED', 'agency_user', agencyEmails,
-        `Your inspection charges advice ${ref} for ${amt} has been fully approved by Buying.`, ctx?.advice_id || null);
+    } else if (role === 'imports') {
+      if (advice.status !== 'pending_imports') return res.status(400).json({ error: 'Not pending Imports approval' });
+      update = await db.query(
+        `UPDATE qc_inspection.inspection_charges_advice
+         SET status = 'pending_accounts', imports_user_id = $1, imports_approved_at = NOW(), imports_notes = $2
+         WHERE advice_id = $3 RETURNING *`,
+        [user_id, notes || null, req.params.id]
+      );
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_IMPORTS_APPROVED', 'accounts', accountsEmails,
+        `Advice ${ref} (${amt}) approved by Imports — now pending your Accounts payment confirmation.`, ctx?.advice_id || null);
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_IMPORTS_APPROVED', 'agency_user', agencyEmails,
+        `Your advice ${ref} has been approved by Imports and is now pending Accounts final payment.`, ctx?.advice_id || null);
 
-      if (advice.cost_bearer === 'supplier') {
-        // Get supplier email via linked jobs
-        const suppRes = await db.query(
-          `SELECT DISTINCT s.contact_email
-           FROM qc_inspection.ica_jobs ij
-           JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
-           JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
-           WHERE ij.advice_id = $1`,
-          [req.params.id]
-        );
-        const supplierEmails = suppRes.rows.map(r => r.contact_email).filter(Boolean);
-        sendNotification(ctx?.first_job_id || null, 'CHARGES_APPROVED', 'supplier_user', supplierEmails,
-          `An inspection charges advice ${ref} for ${amt} that you are liable for has been approved.`, ctx?.advice_id || null);
-      }
+    } else if (role === 'accounts') {
+      if (advice.status !== 'pending_accounts') return res.status(400).json({ error: 'Not pending Accounts payment' });
+      update = await db.query(
+        `UPDATE qc_inspection.inspection_charges_advice
+         SET status = 'paid', accounts_user_id = $1, accounts_approved_at = NOW(), accounts_notes = $2
+         WHERE advice_id = $3 RETURNING *`,
+        [user_id, notes || null, req.params.id]
+      );
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'agency_user', agencyEmails,
+        `Your advice ${ref} for ${amt} has been marked as PAID by Accounts.`, ctx?.advice_id || null);
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'buying', buyingEmails,
+        `Advice ${ref} for ${amt} has been confirmed as paid by Accounts.`, ctx?.advice_id || null);
     }
 
     res.json(update.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// PUT /:id/reject — QA or Buying rejects
-// Notifies: agency + other internal role
-router.put('/:id/reject', authorize('qa', 'buying'), async (req, res) => {
+// PUT /:id/reject — any approver in the chain can reject
+router.put('/:id/reject', authorize('qa', 'buying', 'imports', 'accounts'), async (req, res) => {
   const { reason } = req.body;
   if (!reason) return res.status(400).json({ error: 'Rejection reason is required' });
   const { role } = req.user;
@@ -305,29 +326,24 @@ router.put('/:id/reject', authorize('qa', 'buying'), async (req, res) => {
     const r = await db.query(
       `UPDATE qc_inspection.inspection_charges_advice
        SET status = 'rejected', rejected_by = $1, rejected_at = NOW(), rejection_reason = $2
-       WHERE advice_id = $3 AND status NOT IN ('approved','rejected') RETURNING *`,
+       WHERE advice_id = $3 AND status NOT IN ('paid','rejected') RETURNING *`,
       [req.user.user_id, reason, req.params.id]
     );
     if (r.rows.length === 0) return res.status(400).json({ error: 'Cannot reject — advice not found or already finalised' });
     const advice = r.rows[0];
 
-    // Notify agency of rejection
     const ctx = await getAdviceContext(req.params.id);
     const agencyEmails = ctx?.agency_emails || [];
-    const { qaEmails, buyingEmails } = await getInternalTeamEmails();
+    const { qaEmails, buyingEmails, importsEmails, accountsEmails } = await getInternalTeamEmails();
     const ref = advice.advice_ref || advice.advice_id.slice(0, 8);
-    const rejectedBy = role === 'qa' ? 'QA' : 'Buying';
-    const msg = `Your inspection charges advice ${ref} has been rejected by ${rejectedBy}. Reason: ${reason}`;
+    const roleLabel = { qa: 'QA', buying: 'Buying', imports: 'Imports', accounts: 'Accounts' }[role] || role;
+    const msg = `Your advice ${ref} has been rejected by ${roleLabel}. Reason: ${reason}`;
 
     sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'agency_user', agencyEmails, msg, ctx?.advice_id || null);
-    // Also notify the other internal team
-    if (role === 'qa') {
-      sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'buying', buyingEmails,
-        `Inspection charges advice ${ref} was rejected by QA. Reason: ${reason}`, ctx?.advice_id || null);
-    } else {
-      sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'qa', qaEmails,
-        `Inspection charges advice ${ref} was rejected by Buying. Reason: ${reason}`, ctx?.advice_id || null);
-    }
+    // Notify all internal teams of the rejection
+    const allInternal = [...new Set([...qaEmails, ...buyingEmails, ...importsEmails, ...accountsEmails])];
+    sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'qa', allInternal,
+      `Advice ${ref} was rejected by ${roleLabel}. Reason: ${reason}`, ctx?.advice_id || null);
 
     res.json(advice);
   } catch (err) { res.status(500).json({ error: err.message }); }

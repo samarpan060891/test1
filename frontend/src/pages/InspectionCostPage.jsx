@@ -8,10 +8,12 @@ import { getJobs } from '../api/inspectionJobs.js'
 import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
 
 const STATUS_META = {
-  pending_qa:     { bg: '#FEF0EB', color: '#E8470F', label: 'Pending QA' },
-  pending_buying: { bg: '#fefce8', color: '#92400e', label: 'Pending Buying' },
-  approved:       { bg: '#f0fdf4', color: '#15803d', label: 'Approved' },
-  rejected:       { bg: '#fef2f2', color: '#991b1b', label: 'Rejected' },
+  pending_qa:       { bg: '#FEF0EB', color: '#E8470F',  label: 'Pending QA' },
+  pending_buying:   { bg: '#fefce8', color: '#92400e',  label: 'Pending Buying' },
+  pending_imports:  { bg: '#eff6ff', color: '#1d4ed8',  label: 'Pending Imports' },
+  pending_accounts: { bg: '#faf5ff', color: '#7e22ce',  label: 'Pending Accounts' },
+  paid:             { bg: '#f0fdf4', color: '#15803d',  label: 'Paid' },
+  rejected:         { bg: '#fef2f2', color: '#991b1b',  label: 'Rejected' },
 }
 
 function StatusBadge({ status }) {
@@ -289,7 +291,11 @@ export default function InspectionCostPage() {
     } finally { setActionSaving(false) }
   }
 
-  const canApprove = (a) => (role === 'qa' && a.status === 'pending_qa') || (role === 'buying' && a.status === 'pending_buying')
+  const canApprove = (a) =>
+    (role === 'qa'       && a.status === 'pending_qa') ||
+    (role === 'buying'   && a.status === 'pending_buying') ||
+    (role === 'imports'  && a.status === 'pending_imports') ||
+    (role === 'accounts' && a.status === 'pending_accounts')
   const toggleJob = (id) => setSelectedJobs(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
   const raisedJobIds = new Set(advices.flatMap(a => (a.jobs || []).map(j => j.job_id)))
 
@@ -420,14 +426,16 @@ export default function InspectionCostPage() {
           </div>
         )}
 
-        {/* Stats for QA/Buying */}
-        {(role === 'qa' || role === 'buying') && (
+        {/* Stats for internal roles */}
+        {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && (
           <div className="stat-grid mb-6">
             {[
-              { label: t('costs_pending_qa'), key: 'pending_qa', cls: 'blue' },
-              { label: t('costs_pending_buying'), key: 'pending_buying', cls: 'amber' },
-              { label: t('costs_approved'), key: 'approved', cls: 'green' },
-              { label: t('costs_rejected'), key: 'rejected', cls: 'red' },
+              { label: 'Pending QA',       key: 'pending_qa',       cls: 'blue' },
+              { label: 'Pending Buying',    key: 'pending_buying',   cls: 'amber' },
+              { label: 'Pending Imports',   key: 'pending_imports',  cls: 'blue' },
+              { label: 'Pending Accounts',  key: 'pending_accounts', cls: 'amber' },
+              { label: 'Paid',              key: 'paid',             cls: 'green' },
+              { label: 'Rejected',          key: 'rejected',         cls: 'red' },
             ].map(s => (
               <div key={s.key} className={`stat-card ${s.cls}`}>
                 <div className="stat-label">{s.label}</div>
@@ -484,7 +492,7 @@ export default function InspectionCostPage() {
                     <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                       <button onClick={() => { setShowApprove({ advice: a, action: 'approve' }); setActionNote(''); setActionMsg('') }}
                         style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '6px 14px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-                        ✓ {t('costs_approve')}
+                        {role === 'accounts' ? '💰 Mark as Paid' : `✓ ${t('costs_approve')}`}
                       </button>
                       <button onClick={() => { setShowApprove({ advice: a, action: 'reject' }); setActionNote(''); setActionMsg('') }}
                         style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', padding: '6px 14px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
@@ -494,10 +502,12 @@ export default function InspectionCostPage() {
                   )}
                 </div>
 
-                {(a.qa_user_name || a.buying_user_name || a.rejected_by_name) && (
+                {(a.qa_user_name || a.buying_user_name || a.imports_user_name || a.accounts_user_name || a.rejected_by_name) && (
                   <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '12px', color: '#64748b' }}>
-                    {a.qa_user_name && <span>✅ QA: <strong>{a.qa_user_name}</strong>{a.qa_notes ? ` — "${a.qa_notes}"` : ''}</span>}
-                    {a.buying_user_name && <span>✅ Buying: <strong>{a.buying_user_name}</strong>{a.buying_notes ? ` — "${a.buying_notes}"` : ''}</span>}
+                    {a.qa_user_name       && <span>✅ QA: <strong>{a.qa_user_name}</strong>{a.qa_notes ? ` — "${a.qa_notes}"` : ''}</span>}
+                    {a.buying_user_name   && <span>✅ Buying: <strong>{a.buying_user_name}</strong>{a.buying_notes ? ` — "${a.buying_notes}"` : ''}</span>}
+                    {a.imports_user_name  && <span>✅ Imports: <strong>{a.imports_user_name}</strong>{a.imports_notes ? ` — "${a.imports_notes}"` : ''}</span>}
+                    {a.accounts_user_name && <span style={{ color: '#15803d', fontWeight: '700' }}>💰 Paid: <strong>{a.accounts_user_name}</strong>{a.accounts_notes ? ` — "${a.accounts_notes}"` : ''}</span>}
                     {a.status === 'rejected' && <span style={{ color: '#991b1b' }}>❌ Rejected: {a.rejection_reason}</span>}
                   </div>
                 )}
@@ -507,12 +517,12 @@ export default function InspectionCostPage() {
         )}
 
         {/* Agency Breakdown — QA / Buying / Admin */}
-        {(role === 'qa' || role === 'buying' || role === 'admin') && !loading && advices.length > 0 && (
+        {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && !loading && advices.length > 0 && (
           <AgencyBreakdown advices={advices} />
         )}
 
         {/* Standard Contracts toggle */}
-        {(role === 'qa' || role === 'buying' || role === 'admin') && (
+        {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && (
           <div style={{ marginBottom: '24px' }}>
             <button
               onClick={() => { setShowContracts(p => !p); if (!showContracts) loadContracts() }}

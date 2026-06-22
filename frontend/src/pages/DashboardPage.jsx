@@ -17,10 +17,12 @@ const STATUS_META = {
 }
 
 const PAYMENT_META = {
-  pending_qa:      { label: 'Pending QA',      bg: '#eff6ff', color: '#1d4ed8' },
-  pending_buying:  { label: 'Pending Buying',   bg: '#fefce8', color: '#92400e' },
-  approved:        { label: 'Paid / Approved',  bg: '#f0fdf4', color: '#15803d' },
-  rejected:        { label: 'Advice Rejected',  bg: '#fef2f2', color: '#dc2626' },
+  pending_qa:       { label: 'Pending QA',       bg: '#FEF0EB', color: '#E8470F' },
+  pending_buying:   { label: 'Pending Buying',    bg: '#fefce8', color: '#92400e' },
+  pending_imports:  { label: 'Pending Imports',   bg: '#eff6ff', color: '#1d4ed8' },
+  pending_accounts: { label: 'Pending Accounts',  bg: '#faf5ff', color: '#7e22ce' },
+  paid:             { label: 'Paid',              bg: '#f0fdf4', color: '#15803d' },
+  rejected:         { label: 'Advice Rejected',   bg: '#fef2f2', color: '#dc2626' },
 }
 
 const STAGE_META = {
