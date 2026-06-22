@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://postgres.xmuygdligkkkdvpfrtwn:Thiyamon@12122021@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres
+      JWT_SECRET: qc-inspection-jwt-secret-2026
+      PORT: 4000
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
