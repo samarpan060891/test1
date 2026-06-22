@@ -415,11 +415,6 @@ export default function InspectionCostPage() {
           </div>
         )}
 
-        {/* Summary Card — all roles */}
-        {!loading && advices.length > 0 && (
-          <InspectionSummaryCard advices={advices} />
-        )}
-
         {/* Stats for QA/Buying */}
         {(role === 'qa' || role === 'buying') && (
           <div className="stat-grid mb-6">
@@ -441,6 +436,8 @@ export default function InspectionCostPage() {
         {(role === 'qa' || role === 'buying' || role === 'admin') && !loading && advices.length > 0 && (
           <AgencyBreakdown advices={advices} />
         )}
+
+        {/* Rates / Contracts section placeholder for spacing */}
 
         {/* Standard Contracts toggle */}
         {(role === 'qa' || role === 'buying' || role === 'admin') && (
@@ -618,6 +615,11 @@ export default function InspectionCostPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Summary Card — all roles, at the bottom */}
+        {!loading && advices.length > 0 && (
+          <InspectionSummaryCard advices={advices} />
         )}
       </div>
 
