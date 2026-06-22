@@ -17,14 +17,35 @@ async function runMigrations() {
   // 008: unit_price on po_master
   await safeQuery(`ALTER TABLE qc_inspection.po_master ADD COLUMN IF NOT EXISTS unit_price NUMERIC(12,2) NOT NULL DEFAULT 0.00`, 'unit_price col');
   await safeQuery(`UPDATE qc_inspection.po_master SET unit_price = CASE po_no
-      WHEN 'PO-2026-001' THEN 18.50 WHEN 'PO-2026-002' THEN 32.00
-      WHEN 'PO-2026-003' THEN 12.75 WHEN 'PO-2026-004' THEN 45.00
-      WHEN 'PO-2026-005' THEN 27.50 WHEN 'PO-2026-006' THEN 88.00
-      WHEN 'PO-2026-007' THEN 55.00 WHEN 'PO-2026-008' THEN 21.00
-      WHEN 'PO-2026-009' THEN 39.50 WHEN 'PO-2026-010' THEN 16.00
-      WHEN 'PO-2026-011' THEN 18.50 WHEN 'PO-2026-012' THEN 32.00
-      ELSE ROUND((RANDOM() * 90 + 10)::NUMERIC, 2)
-    END WHERE unit_price = 0`, 'unit_price seed');
+      WHEN 'PO-2026-001' THEN 18.50  WHEN 'PO-2026-002' THEN 32.00
+      WHEN 'PO-2026-003' THEN 12.75  WHEN 'PO-2026-004' THEN 45.00
+      WHEN 'PO-2026-005' THEN 27.50  WHEN 'PO-2026-006' THEN 88.00
+      WHEN 'PO-2026-007' THEN 55.00  WHEN 'PO-2026-008' THEN 21.00
+      WHEN 'PO-2026-009' THEN 39.50  WHEN 'PO-2026-010' THEN 16.00
+      WHEN 'PO-2026-011' THEN 18.50  WHEN 'PO-2026-012' THEN 32.00
+      WHEN 'PO-2026-013' THEN 24.00  WHEN 'PO-2026-014' THEN 67.50
+      WHEN 'PO-2026-015' THEN 42.00  WHEN 'PO-2026-016' THEN 15.75
+      WHEN 'PO-2026-017' THEN 98.00  WHEN 'PO-2026-018' THEN 33.50
+      WHEN 'PO-2026-019' THEN 51.00  WHEN 'PO-2026-020' THEN 29.00
+      ELSE 35.00
+    END WHERE unit_price = 0 OR unit_price IS NULL`, 'unit_price seed');
+
+  // Also fix advices where po_value is 0 or null — recalculate from current PO data
+  await safeQuery(`
+    UPDATE qc_inspection.inspection_charges_advice a
+    SET po_value = sub.recalc_po
+    FROM (
+      SELECT ij.advice_id,
+             COALESCE(SUM(pm.quantity * pm.unit_price), 0) AS recalc_po
+      FROM qc_inspection.ica_jobs ij
+      JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
+      JOIN qc_inspection.po_master pm ON pm.po_no = j.po_no
+      GROUP BY ij.advice_id
+    ) sub
+    WHERE a.advice_id = sub.advice_id
+      AND (a.po_value IS NULL OR a.po_value = 0)
+      AND sub.recalc_po > 0
+  `, 'backfill po_value on advices');
 
   // result column on inspection_job
   await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS result TEXT CHECK (result IN ('pass','fail','na'))`, 'result col');
