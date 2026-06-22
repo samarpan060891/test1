@@ -351,6 +351,11 @@ export default function InspectionCostPage() {
     <div className="page">
       <Navbar />
       <div className="page-content">
+        {/* Summary Card — topmost */}
+        {!loading && advices.length > 0 && (
+          <InspectionSummaryCard advices={advices} />
+        )}
+
         {/* Header */}
         <div className="flex-between mb-6" style={{ flexWrap: 'wrap', gap: '12px' }}>
           <div>
@@ -363,11 +368,6 @@ export default function InspectionCostPage() {
             </button>
           )}
         </div>
-
-        {/* Summary Card — all roles, at the top */}
-        {!loading && advices.length > 0 && (
-          <InspectionSummaryCard advices={advices} />
-        )}
 
         {/* Eligible Jobs (agency only) */}
         {role === 'agency_user' && (
