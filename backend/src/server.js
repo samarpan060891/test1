@@ -30,34 +30,61 @@ async function runMigrations() {
   `);
 
   // 009: imports and accounts roles + extended payment status workflow
+  // Drop ALL check constraints on team_stakeholder.role, then add the new one
   await db.query(`
-    ALTER TABLE qc_inspection.team_stakeholder
-      DROP CONSTRAINT IF EXISTS team_stakeholder_role_check
+    DO $$ DECLARE r RECORD;
+    BEGIN
+      FOR r IN SELECT conname FROM pg_constraint
+               WHERE conrelid = 'qc_inspection.team_stakeholder'::regclass
+               AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%role%'
+      LOOP
+        EXECUTE 'ALTER TABLE qc_inspection.team_stakeholder DROP CONSTRAINT ' || quote_ident(r.conname);
+      END LOOP;
+    END $$
   `);
   await db.query(`
-    ALTER TABLE qc_inspection.team_stakeholder
-      ADD CONSTRAINT team_stakeholder_role_check
-      CHECK (role IN ('qa','buying','agency_user','supplier_user','admin','imports','accounts'))
+    DO $$ BEGIN
+      ALTER TABLE qc_inspection.team_stakeholder
+        ADD CONSTRAINT team_stakeholder_role_check
+        CHECK (role IN ('qa','buying','agency_user','supplier_user','admin','imports','accounts'));
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `);
+
+  // Drop ALL check constraints on inspection_charges_advice.status, then add the new one
+  await db.query(`
+    DO $$ DECLARE r RECORD;
+    BEGIN
+      FOR r IN SELECT conname FROM pg_constraint
+               WHERE conrelid = 'qc_inspection.inspection_charges_advice'::regclass
+               AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%status%'
+      LOOP
+        EXECUTE 'ALTER TABLE qc_inspection.inspection_charges_advice DROP CONSTRAINT ' || quote_ident(r.conname);
+      END LOOP;
+    END $$
   `);
   await db.query(`
-    ALTER TABLE qc_inspection.inspection_charges_advice
-      DROP CONSTRAINT IF EXISTS inspection_charges_advice_status_check
+    DO $$ BEGIN
+      ALTER TABLE qc_inspection.inspection_charges_advice
+        ADD CONSTRAINT ica_status_check
+        CHECK (status IN ('pending_qa','pending_buying','pending_imports','pending_accounts','paid','rejected'));
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
   `);
-  await db.query(`
-    ALTER TABLE qc_inspection.inspection_charges_advice
-      ADD CONSTRAINT inspection_charges_advice_status_check
-      CHECK (status IN ('pending_qa','pending_buying','pending_imports','pending_accounts','paid','rejected'))
-  `);
-  await db.query(`
-    ALTER TABLE qc_inspection.inspection_charges_advice
-      ADD COLUMN IF NOT EXISTS imports_user_id     UUID REFERENCES qc_inspection.team_stakeholder(user_id),
-      ADD COLUMN IF NOT EXISTS imports_approved_at TIMESTAMPTZ,
-      ADD COLUMN IF NOT EXISTS imports_notes       TEXT,
-      ADD COLUMN IF NOT EXISTS accounts_user_id    UUID REFERENCES qc_inspection.team_stakeholder(user_id),
-      ADD COLUMN IF NOT EXISTS accounts_approved_at TIMESTAMPTZ,
-      ADD COLUMN IF NOT EXISTS accounts_notes      TEXT
-  `);
-  // Migrate old 'approved' rows to 'paid' (buying was the final step before)
+
+  // Add new columns one at a time (safer across PG versions)
+  for (const col of [
+    'imports_user_id     UUID REFERENCES qc_inspection.team_stakeholder(user_id)',
+    'imports_approved_at TIMESTAMPTZ',
+    'imports_notes       TEXT',
+    'accounts_user_id    UUID REFERENCES qc_inspection.team_stakeholder(user_id)',
+    'accounts_approved_at TIMESTAMPTZ',
+    'accounts_notes      TEXT',
+  ]) {
+    await db.query(`
+      ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS ${col}
+    `);
+  }
+
+  // Migrate old 'approved' rows to 'paid'
   await db.query(`
     UPDATE qc_inspection.inspection_charges_advice SET status = 'paid' WHERE status = 'approved'
   `);
