@@ -1,6 +1,7 @@
 require('dotenv').config();
 const app = require('./app');
 const db = require('./db');
+const bcrypt = require('bcrypt');
 
 const PORT = process.env.PORT || 4000;
 
@@ -35,11 +36,13 @@ async function runMigrations() {
   `);
 
   // Ensure admin account exists with known password (Password@123)
-  await db.query(`
-    INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role)
-    VALUES ('Admin', 'admin@homesrus.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'admin')
-    ON CONFLICT (email) DO UPDATE SET password_hash = '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.'
-  `);
+  const adminHash = await bcrypt.hash('Password@123', 10);
+  await db.query(
+    `INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role)
+     VALUES ('Admin', 'admin@homesrus.com', $1, 'admin')
+     ON CONFLICT (email) DO UPDATE SET password_hash = $1`,
+    [adminHash]
+  );
 
   console.log('✅ Migrations applied');
 }
