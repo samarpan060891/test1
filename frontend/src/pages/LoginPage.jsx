@@ -81,10 +81,10 @@ export default function LoginPage() {
           </div>
 
           <h1 style={{ color: '#fff', fontSize: '26px', fontWeight: '800', lineHeight: '1.2', marginBottom: '12px', letterSpacing: '-0.4px' }}>
-            Quality Inspection<br />Portal
+            {t('login_panel_title') || 'Quality Inspection Portal'}
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '15px', lineHeight: '1.6', marginBottom: '48px' }}>
-            Streamline your quality control process across suppliers, agencies, and internal teams.
+            {t('login_panel_desc') || 'Streamline your quality control process across suppliers, agencies, and internal teams.'}
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
