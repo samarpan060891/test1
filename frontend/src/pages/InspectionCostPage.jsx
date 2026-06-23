@@ -468,7 +468,7 @@ export default function InspectionCostPage() {
                   onClick={() => setActiveFilter(p => p === s.key ? null : s.key)}
                   style={{
                     cursor: 'pointer',
-                    outline: isActive ? `2.5px solid ${s.accent}` : 'none',
+                    outline: 'none',
                     boxShadow: isActive ? `0 0 0 3px ${s.accent}28` : undefined,
                     transform: isActive ? 'translateY(-1px)' : undefined,
                     transition: 'transform 0.1s, box-shadow 0.1s',

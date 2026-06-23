@@ -216,7 +216,7 @@ export default function DashboardPage() {
                 onClick={() => toggleFilter(key)}
                 style={{
                   cursor: 'pointer',
-                  outline: isActive ? `2.5px solid ${accent}` : 'none',
+                  outline: 'none',
                   boxShadow: isActive ? `0 0 0 3px ${accent}28` : undefined,
                   transform: isActive ? 'translateY(-1px)' : undefined,
                   transition: 'transform 0.1s, box-shadow 0.1s',
