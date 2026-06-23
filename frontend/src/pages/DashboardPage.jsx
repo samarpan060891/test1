@@ -179,7 +179,7 @@ export default function DashboardPage() {
                 disabled={downloading}
                 className="btn btn-success"
               >
-                {downloading ? '⏳ Downloading…' : '⬇ Download Summary'}
+                {downloading ? `⏳ ${t('dashboard_downloading')}` : `⬇ ${t('dashboard_download_summary')}`}
               </button>
 
               {showDatePicker && (
@@ -190,31 +190,31 @@ export default function DashboardPage() {
                   padding: '20px', width: '290px',
                   border: '1px solid #e2e8f0',
                 }}>
-                  <p style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>Select Date Range</p>
+                  <p style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{t('dashboard_date_range')}</p>
                   <div style={{ marginBottom: '12px' }}>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>From</label>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('dashboard_date_from')}</label>
                     <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input" style={{ padding: '8px 12px', fontSize: '13px' }} />
                   </div>
                   <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>To</label>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('dashboard_date_to')}</label>
                     <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input" style={{ padding: '8px 12px', fontSize: '13px' }} />
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={handleDownloadReport} disabled={downloading} className="btn btn-success" style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }}>
-                      {downloading ? 'Downloading…' : '⬇ Download'}
+                      {downloading ? `${t('dashboard_downloading')}` : `⬇ ${t('dashboard_download_btn')}`}
                     </button>
                     <button onClick={() => { setShowDatePicker(false); setDateFrom(''); setDateTo('') }} className="btn btn-ghost" style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }}>
-                      Cancel
+                      {t('common_cancel')}
                     </button>
                   </div>
-                  <p style={{ margin: '12px 0 0', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>Leave blank to download all data</p>
+                  <p style={{ margin: '12px 0 0', fontSize: '11px', color: '#94a3b8', textAlign: 'center' }}>{t('dashboard_leave_blank')}</p>
                 </div>
               )}
             </div>
 
             {(user?.role === 'qa' || user?.role === 'buying') && (
               <Link to="/map-inspection" className="btn btn-primary">
-                + Map New Inspection
+                {t('dashboard_map_new')}
               </Link>
             )}
           </div>
@@ -363,16 +363,31 @@ export default function DashboardPage() {
                   <p>{t('dashboard_no_notifications')}</p>
                 </div>
               ) : (
-                notifications.map((n, idx) => (
-                  <div key={n.id || idx} className={`notif-item ${!n.read ? 'unread' : ''}`}>
-                    <p className="notif-text">
-                      {n.message || n.body || n.event_type || JSON.stringify(n)}
-                    </p>
-                    <p className="notif-time">
-                      {new Date(n.sent_at || n.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                ))
+                notifications.map((n, idx) => {
+                  // Translate standard events; REMARK_POSTED has dynamic content after the label
+                  const eventKey = n.event_type ? `notif_${n.event_type}` : null
+                  const translatedBase = eventKey ? t(eventKey) : null
+                  let displayMsg
+                  if (translatedBase && translatedBase !== eventKey) {
+                    // For REMARK_POSTED, append the remark excerpt from the stored message
+                    if (n.event_type === 'REMARK_POSTED' && n.message) {
+                      const quoteMatch = n.message.match(/"(.+)"/)
+                      displayMsg = quoteMatch ? `${translatedBase}: "${quoteMatch[1]}"` : translatedBase
+                    } else {
+                      displayMsg = translatedBase
+                    }
+                  } else {
+                    displayMsg = n.message || n.body || n.event_type || ''
+                  }
+                  return (
+                    <div key={n.id || idx} className={`notif-item ${!n.read ? 'unread' : ''}`}>
+                      <p className="notif-text">{displayMsg}</p>
+                      <p className="notif-time">
+                        {new Date(n.sent_at || n.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  )
+                })
               )}
             </div>
           </div>
