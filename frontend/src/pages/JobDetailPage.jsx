@@ -10,6 +10,7 @@ import { searchAgencies } from '../api/masters.js'
 import SearchableDropdown from '../components/SearchableDropdown.jsx'
 import client from '../api/client.js'
 import { generateInspectionReport } from '../utils/generateInspectionReport.js'
+import { getChecklistReport } from '../api/reports.js'
 
 const STATUS_META = {
   mapped_awaiting_inspection: { label: 'Awaiting Inspection', bg: '#FEF0EB', color: '#E8470F' },
@@ -72,6 +73,11 @@ export default function JobDetailPage() {
   const [logSuccess, setLogSuccess] = useState('')
   const [pdfLoading, setPdfLoading] = useState(false)
 
+  const [sliderOpen, setSliderOpen] = useState(false)
+  const [checklistRows, setChecklistRows] = useState([])
+  const [checklistLoading, setChecklistLoading] = useState(false)
+  const [checklistError, setChecklistError] = useState('')
+
   const [showReinspect, setShowReinspect] = useState(false)
   const [reinspectType, setReinspectType] = useState('agency')
   const [reinspectAgency, setReinspectAgency] = useState(null)
@@ -100,6 +106,26 @@ export default function JobDetailPage() {
     const interval = setInterval(() => { fetchJob(); fetchLogs() }, 30000)
     return () => clearInterval(interval)
   }, [id])
+
+  const openChecklist = async () => {
+    setSliderOpen(true)
+    setChecklistLoading(true)
+    setChecklistError('')
+    try {
+      const r = await getChecklistReport({ job_id: id })
+      setChecklistRows(r.data || [])
+    } catch {
+      setChecklistError('Failed to load checklist report.')
+    } finally {
+      setChecklistLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setSliderOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   const handleLogSubmit = async (e) => {
     e.preventDefault()
@@ -287,6 +313,9 @@ export default function JobDetailPage() {
               <Link to={`/po-log?job_id=${jobId}`} className="btn btn-ghost">
                 📂 {t('nav_po_log')}
               </Link>
+              <button onClick={openChecklist} className="btn" style={{ background: '#1C1208', color: '#fff' }}>
+                📋 View Checklist
+              </button>
               <button onClick={handleDownloadPDF} disabled={pdfLoading} className="btn btn-success">
                 {pdfLoading ? '⏳ Generating…' : '⬇ Download Report'}
               </button>
@@ -346,6 +375,112 @@ export default function JobDetailPage() {
             </div>
           </div>
         )}
+
+        {/* ── Checklist Report Slide-in Panel ─────────────────────────── */}
+        {sliderOpen && (
+          <div onClick={() => setSliderOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 1200 }} />
+        )}
+        <div style={{
+          position: 'fixed', top: 0, right: 0, height: '100vh', width: '820px', maxWidth: '96vw',
+          background: '#fff', zIndex: 1300, boxShadow: '-8px 0 32px rgba(0,0,0,0.16)',
+          display: 'flex', flexDirection: 'column',
+          transform: sliderOpen ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+        }}>
+          {/* Panel header */}
+          <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div>
+              <div style={{ fontWeight: '800', fontSize: '16px', color: '#fff' }}>📋 Checklist Report</div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', marginTop: '2px' }}>
+                {job?.job_ref} · {job?.po_no}
+              </div>
+            </div>
+            <button onClick={() => setSliderOpen(false)} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          </div>
+
+          {/* Panel body */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+            {checklistLoading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}><div className="spinner" /></div>
+            ) : checklistError ? (
+              <div className="alert alert-error">{checklistError}</div>
+            ) : checklistRows.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
+                <div style={{ fontSize: '36px', marginBottom: '12px' }}>📋</div>
+                <p>No checklist responses found for this job.</p>
+              </div>
+            ) : (() => {
+              const RESULT_META = {
+                pass:    { bg: '#f0fdf4', color: '#15803d', label: 'Pass' },
+                fail:    { bg: '#fef2f2', color: '#991b1b', label: 'Fail' },
+                na:      { bg: '#f8fafc', color: '#64748b', label: 'N/A' },
+                pending: { bg: '#fefce8', color: '#92400e', label: 'Pending' },
+              }
+              const CRIT_META = {
+                critical: { bg: '#fef2f2', color: '#991b1b' },
+                major:    { bg: '#fff7ed', color: '#c2410c' },
+                minor:    { bg: '#f8fafc', color: '#64748b' },
+              }
+              const bySection = checklistRows.reduce((acc, r) => {
+                const s = r.section || 'General'
+                if (!acc[s]) acc[s] = []
+                acc[s].push(r)
+                return acc
+              }, {})
+              return (
+                <div>
+                  {/* Job meta strip */}
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '20px', fontSize: '12px', color: '#475569' }}>
+                    {checklistRows[0]?.item_name    && <span><strong>Item:</strong> {checklistRows[0].item_name}</span>}
+                    {checklistRows[0]?.supplier_name && <span><strong>Supplier:</strong> {checklistRows[0].supplier_name}</span>}
+                    {checklistRows[0]?.agency_name   && <span><strong>Agency:</strong> {checklistRows[0].agency_name}</span>}
+                    {checklistRows[0]?.inspection_date && <span><strong>Date:</strong> {new Date(checklistRows[0].inspection_date).toLocaleDateString()}</span>}
+                    <span><strong>Responses:</strong> {checklistRows.length}</span>
+                    <span style={{ color: checklistRows.filter(r => r.result === 'fail').length > 0 ? '#dc2626' : '#15803d', fontWeight: '700' }}>
+                      {checklistRows.filter(r => r.result === 'fail').length} Fail{checklistRows.filter(r => r.result === 'fail').length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  {Object.entries(bySection).map(([section, items]) => (
+                    <div key={section} style={{ marginBottom: '16px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                      <div style={{ background: '#1C1208', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {section}
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc' }}>
+                            {['#', 'Checkpoint', 'Criticality', 'Result', 'Remarks'].map(h => (
+                              <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((r, i) => {
+                            const rm = RESULT_META[r.result] || RESULT_META.pending
+                            const cm = CRIT_META[r.criticality] || {}
+                            return (
+                              <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: r.result === 'fail' ? '#fff8f7' : 'transparent' }}>
+                                <td style={{ padding: '7px 12px', color: '#94a3b8', width: '32px' }}>{r.sort_order ?? i + 1}</td>
+                                <td style={{ padding: '7px 12px', color: '#334155', fontWeight: '500' }}>{r.checkpoint_text}</td>
+                                <td style={{ padding: '7px 12px' }}>
+                                  <span style={{ ...cm, padding: '2px 8px', borderRadius: '9999px', fontWeight: '600', fontSize: '11px' }}>{r.criticality}</span>
+                                </td>
+                                <td style={{ padding: '7px 12px' }}>
+                                  <span style={{ background: rm.bg, color: rm.color, padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{rm.label}</span>
+                                </td>
+                                <td style={{ padding: '7px 12px', color: '#64748b', fontStyle: r.remarks ? 'normal' : 'italic' }}>{r.remarks || '—'}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
 
         {/* Activity Log */}
         <div className="card" style={{ overflow: 'hidden' }}>
