@@ -58,8 +58,8 @@ export default function Navbar() {
   return (
     <nav style={{
       background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)',
-      padding: '0 28px',
-      height: '62px',
+      padding: '0 20px',
+      height: '52px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -69,7 +69,7 @@ export default function Navbar() {
       zIndex: 100,
     }}>
       {/* Left */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         {/* Brand */}
         <BrandLogo size="md" showTagline />
 

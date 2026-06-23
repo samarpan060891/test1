@@ -21,63 +21,63 @@ export default function InspectionSummaryCard({ advices = [], showLink = false }
     <div style={{
       background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)',
       borderRadius: '14px',
-      padding: '24px 28px',
+      padding: '14px 20px',
       color: '#fff',
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-      gap: '24px',
-      marginBottom: '24px',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+      gap: '16px',
+      marginBottom: '12px',
     }}>
       <div>
-        <div style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+        <div style={{ fontSize: '10px', fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>
           {t('summary_total_charges')}
         </div>
-        <div style={{ fontSize: '26px', fontWeight: '800', color: '#E8470F', lineHeight: 1 }}>
+        <div style={{ fontSize: '20px', fontWeight: '800', color: '#E8470F', lineHeight: 1 }}>
           {fmt(totalCharges, currency)}
         </div>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '4px' }}>
+        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '3px' }}>
           {approved.length} {approvedLabel}
         </div>
       </div>
 
       <div>
-        <div style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+        <div style={{ fontSize: '10px', fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>
           {t('summary_pct_to_po')}
         </div>
-        <div style={{ fontSize: '26px', fontWeight: '800', lineHeight: 1 }}>
+        <div style={{ fontSize: '20px', fontWeight: '800', lineHeight: 1 }}>
           {pctToPo != null
             ? <span style={{ color: pctToPo > 5 ? '#f87171' : pctToPo > 3 ? '#fbbf24' : '#4ade80' }}>{pctToPo.toFixed(2)}%</span>
             : <span style={{ color: 'rgba(255,255,255,0.3)' }}>—</span>}
         </div>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '4px' }}>
+        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '3px' }}>
           {t('summary_of_po_value')} {totalPoValue > 0 ? `(${fmt(totalPoValue, currency)})` : ''}
         </div>
       </div>
 
       <div>
-        <div style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+        <div style={{ fontSize: '10px', fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>
           {t('summary_pending_approval')}
         </div>
-        <div style={{ fontSize: '26px', fontWeight: '800', color: pending > 0 ? '#fbbf24' : 'rgba(255,255,255,0.3)', lineHeight: 1 }}>
+        <div style={{ fontSize: '20px', fontWeight: '800', color: pending > 0 ? '#fbbf24' : 'rgba(255,255,255,0.3)', lineHeight: 1 }}>
           {pending}
         </div>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '4px' }}>
+        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '3px' }}>
           {t('summary_awaiting_qa')}
         </div>
       </div>
 
       <div>
-        <div style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+        <div style={{ fontSize: '10px', fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>
           {t('summary_total_advices')}
         </div>
-        <div style={{ fontSize: '26px', fontWeight: '800', color: '#fff', lineHeight: 1 }}>
+        <div style={{ fontSize: '20px', fontWeight: '800', color: '#fff', lineHeight: 1 }}>
           {advices.length}
         </div>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '4px' }}>
+        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '3px' }}>
           {t('summary_all_time')}
         </div>
         {showLink && (
-          <Link to="/inspection-costs" style={{ fontSize: '12px', color: '#E8470F', fontWeight: '600', textDecoration: 'none', display: 'inline-block', marginTop: '8px' }}>
+          <Link to="/inspection-costs" style={{ fontSize: '11px', color: '#E8470F', fontWeight: '600', textDecoration: 'none', display: 'inline-block', marginTop: '5px' }}>
             {t('summary_view_details')}
           </Link>
         )}

@@ -387,7 +387,7 @@ export default function InspectionCostPage() {
         )}
 
         {/* Header */}
-        <div className="flex-between mb-6" style={{ flexWrap: 'wrap', gap: '12px' }}>
+        <div className="flex-between mb-4" style={{ flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h1 className="page-title">{t('costs_title')}</h1>
             <p className="page-subtitle">{role === 'agency_user' ? t('costs_subtitle_agency') : t('costs_subtitle_review')}</p>

@@ -140,7 +140,7 @@ export default function DashboardPage() {
 
       <div className="page-content">
         {/* Page header */}
-        <div className="flex-between mb-6" style={{ flexWrap: 'wrap', gap: '16px' }}>
+        <div className="flex-between mb-4" style={{ flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h1 className="page-title">{t('dashboard_title')}</h1>
             <p className="page-subtitle">{t('dashboard_welcome')}, <strong>{user?.email}</strong></p>
@@ -196,7 +196,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats — click to filter jobs table */}
-        <div className="stat-grid mb-6">
+        <div className="stat-grid mb-4">
           {[
             { key: null,       cls: 'blue',  label: t('dashboard_total_jobs'),   value: totalJobs },
             { key: 'pending',  cls: 'amber', label: t('dashboard_pending_qa'),   value: pendingQA },
@@ -234,7 +234,7 @@ export default function DashboardPage() {
         )}
 
         {/* Main layout */}
-        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
           {/* Jobs table */}
           <div className="card" style={{ flex: 1, overflow: 'hidden' }}>
             <div className="card-header">
