@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
+import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
 import * as XLSX from 'xlsx'
 import Navbar from '../components/Navbar.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
@@ -233,19 +234,16 @@ export default function AdminMastersPage() {
                     <tr style={{ backgroundColor: '#f8fafc' }}>
                       {cfg.fields.map(f => (
                         <th key={f.key} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>
-                          {f.label}
-                        </th>
-                      ))}
-                    </tr>
-                    <tr style={{ backgroundColor: '#f8fafc' }}>
-                      {cfg.fields.map(f => (
-                        <th key={f.key} style={{ padding: '4px 8px', fontWeight: 'normal', borderBottom: '1px solid #e5e7eb' }}>
-                          <input
-                            value={masterFilters[f.key] || ''}
-                            onChange={e => setMasterFilter(f.key, e.target.value)}
-                            placeholder="🔍"
-                            style={{ width: '100%', padding: '3px 6px', fontSize: '11px', border: '1px solid #e2e8f0', borderRadius: '4px', background: '#fff', outline: 'none', fontFamily: 'inherit' }}
-                          />
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                            {f.label}
+                            <ColumnFilterDropdown
+                              colKey={f.key}
+                              data={rows}
+                              value={masterFilters[f.key] || ''}
+                              onChange={v => setMasterFilter(f.key, v)}
+                              label={f.label}
+                            />
+                          </span>
                         </th>
                       ))}
                     </tr>

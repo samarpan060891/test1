@@ -1,0 +1,190 @@
+import React, { useState, useRef, useEffect, useMemo } from 'react'
+
+/**
+ * ColumnFilterDropdown — Excel-style per-column filter dropdown
+ *
+ * Props:
+ *   colKey   — field name on the data row
+ *   data     — full (unfiltered) dataset for generating unique value list
+ *   value    — current filter string for this column
+ *   onChange — (value: string) => void
+ *   label    — column header label (for tooltip)
+ */
+export function ColumnFilterDropdown({ colKey, data, value, onChange, label }) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const triggerRef = useRef()
+  const dropRef = useRef()
+  const searchRef = useRef()
+  const isActive = !!value
+
+  const uniqueVals = useMemo(() => {
+    const s = new Set(data.map(r => String(r[colKey] ?? '')).filter(v => v !== ''))
+    return [...s].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+  }, [data, colKey])
+
+  const visible = search
+    ? uniqueVals.filter(v => v.toLowerCase().includes(search.toLowerCase()))
+    : uniqueVals
+
+  const handleOpen = () => {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      const dropH = Math.min(visible.length * 32 + 80, 300)
+      const top = spaceBelow > dropH ? rect.bottom + 4 : rect.top - dropH - 4
+      const left = Math.min(rect.left, window.innerWidth - 220)
+      setPos({ top: top + window.scrollY, left: left + window.scrollX })
+    }
+    setOpen(p => !p)
+    setSearch('')
+  }
+
+  useEffect(() => {
+    if (open && searchRef.current) searchRef.current.focus()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target) &&
+          triggerRef.current && !triggerRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    const keyHandler = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('keydown', keyHandler)
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', keyHandler) }
+  }, [open])
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+      <button
+        ref={triggerRef}
+        onClick={handleOpen}
+        title={isActive ? `Filtering: "${value}" — click to change` : `Filter by ${label}`}
+        style={{
+          background: isActive ? '#FEF0EB' : 'transparent',
+          border: isActive ? '1px solid #fca5a5' : '1px solid transparent',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          color: isActive ? '#E8470F' : '#b0bec5',
+          padding: '1px 5px',
+          fontSize: '9px',
+          lineHeight: '1.4',
+          fontWeight: isActive ? '700' : '400',
+          transition: 'all 0.1s',
+          marginLeft: '4px',
+          flexShrink: 0,
+        }}
+      >
+        {isActive ? '●' : '▾'}
+      </button>
+
+      {open && (
+        <div
+          ref={dropRef}
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            left: pos.left,
+            zIndex: 9999,
+            background: '#fff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '10px',
+            boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
+            minWidth: '190px',
+            maxWidth: '260px',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {/* Search input */}
+          <div style={{ padding: '8px 8px 6px', borderBottom: '1px solid #f1f5f9' }}>
+            <input
+              ref={searchRef}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search values…"
+              style={{
+                width: '100%',
+                padding: '5px 9px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                fontSize: '12px',
+                boxSizing: 'border-box',
+                outline: 'none',
+                fontFamily: 'inherit',
+                color: '#334155',
+              }}
+            />
+          </div>
+
+          {/* Value list */}
+          <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+            {/* Clear filter row */}
+            {isActive && (
+              <button
+                onClick={() => { onChange(''); setOpen(false) }}
+                style={{
+                  width: '100%', textAlign: 'left', padding: '7px 12px',
+                  fontSize: '12px', color: '#E8470F', background: '#FEF0EB',
+                  border: 'none', borderBottom: '1px solid #fde8e0',
+                  cursor: 'pointer', fontWeight: '600', display: 'flex',
+                  alignItems: 'center', gap: '6px',
+                }}
+              >
+                <span>✕</span> Clear filter
+              </button>
+            )}
+
+            {/* All values */}
+            {!isActive && (
+              <div style={{
+                padding: '6px 12px', fontSize: '11px', color: '#94a3b8',
+                fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.04em',
+                borderBottom: '1px solid #f8fafc',
+              }}>
+                {uniqueVals.length} unique value{uniqueVals.length !== 1 ? 's' : ''}
+              </div>
+            )}
+
+            {visible.length === 0 ? (
+              <div style={{ padding: '12px', fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
+                No matches
+              </div>
+            ) : (
+              visible.map(v => (
+                <button
+                  key={v}
+                  onClick={() => { onChange(v === value ? '' : v); setOpen(false) }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '7px 12px',
+                    fontSize: '12px',
+                    background: v === value ? '#FEF0EB' : 'transparent',
+                    color: v === value ? '#E8470F' : '#374151',
+                    border: 'none',
+                    borderBottom: '1px solid #f8fafc',
+                    cursor: 'pointer',
+                    fontWeight: v === value ? '600' : '400',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={v}
+                >
+                  {v}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </span>
+  )
+}

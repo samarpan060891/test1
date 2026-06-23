@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
@@ -533,22 +534,23 @@ export default function InspectionCostPage() {
               <table className="data-table" style={{ fontSize: '12px' }}>
                 <thead>
                   <tr>
-                    {ADVICE_COLS.map(c => <th key={c.label}>{c.label}</th>)}
-                  </tr>
-                  <tr style={{ background: '#f8fafc' }}>
                     {ADVICE_COLS.map(c => (
-                      <th key={c.label} style={{ padding: '4px 8px', fontWeight: 'normal' }}>
-                        {c.key ? (
-                          <input
-                            value={advFilters[c.key] || ''}
-                            onChange={e => setAdvFilters(p => ({ ...p, [c.key]: e.target.value }))}
-                            placeholder="🔍"
-                            style={{ width: '100%', padding: '3px 6px', fontSize: '11px', border: '1px solid #e2e8f0', borderRadius: '4px', background: '#fff', outline: 'none', fontFamily: 'inherit' }}
-                          />
-                        ) : (c === ADVICE_COLS[ADVICE_COLS.length - 1] && hasAdvFilter
-                          ? <button onClick={() => setAdvFilters({})} style={{ fontSize: '10px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', padding: 0 }}>✕ Clear</button>
-                          : null
-                        )}
+                      <th key={c.label} style={{ whiteSpace: 'nowrap' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                          {c.label}
+                          {c.key && (
+                            <ColumnFilterDropdown
+                              colKey={c.key}
+                              data={cardFiltered}
+                              value={advFilters[c.key] || ''}
+                              onChange={v => setAdvFilters(p => ({ ...p, [c.key]: v }))}
+                              label={c.label}
+                            />
+                          )}
+                          {!c.key && c === ADVICE_COLS[ADVICE_COLS.length - 1] && hasAdvFilter && (
+                            <button onClick={() => setAdvFilters({})} style={{ fontSize: '10px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', padding: '1px 4px', marginLeft: '2px' }}>✕</button>
+                          )}
+                        </span>
                       </th>
                     ))}
                   </tr>

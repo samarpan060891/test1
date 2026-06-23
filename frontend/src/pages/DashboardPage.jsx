@@ -9,6 +9,7 @@ import { getAdvices } from '../api/inspectionCosts.js'
 import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
 import client from '../api/client.js'
 import { useColumnFilter } from '../hooks/useColumnFilter.js'
+import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
 
 const STATUS_META = {
   mapped_awaiting_inspection: { label: 'Awaiting Inspection', bg: '#eff6ff', color: '#1d4ed8' },
@@ -278,23 +279,23 @@ export default function DashboardPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      {JOB_COLS.map(c => <th key={c.label}>{c.label}</th>)}
-                    </tr>
-                    <tr style={{ background: '#f8fafc' }}>
                       {JOB_COLS.map(c => (
-                        <th key={c.label} style={{ padding: '4px 8px', fontWeight: 'normal' }}>
-                          {c.key ? (
-                            <input
-                              value={jobFilters[c.key] || ''}
-                              onChange={e => setJobFilter(c.key, e.target.value)}
-                              placeholder="🔍"
-                              style={{ width: '100%', padding: '3px 6px', fontSize: '11px', border: '1px solid #e2e8f0', borderRadius: '4px', background: '#fff', outline: 'none', fontFamily: 'inherit' }}
-                            />
-                          ) : (
-                            hasJobFilter
-                              ? <button onClick={clearJobFilters} style={{ fontSize: '10px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', padding: 0 }}>✕ Clear</button>
-                              : null
-                          )}
+                        <th key={c.label} style={{ whiteSpace: 'nowrap' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                            {c.label}
+                            {c.key && (
+                              <ColumnFilterDropdown
+                                colKey={c.key}
+                                data={cardFilteredJobs}
+                                value={jobFilters[c.key] || ''}
+                                onChange={v => setJobFilter(c.key, v)}
+                                label={c.label}
+                              />
+                            )}
+                            {!c.key && hasJobFilter && (
+                              <button onClick={clearJobFilters} style={{ fontSize: '10px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', padding: '1px 4px', marginLeft: '2px' }}>✕</button>
+                            )}
+                          </span>
                         </th>
                       ))}
                     </tr>
