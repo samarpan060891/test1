@@ -139,6 +139,11 @@ export default function DashboardPage() {
       <Navbar />
 
       <div className="page-content">
+        {/* Inspection Charges Summary — topmost, matching InspectionCostPage */}
+        {!loading && advices.length > 0 && (
+          <InspectionSummaryCard advices={advices} showLink />
+        )}
+
         {/* Page header */}
         <div className="flex-between mb-4" style={{ flexWrap: 'wrap', gap: '10px' }}>
           <div>
@@ -227,11 +232,6 @@ export default function DashboardPage() {
             )
           })}
         </div>
-
-        {/* Inspection Charges Summary */}
-        {advices.length > 0 && (
-          <InspectionSummaryCard advices={advices} showLink />
-        )}
 
         {/* Main layout */}
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
