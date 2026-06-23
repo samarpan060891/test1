@@ -2,12 +2,12 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
-import LanguageSwitcher from '../components/LanguageSwitcher.jsx'
+import { LANGUAGES } from '../i18n/translations.js'
 import BrandLogo from '../components/BrandLogo.jsx'
 
 export default function LoginPage() {
   const { login } = useAuth()
-  const { t } = useLanguage()
+  const { lang, setLanguage, t } = useLanguage()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -47,10 +47,10 @@ export default function LoginPage() {
   })
 
   const features = [
-    { icon: '📋', text: 'End-to-end inspection job management' },
-    { icon: '✅', text: 'Multi-stage QA checklist workflows' },
-    { icon: '💰', text: 'Inspection cost tracking & approvals' },
-    { icon: '🔔', text: 'Real-time stakeholder notifications' },
+    { icon: '📋', text: t('login_feature_1') || 'End-to-end inspection job management' },
+    { icon: '✅', text: t('login_feature_2') || 'Multi-stage QA checklist workflows' },
+    { icon: '💰', text: t('login_feature_3') || 'Inspection cost tracking & approvals' },
+    { icon: '🔔', text: t('login_feature_4') || 'Real-time stakeholder notifications' },
   ]
 
   return (
@@ -115,20 +115,50 @@ export default function LoginPage() {
         justifyContent: 'center',
         padding: '48px 40px',
       }}>
-        <div style={{ width: '100%', maxWidth: '400px' }}>
-          {/* Language switcher */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '40px' }}>
-            <LanguageSwitcher />
-          </div>
-
+        <div style={{ width: '100%', maxWidth: '420px' }}>
           {/* Heading */}
-          <div style={{ marginBottom: '32px' }}>
+          <div style={{ marginBottom: '24px' }}>
             <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.4px', marginBottom: '6px' }}>
-              Welcome back
+              {t('login_welcome') || 'Welcome back'}
             </h2>
             <p style={{ fontSize: '14px', color: '#64748b' }}>
-              Sign in to your account to continue
+              {t('login_subtitle_short') || 'Sign in to your account to continue'}
             </p>
+          </div>
+
+          {/* Language selector */}
+          <div style={{ marginBottom: '28px' }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+              {t('login_select_language') || 'Select Language'}
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+              {LANGUAGES.map(l => {
+                const active = l.code === lang
+                return (
+                  <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => setLanguage(l.code)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '5px',
+                      padding: '5px 11px',
+                      borderRadius: '20px',
+                      border: active ? '2px solid #E8470F' : '1.5px solid #e2e8f0',
+                      background: active ? '#FEF0EB' : '#f8fafc',
+                      color: active ? '#E8470F' : '#475569',
+                      fontWeight: active ? '700' : '400',
+                      fontSize: '12.5px',
+                      cursor: 'pointer',
+                      transition: 'all 0.13s',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <span style={{ fontSize: '15px', lineHeight: 1 }}>{l.flag}</span>
+                    <span>{l.name}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Error */}
