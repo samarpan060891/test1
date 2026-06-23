@@ -451,7 +451,7 @@ export default function InspectionCostPage() {
 
         {/* Stats for internal roles */}
         {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && (
-          <div className="stat-grid mb-6">
+          <div className="stat-grid mb-4">
             {[
               { label: 'Pending QA',       key: 'pending_qa',       cls: 'blue' },
               { label: 'Pending Buying',    key: 'pending_buying',   cls: 'amber' },
@@ -469,88 +469,107 @@ export default function InspectionCostPage() {
         )}
 
         {/* Advice list */}
-        {role === 'agency_user' && (
-          <div style={{ marginBottom: '14px' }}>
-            <h2 className="section-title">Submitted Charges Advice</h2>
-          </div>
-        )}
         {loading ? (
           <div className="loading-center"><div className="spinner" /></div>
         ) : advices.length === 0 ? (
           <div className="card"><div className="empty-state"><div style={{ fontSize: '40px' }}>📋</div><p>{t('costs_no_records')}</p></div></div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {advices.map(a => (
-              <div key={a.advice_id} className="card" style={{ padding: '20px 24px' }}>
-                <div className="flex-between" style={{ flexWrap: 'wrap', gap: '12px' }}>
-                  <div style={{ flex: 1 }}>
-                    <div className="flex-center" style={{ marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                      <span style={{ fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>{a.advice_ref}</span>
-                      <StatusBadge status={a.status} />
-                      <span style={{
-                        background: a.cost_bearer === 'supplier' ? '#fefce8' : '#f5f3ff',
-                        color: a.cost_bearer === 'supplier' ? '#92400e' : '#5b21b6',
-                        padding: '2px 9px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700',
-                      }}>
-                        {a.cost_bearer === 'supplier' ? t('costs_supplier') : t('costs_homes_r_us')}
-                      </span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                      Agency: <strong style={{ color: '#334155' }}>{a.agency_name}</strong> ·{' '}
-                      {a.rate_type === 'manday' ? `${a.num_mandays} mandays @ ${fmt(a.rate_value, a.currency)}/day` : `${a.rate_value}% of PO value`} ·{' '}
-                      <strong style={{ color: '#0f172a' }}>Total: {fmt(a.total_cost, a.currency)}</strong>
-                    </p>
-                    <p style={{ margin: '4px 0 8px', fontSize: '12px', color: '#94a3b8' }}>
-                      {(a.jobs || []).length} job(s) · Created by {a.created_by_name} on {new Date(a.created_at).toLocaleDateString()}
-                    </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {(a.jobs || []).map(j => (
-                        <span key={j.job_id} style={{ background: '#FEF0EB', color: '#E8470F', padding: '2px 8px', borderRadius: '5px', fontSize: '12px', fontWeight: '600' }}>
-                          {j.job_ref || j.po_no}
+          <div className="card mb-6" style={{ overflow: 'hidden' }}>
+            {role === 'agency_user' && (
+              <div className="card-header"><h2 className="section-title">Submitted Charges Advice</h2></div>
+            )}
+            <div className="table-wrap">
+              <table className="data-table" style={{ fontSize: '12px' }}>
+                <thead>
+                  <tr>
+                    <th>Advice Ref</th>
+                    <th>Agency</th>
+                    <th>Jobs</th>
+                    <th>Rate</th>
+                    <th>Total Cost</th>
+                    <th>Cost Bearer</th>
+                    <th>Status</th>
+                    <th>Approvals</th>
+                    {(role === 'imports' || role === 'qa' || role === 'buying' || role === 'accounts' || role === 'admin') && <th>Invoice</th>}
+                    <th>Created</th>
+                    {advices.some(a => canApprove(a)) && <th>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {advices.map(a => (
+                    <tr key={a.advice_id}>
+                      <td style={{ fontWeight: '800', color: '#E8470F', whiteSpace: 'nowrap' }}>{a.advice_ref}</td>
+                      <td style={{ fontWeight: '600', color: '#0f172a' }}>{a.agency_name}</td>
+                      <td>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                          {(a.jobs || []).map(j => (
+                            <span key={j.job_id} style={{ background: '#FEF0EB', color: '#E8470F', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                              {j.job_ref || j.po_no}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>
+                        {a.rate_type === 'manday' ? `${a.num_mandays}d @ ${fmt(a.rate_value, a.currency)}/d` : `${a.rate_value}% of PO`}
+                      </td>
+                      <td style={{ fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap' }}>{fmt(a.total_cost, a.currency)}</td>
+                      <td>
+                        <span style={{
+                          background: a.cost_bearer === 'supplier' ? '#fefce8' : '#f5f3ff',
+                          color: a.cost_bearer === 'supplier' ? '#92400e' : '#5b21b6',
+                          padding: '2px 7px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap',
+                        }}>
+                          {a.cost_bearer === 'supplier' ? 'Supplier' : 'Homes R Us'}
                         </span>
-                      ))}
-                    </div>
-                  </div>
-                  {canApprove(a) && (
-                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                      <button onClick={() => { setShowApprove({ advice: a, action: 'approve' }); setActionNote(''); setActionMsg('') }}
-                        style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '6px 14px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-                        {role === 'accounts' ? '💰 Mark as Paid' : `✓ ${t('costs_approve')}`}
-                      </button>
-                      <button onClick={() => { setShowApprove({ advice: a, action: 'reject' }); setActionNote(''); setActionMsg('') }}
-                        style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', padding: '6px 14px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-                        ✕ {t('costs_reject')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {(a.qa_user_name || a.buying_user_name || a.imports_user_name || a.accounts_user_name || a.rejected_by_name) && (
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '12px', color: '#64748b' }}>
-                    {a.qa_user_name       && <span>✅ QA: <strong>{a.qa_user_name}</strong>{a.qa_notes ? ` — "${a.qa_notes}"` : ''}</span>}
-                    {a.buying_user_name   && <span>✅ Buying: <strong>{a.buying_user_name}</strong>{a.buying_notes ? ` — "${a.buying_notes}"` : ''}</span>}
-                    {a.imports_user_name  && <span>✅ Imports: <strong>{a.imports_user_name}</strong>{a.imports_notes ? ` — "${a.imports_notes}"` : ''}</span>}
-                    {a.accounts_user_name && <span style={{ color: '#15803d', fontWeight: '700' }}>💰 Paid: <strong>{a.accounts_user_name}</strong>{a.accounts_notes ? ` — "${a.accounts_notes}"` : ''}</span>}
-                    {a.status === 'rejected' && <span style={{ color: '#991b1b' }}>❌ Rejected: {a.rejection_reason}</span>}
-                  </div>
-                )}
-
-                {/* Invoice — view only for internal roles (uploaded by agency at creation) */}
-                {(role === 'imports' || role === 'qa' || role === 'buying' || role === 'accounts' || role === 'admin') && (
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px' }}>
-                    <span style={{ fontWeight: '600', color: '#64748b' }}>📄 Invoice:</span>
-                    {a.invoice_file_name ? (
-                      <a href={getInvoiceUrl(a.advice_id)} target="_blank" rel="noreferrer"
-                        style={{ color: '#1d4ed8', fontWeight: '600', textDecoration: 'underline' }}>
-                        {a.invoice_file_name}
-                      </a>
-                    ) : (
-                      <span style={{ color: '#94a3b8' }}>Not uploaded by agency</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}><StatusBadge status={a.status} /></td>
+                      <td style={{ fontSize: '11px', color: '#64748b' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '120px' }}>
+                          {a.qa_user_name       && <span>✅ QA: <strong>{a.qa_user_name}</strong></span>}
+                          {a.buying_user_name   && <span>✅ Buying: <strong>{a.buying_user_name}</strong></span>}
+                          {a.imports_user_name  && <span>✅ Imports: <strong>{a.imports_user_name}</strong></span>}
+                          {a.accounts_user_name && <span style={{ color: '#15803d', fontWeight: '700' }}>💰 <strong>{a.accounts_user_name}</strong></span>}
+                          {a.status === 'rejected' && <span style={{ color: '#991b1b' }}>❌ {a.rejection_reason}</span>}
+                          {!a.qa_user_name && !a.buying_user_name && !a.imports_user_name && !a.accounts_user_name && !a.rejection_reason && <span style={{ color: '#cbd5e1' }}>—</span>}
+                        </div>
+                      </td>
+                      {(role === 'imports' || role === 'qa' || role === 'buying' || role === 'accounts' || role === 'admin') && (
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          {a.invoice_file_name ? (
+                            <a href={getInvoiceUrl(a.advice_id)} target="_blank" rel="noreferrer"
+                              style={{ color: '#1d4ed8', fontWeight: '600', fontSize: '11px', textDecoration: 'underline' }}>
+                              📄 View
+                            </a>
+                          ) : (
+                            <span style={{ color: '#cbd5e1', fontSize: '11px' }}>—</span>
+                          )}
+                        </td>
+                      )}
+                      <td style={{ color: '#94a3b8', whiteSpace: 'nowrap', fontSize: '11px' }}>
+                        <div>{a.created_by_name}</div>
+                        <div>{new Date(a.created_at).toLocaleDateString()}</div>
+                      </td>
+                      {advices.some(a => canApprove(a)) && (
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          {canApprove(a) ? (
+                            <div style={{ display: 'flex', gap: '5px' }}>
+                              <button onClick={() => { setShowApprove({ advice: a, action: 'approve' }); setActionNote(''); setActionMsg('') }}
+                                style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                {role === 'accounts' ? '💰 Paid' : '✓ Approve'}
+                              </button>
+                              <button onClick={() => { setShowApprove({ advice: a, action: 'reject' }); setActionNote(''); setActionMsg('') }}
+                                style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>
+                                ✕
+                              </button>
+                            </div>
+                          ) : <span style={{ color: '#cbd5e1' }}>—</span>}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
