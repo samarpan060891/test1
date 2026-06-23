@@ -165,6 +165,7 @@ export default function InspectionCostPage() {
   const [invoiceUploading, setInvoiceUploading] = useState(false)
   const [invoiceMsg, setInvoiceMsg]     = useState('')
   const [actionSaving, setActionSaving] = useState(false)
+  const [activeFilter, setActiveFilter] = useState(null)
 
   const [showContracts, setShowContracts] = useState(false)
   const [allContracts, setAllContracts]   = useState([])
@@ -449,7 +450,7 @@ export default function InspectionCostPage() {
           </div>
         )}
 
-        {/* Stats for internal roles */}
+        {/* Stats for internal roles — click to filter */}
         {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && (
           <div className="stat-grid mb-4">
             {[
@@ -459,12 +460,20 @@ export default function InspectionCostPage() {
               { label: 'Pending Accounts',  key: 'pending_accounts', cls: 'amber' },
               { label: 'Paid',              key: 'paid',             cls: 'green' },
               { label: 'Rejected',          key: 'rejected',         cls: 'red' },
-            ].map(s => (
-              <div key={s.key} className={`stat-card ${s.cls}`}>
-                <div className="stat-label">{s.label}</div>
-                <div className="stat-value">{advices.filter(a => a.status === s.key).length}</div>
-              </div>
-            ))}
+            ].map(s => {
+              const isActive = activeFilter === s.key
+              return (
+                <div key={s.key} className={`stat-card ${s.cls}`}
+                  onClick={() => setActiveFilter(p => p === s.key ? null : s.key)}
+                  style={{ cursor: 'pointer', outline: isActive ? '2.5px solid currentColor' : 'none', boxShadow: isActive ? '0 0 0 3px rgba(0,0,0,0.08)' : undefined, transform: isActive ? 'translateY(-1px)' : undefined, transition: 'transform 0.1s, box-shadow 0.1s', userSelect: 'none' }}>
+                  <div className="stat-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {s.label}
+                    {isActive && <span style={{ fontSize: '10px', fontWeight: '700', opacity: 0.7 }}>✕ FILTER</span>}
+                  </div>
+                  <div className="stat-value">{advices.filter(a => a.status === s.key).length}</div>
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -473,11 +482,24 @@ export default function InspectionCostPage() {
           <div className="loading-center"><div className="spinner" /></div>
         ) : advices.length === 0 ? (
           <div className="card"><div className="empty-state"><div style={{ fontSize: '40px' }}>📋</div><p>{t('costs_no_records')}</p></div></div>
-        ) : (
+        ) : (() => {
+          const STAT_LABELS = { pending_qa: 'Pending QA', pending_buying: 'Pending Buying', pending_imports: 'Pending Imports', pending_accounts: 'Pending Accounts', paid: 'Paid', rejected: 'Rejected' }
+          const displayAdvices = activeFilter ? advices.filter(a => a.status === activeFilter) : advices
+          return (
           <div className="card mb-6" style={{ overflow: 'hidden' }}>
-            {role === 'agency_user' && (
-              <div className="card-header"><h2 className="section-title">Submitted Charges Advice</h2></div>
-            )}
+            <div className="card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h2 className="section-title">{role === 'agency_user' ? 'Submitted Charges Advice' : 'Charges Advice'}</h2>
+                {activeFilter && (
+                  <span style={{ background: '#FEF0EB', color: '#E8470F', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
+                    {STAT_LABELS[activeFilter]}
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                {displayAdvices.length}{activeFilter ? ` of ${advices.length}` : ''} advice(s)
+              </span>
+            </div>
             <div className="table-wrap">
               <table className="data-table" style={{ fontSize: '12px' }}>
                 <thead>
@@ -496,7 +518,7 @@ export default function InspectionCostPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {advices.map(a => (
+                  {displayAdvices.map(a => (
                     <tr key={a.advice_id}>
                       <td style={{ fontWeight: '800', color: '#E8470F', whiteSpace: 'nowrap' }}>{a.advice_ref}</td>
                       <td style={{ fontWeight: '600', color: '#0f172a' }}>{a.agency_name}</td>
@@ -571,7 +593,7 @@ export default function InspectionCostPage() {
               </table>
             </div>
           </div>
-        )}
+        )})()}
 
         {/* Agency Breakdown — QA / Buying / Admin */}
         {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && !loading && advices.length > 0 && (
