@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
+import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
+import { useResizableColumns } from '../hooks/useResizableColumns.js'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
@@ -168,6 +170,8 @@ export default function InspectionCostPage() {
   const [actionSaving, setActionSaving] = useState(false)
   const [activeFilter, setActiveFilter] = useState(null)
   const [advFilters, setAdvFilters] = useState({})
+  // Resizable columns for main advice table (max 11 cols)
+  const { widths: advColWidths, getHandleProps: advHandleProps } = useResizableColumns([110, 130, 150, 140, 110, 110, 140, 170, 80, 110, 110])
 
   const [showContracts, setShowContracts] = useState(false)
   const [allContracts, setAllContracts]   = useState([])
@@ -530,12 +534,15 @@ export default function InspectionCostPage() {
                 {displayAdvices.length}{(activeFilter || hasAdvFilter) ? ` of ${advices.length}` : ''} advice(s)
               </span>
             </div>
-            <div className="table-wrap">
-              <table className="data-table" style={{ fontSize: '12px' }}>
+            <TableScrollWrap>
+              <table className="data-table" style={{ fontSize: '12px', tableLayout: 'fixed', minWidth: '100%' }}>
+                <colgroup>
+                  {ADVICE_COLS.map((_, i) => <col key={i} style={{ width: advColWidths[i] || 110 }} />)}
+                </colgroup>
                 <thead>
                   <tr>
-                    {ADVICE_COLS.map(c => (
-                      <th key={c.label} style={{ whiteSpace: 'nowrap' }}>
+                    {ADVICE_COLS.map((c, i) => (
+                      <th key={c.label} style={{ position: 'relative', width: advColWidths[i] || 110 }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                           {c.label}
                           {c.key && (
@@ -551,6 +558,9 @@ export default function InspectionCostPage() {
                             <button onClick={() => setAdvFilters({})} style={{ fontSize: '10px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', padding: '1px 4px', marginLeft: '2px' }}>✕</button>
                           )}
                         </span>
+                        {i < ADVICE_COLS.length - 1 && (
+                          <div className="col-resize-handle" {...advHandleProps(i)} />
+                        )}
                       </th>
                     ))}
                   </tr>
@@ -629,7 +639,7 @@ export default function InspectionCostPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScrollWrap>
           </div>
         )})()}
 

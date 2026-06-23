@@ -65,8 +65,8 @@ body {
 
 /* ─── Page Shell ────────────────────────────────────────────────── */
 .page { min-height: 100vh; background: var(--gray-50); }
-.page-content { max-width: 1320px; margin: 0 auto; padding: 20px 24px; }
-.page-content-narrow { max-width: 980px; margin: 0 auto; padding: 20px 24px; }
+.page-content { max-width: 1800px; margin: 0 auto; padding: 20px 32px; }
+.page-content-narrow { max-width: 980px; margin: 0 auto; padding: 20px 32px; }
 
 /* ─── Cards ─────────────────────────────────────────────────────── */
 .card {
@@ -170,6 +170,23 @@ table.data-table td {
   font-size: 12.5px;
   color: var(--gray-700);
   border-bottom: 1px solid var(--gray-100);
+  white-space: nowrap;
+}
+
+/* Column resize handle */
+.col-resize-handle {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 1;
+}
+.col-resize-handle:hover,
+.col-resize-handle:active {
+  background: var(--brand-orange);
+  opacity: 0.5;
+  border-radius: 2px;
 }
 table.data-table tbody tr:last-child td { border-bottom: none; }
 table.data-table tbody tr:hover td { background: var(--gray-50); }

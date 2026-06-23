@@ -10,6 +10,8 @@ import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
 import client from '../api/client.js'
 import { useColumnFilter } from '../hooks/useColumnFilter.js'
 import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
+import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
+import { useResizableColumns } from '../hooks/useResizableColumns.js'
 
 const STATUS_META = {
   mapped_awaiting_inspection: { label: 'Awaiting Inspection', bg: '#eff6ff', color: '#1d4ed8' },
@@ -119,7 +121,9 @@ export default function DashboardPage() {
     { key: 'inspection_date',label: 'Date' },
     { key: null,             label: 'Actions' },
   ]
+  const JOB_WIDTHS = [120, 90, 120, 90, 100, 100, 160, 160, 100, 80]
   const { filters: jobFilters, setFilter: setJobFilter, filtered: filteredJobs, hasActive: hasJobFilter, clearFilters: clearJobFilters } = useColumnFilter(cardFilteredJobs, JOB_COLS)
+  const { widths: colWidths, getHandleProps } = useResizableColumns(JOB_WIDTHS)
 
   const [downloading, setDownloading] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -248,9 +252,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Main layout */}
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           {/* Jobs table */}
-          <div className="card" style={{ flex: 1, overflow: 'hidden' }}>
+          <div className="card" style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
             <div className="card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h2 className="section-title">{t('dashboard_inspection_jobs')}</h2>
@@ -275,12 +279,15 @@ export default function DashboardPage() {
                 <p>{t('dashboard_no_jobs')}</p>
               </div>
             ) : (
-              <div className="table-wrap">
-                <table className="data-table">
+              <TableScrollWrap>
+                <table className="data-table" style={{ tableLayout: 'fixed', minWidth: '100%' }}>
+                  <colgroup>
+                    {JOB_COLS.map((c, i) => <col key={i} style={{ width: colWidths[i] }} />)}
+                  </colgroup>
                   <thead>
                     <tr>
-                      {JOB_COLS.map(c => (
-                        <th key={c.label} style={{ whiteSpace: 'nowrap' }}>
+                      {JOB_COLS.map((c, i) => (
+                        <th key={c.label} style={{ position: 'relative', width: colWidths[i] }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                             {c.label}
                             {c.key && (
@@ -296,6 +303,9 @@ export default function DashboardPage() {
                               <button onClick={clearJobFilters} style={{ fontSize: '10px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', padding: '1px 4px', marginLeft: '2px' }}>✕</button>
                             )}
                           </span>
+                          {i < JOB_COLS.length - 1 && (
+                            <div className="col-resize-handle" {...getHandleProps(i)} />
+                          )}
                         </th>
                       ))}
                     </tr>
@@ -303,17 +313,17 @@ export default function DashboardPage() {
                   <tbody>
                     {filteredJobs.map((job, idx) => (
                       <tr key={job.job_id || job.id || idx}>
-                        <td className="text-mono" style={{ color: '#475569' }}>
+                        <td className="text-mono" style={{ color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {job.job_ref || String(job.job_id || '').slice(0, 8) + '…'}
                         </td>
                         <td><StageBadge stage={job.inspection_stage} t={t} /></td>
-                        <td style={{ fontWeight: '600', color: '#0f172a' }}>{job.po_no || '—'}</td>
-                        <td>{job.item_code || '—'}</td>
-                        <td>{job.supplier_code || '—'}</td>
-                        <td>{job.agency_code || '—'}</td>
+                        <td style={{ fontWeight: '600', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.po_no || '—'}</td>
+                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.item_code || '—'}</td>
+                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.supplier_code || '—'}</td>
+                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.agency_code || '—'}</td>
                         <td><StatusBadge status={job.status} /></td>
                         <td><PaymentBadge status={job.payment_status} /></td>
-                        <td style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                        <td style={{ color: '#94a3b8' }}>
                           {job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : '—'}
                         </td>
                         <td>
@@ -328,12 +338,12 @@ export default function DashboardPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </TableScrollWrap>
             )}
           </div>
 
           {/* Notifications */}
-          <div className="card" style={{ width: '300px', flexShrink: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ width: '280px', flexShrink: 0, overflow: 'hidden' }}>
             <div className="card-header">
               <h2 className="section-title">{t('dashboard_notifications')}</h2>
               {notifications.length > 0 && (
