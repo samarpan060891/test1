@@ -520,7 +520,7 @@ export default function InspectionCostPage() {
           )
           const hasAdvFilter = Object.values(advFilters).some(Boolean)
           return (
-          <div className="card mb-6" style={{ overflow: 'hidden' }}>
+          <div className="card mb-6">
             <div className="card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h2 className="section-title">{role === 'agency_user' ? t('costs_submitted_advice') : t('costs_charges_advice_title')}</h2>

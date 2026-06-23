@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext.jsx'
 import { getUsers, createUser, updateUser, deleteUser, resetPassword } from '../api/admin.js'
 import { useColumnFilter } from '../hooks/useColumnFilter.js'
 import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
+import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
 
 const ROLES = ['qa', 'buying', 'imports', 'accounts', 'agency_user', 'supplier_user', 'admin']
 
@@ -96,8 +97,8 @@ export default function AdminUsersPage() {
         {loading ? (
           <div className="loading-center"><div className="spinner" /></div>
         ) : (
-          <div className="card" style={{ overflow: 'hidden' }}>
-            <div className="table-wrap">
+          <div className="card">
+            <TableScrollWrap>
               <table className="data-table">
                 <thead>
                   <tr>
@@ -142,7 +143,7 @@ export default function AdminUsersPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScrollWrap>
           </div>
         )}
       </div>

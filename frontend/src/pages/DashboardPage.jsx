@@ -254,7 +254,7 @@ export default function DashboardPage() {
         {/* Main layout */}
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           {/* Jobs table */}
-          <div className="card" style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ flex: '1 1 0', minWidth: 0 }}>
             <div className="card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h2 className="section-title">{t('dashboard_inspection_jobs')}</h2>
