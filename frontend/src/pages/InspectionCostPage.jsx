@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useColumnFilter } from '../hooks/useColumnFilter.js'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
@@ -490,7 +491,31 @@ export default function InspectionCostPage() {
           <div className="card"><div className="empty-state"><div style={{ fontSize: '40px' }}>📋</div><p>{t('costs_no_records')}</p></div></div>
         ) : (() => {
           const STAT_LABELS = { pending_qa: 'Pending QA', pending_buying: 'Pending Buying', pending_imports: 'Pending Imports', pending_accounts: 'Pending Accounts', paid: 'Paid', rejected: 'Rejected' }
-          const displayAdvices = activeFilter ? advices.filter(a => a.status === activeFilter) : advices
+          const cardFiltered = activeFilter ? advices.filter(a => a.status === activeFilter) : advices
+          const ADVICE_COLS = [
+            { key: 'advice_ref',   label: 'Advice Ref' },
+            { key: 'agency_name',  label: 'Agency' },
+            { key: null,           label: 'Jobs' },
+            { key: null,           label: 'Rate' },
+            { key: null,           label: 'Total Cost' },
+            { key: 'cost_bearer',  label: 'Cost Bearer' },
+            { key: 'status',       label: 'Status' },
+            { key: null,           label: 'Approvals' },
+            ...(role === 'imports' || role === 'qa' || role === 'buying' || role === 'accounts' || role === 'admin' ? [{ key: null, label: 'Invoice' }] : []),
+            { key: 'created_by_name', label: 'Created' },
+            ...(advices.some(a => canApprove(a)) ? [{ key: null, label: 'Actions' }] : []),
+          ]
+          // eslint-disable-next-line react-hooks/rules-of-hooks
+          const [advFilters, setAdvFilters] = useState({})
+          const displayAdvices = cardFiltered.filter(a =>
+            ADVICE_COLS.every(c => {
+              if (!c.key) return true
+              const fv = advFilters[c.key]
+              if (!fv) return true
+              return String(a[c.key] ?? '').toLowerCase().includes(fv.toLowerCase())
+            })
+          )
+          const hasAdvFilter = Object.values(advFilters).some(Boolean)
           return (
           <div className="card mb-6" style={{ overflow: 'hidden' }}>
             <div className="card-header">
@@ -503,24 +528,31 @@ export default function InspectionCostPage() {
                 )}
               </div>
               <span style={{ fontSize: '12px', color: '#94a3b8' }}>
-                {displayAdvices.length}{activeFilter ? ` of ${advices.length}` : ''} advice(s)
+                {displayAdvices.length}{(activeFilter || hasAdvFilter) ? ` of ${advices.length}` : ''} advice(s)
               </span>
             </div>
             <div className="table-wrap">
               <table className="data-table" style={{ fontSize: '12px' }}>
                 <thead>
                   <tr>
-                    <th>Advice Ref</th>
-                    <th>Agency</th>
-                    <th>Jobs</th>
-                    <th>Rate</th>
-                    <th>Total Cost</th>
-                    <th>Cost Bearer</th>
-                    <th>Status</th>
-                    <th>Approvals</th>
-                    {(role === 'imports' || role === 'qa' || role === 'buying' || role === 'accounts' || role === 'admin') && <th>Invoice</th>}
-                    <th>Created</th>
-                    {advices.some(a => canApprove(a)) && <th>Actions</th>}
+                    {ADVICE_COLS.map(c => <th key={c.label}>{c.label}</th>)}
+                  </tr>
+                  <tr style={{ background: '#f8fafc' }}>
+                    {ADVICE_COLS.map(c => (
+                      <th key={c.label} style={{ padding: '4px 8px', fontWeight: 'normal' }}>
+                        {c.key ? (
+                          <input
+                            value={advFilters[c.key] || ''}
+                            onChange={e => setAdvFilters(p => ({ ...p, [c.key]: e.target.value }))}
+                            placeholder="🔍"
+                            style={{ width: '100%', padding: '3px 6px', fontSize: '11px', border: '1px solid #e2e8f0', borderRadius: '4px', background: '#fff', outline: 'none', fontFamily: 'inherit' }}
+                          />
+                        ) : (c.label === 'Actions' && hasAdvFilter
+                          ? <button onClick={() => setAdvFilters({})} style={{ fontSize: '10px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', padding: 0 }}>✕ Clear</button>
+                          : null
+                        )}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>

@@ -8,6 +8,7 @@ import { getNotifications } from '../api/notifications.js'
 import { getAdvices } from '../api/inspectionCosts.js'
 import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
 import client from '../api/client.js'
+import { useColumnFilter } from '../hooks/useColumnFilter.js'
 
 const STATUS_META = {
   mapped_awaiting_inspection: { label: 'Awaiting Inspection', bg: '#eff6ff', color: '#1d4ed8' },
@@ -98,12 +99,26 @@ export default function DashboardPage() {
   const approved  = jobs.filter(j => j.status === 'qa_approved').length
   const rejected  = jobs.filter(j => j.status === 'qa_rejected').length
 
-  const filteredJobs = activeFilter === 'pending' ? jobs.filter(j => j.status === 'submitted_pending_qa')
+  const cardFilteredJobs = activeFilter === 'pending' ? jobs.filter(j => j.status === 'submitted_pending_qa')
     : activeFilter === 'approved' ? jobs.filter(j => j.status === 'qa_approved')
     : activeFilter === 'rejected' ? jobs.filter(j => j.status === 'qa_rejected')
     : jobs
 
   const toggleFilter = (key) => setActiveFilter(p => p === key ? null : key)
+
+  const JOB_COLS = [
+    { key: 'job_ref',        label: 'Job ID' },
+    { key: 'inspection_stage', label: 'Stage' },
+    { key: 'po_no',          label: 'PO No' },
+    { key: 'item_code',      label: 'Item' },
+    { key: 'supplier_code',  label: 'Supplier' },
+    { key: 'agency_code',    label: 'Agency' },
+    { key: 'status',         label: 'Activity Status' },
+    { key: 'payment_status', label: 'Payment Status' },
+    { key: 'inspection_date',label: 'Date' },
+    { key: null,             label: 'Actions' },
+  ]
+  const { filters: jobFilters, setFilter: setJobFilter, filtered: filteredJobs, hasActive: hasJobFilter, clearFilters: clearJobFilters } = useColumnFilter(cardFilteredJobs, JOB_COLS)
 
   const [downloading, setDownloading] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -263,8 +278,24 @@ export default function DashboardPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      {[t('th_job_id'), t('th_stage'), t('th_po_no'), t('th_item'), t('th_supplier'), t('th_agency'), 'Activity Status', 'Payment Status', t('th_date'), t('th_actions')].map(h => (
-                        <th key={h}>{h}</th>
+                      {JOB_COLS.map(c => <th key={c.label}>{c.label}</th>)}
+                    </tr>
+                    <tr style={{ background: '#f8fafc' }}>
+                      {JOB_COLS.map(c => (
+                        <th key={c.label} style={{ padding: '4px 8px', fontWeight: 'normal' }}>
+                          {c.key ? (
+                            <input
+                              value={jobFilters[c.key] || ''}
+                              onChange={e => setJobFilter(c.key, e.target.value)}
+                              placeholder="🔍"
+                              style={{ width: '100%', padding: '3px 6px', fontSize: '11px', border: '1px solid #e2e8f0', borderRadius: '4px', background: '#fff', outline: 'none', fontFamily: 'inherit' }}
+                            />
+                          ) : (
+                            hasJobFilter
+                              ? <button onClick={clearJobFilters} style={{ fontSize: '10px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', padding: 0 }}>✕ Clear</button>
+                              : null
+                          )}
+                        </th>
                       ))}
                     </tr>
                   </thead>

@@ -66,6 +66,9 @@ export default function AdminMastersPage() {
   const [bulkMsg, setBulkMsg] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)
   const fileRef = useRef()
+  const [masterFilters, setMasterFilters] = useState({})
+  const setMasterFilter = (key, value) => setMasterFilters(prev => ({ ...prev, [key]: value }))
+  const clearMasterFilters = () => setMasterFilters({})
 
   const cfg = CONFIG[activeTab]
 
@@ -78,6 +81,7 @@ export default function AdminMastersPage() {
     setForm(emptyForm(cfg.fields))
     setFormMsg('')
     setBulkMsg('')
+    setMasterFilters({})
     load()
     const interval = setInterval(load, 60000)
     return () => clearInterval(interval)
@@ -119,6 +123,15 @@ export default function AdminMastersPage() {
   }
 
   const colKeys = cfg.fields.map(f => f.key)
+
+  const hasActiveMasterFilter = Object.values(masterFilters).some(v => v && v !== '')
+  const filteredRows = hasActiveMasterFilter
+    ? rows.filter(row => cfg.fields.every(f => {
+        const fv = masterFilters[f.key]
+        if (!fv) return true
+        return String(row[f.key] ?? '').toLowerCase().includes(fv.toLowerCase())
+      }))
+    : rows
 
   return (
     <div className="page">
@@ -224,9 +237,21 @@ export default function AdminMastersPage() {
                         </th>
                       ))}
                     </tr>
+                    <tr style={{ backgroundColor: '#f8fafc' }}>
+                      {cfg.fields.map(f => (
+                        <th key={f.key} style={{ padding: '4px 8px', fontWeight: 'normal', borderBottom: '1px solid #e5e7eb' }}>
+                          <input
+                            value={masterFilters[f.key] || ''}
+                            onChange={e => setMasterFilter(f.key, e.target.value)}
+                            placeholder="🔍"
+                            style={{ width: '100%', padding: '3px 6px', fontSize: '11px', border: '1px solid #e2e8f0', borderRadius: '4px', background: '#fff', outline: 'none', fontFamily: 'inherit' }}
+                          />
+                        </th>
+                      ))}
+                    </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row, i) => (
+                    {filteredRows.map((row, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
                         {cfg.fields.map(f => (
                           <td key={f.key} style={{ padding: '10px 14px', color: '#374151', whiteSpace: 'nowrap' }}>

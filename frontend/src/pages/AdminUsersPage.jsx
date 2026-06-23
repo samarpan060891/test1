@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import Navbar from '../components/Navbar.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { getUsers, createUser, updateUser, deleteUser, resetPassword } from '../api/admin.js'
+import { useColumnFilter } from '../hooks/useColumnFilter.js'
 
 const ROLES = ['qa', 'buying', 'imports', 'accounts', 'agency_user', 'supplier_user', 'admin']
 
@@ -70,6 +71,15 @@ export default function AdminUsersPage() {
 
   const roleColor = { qa: '#7c3aed', buying: '#0369a1', imports: '#0891b2', accounts: '#059669', agency_user: '#0f766e', supplier_user: '#b45309', admin: '#dc2626' }
 
+  const USER_COLS = [
+    { key: 'name',         label: 'Name' },
+    { key: 'email',        label: 'Email' },
+    { key: 'role',         label: 'Role' },
+    { key: 'agency_code',  label: 'Agency/Supplier' },
+    { key: null,           label: 'Actions' },
+  ]
+  const { filters: userFilters, setFilter: setUserFilter, filtered: filteredUsers, hasActive: hasUserFilter, clearFilters: clearUserFilters } = useColumnFilter(users, USER_COLS)
+
   return (
     <div className="page">
       <Navbar />
@@ -89,10 +99,26 @@ export default function AdminUsersPage() {
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
-                  <tr>{['Name', 'Email', 'Role', 'Agency/Supplier', 'Actions'].map(h => <th key={h}>{h}</th>)}</tr>
+                  <tr>{USER_COLS.map(c => <th key={c.label}>{c.label}</th>)}</tr>
+                  <tr style={{ background: '#f8fafc' }}>
+                    {USER_COLS.map(c => (
+                      <th key={c.label} style={{ padding: '4px 8px', fontWeight: 'normal' }}>
+                        {c.key ? (
+                          <input
+                            value={userFilters[c.key] || ''}
+                            onChange={e => setUserFilter(c.key, e.target.value)}
+                            placeholder="🔍"
+                            style={{ width: '100%', padding: '3px 6px', fontSize: '11px', border: '1px solid #e2e8f0', borderRadius: '4px', background: '#fff', outline: 'none', fontFamily: 'inherit' }}
+                          />
+                        ) : hasUserFilter ? (
+                          <button onClick={clearUserFilters} style={{ fontSize: '10px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', padding: 0 }}>✕ Clear</button>
+                        ) : null}
+                      </th>
+                    ))}
+                  </tr>
                 </thead>
                 <tbody>
-                  {users.map(u => (
+                  {filteredUsers.map(u => (
                     <tr key={u.user_id}>
                       <td style={{ fontWeight: '600', color: '#0f172a' }}>{u.name}</td>
                       <td style={{ color: '#64748b' }}>{u.email}</td>
