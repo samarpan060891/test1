@@ -310,7 +310,7 @@ export default function JobDetailPage() {
                   🔍 {t('job_review')}
                 </button>
               )}
-              <Link to={`/po-log?job_id=${jobId}`} className="btn btn-ghost">
+              <Link to={`/po-log?job_id=${job?.job_ref || jobId}`} className="btn btn-ghost">
                 📂 {t('nav_po_log')}
               </Link>
               <button onClick={openChecklist} className="btn" style={{ background: '#1C1208', color: '#fff' }}>

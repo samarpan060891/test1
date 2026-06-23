@@ -16,31 +16,25 @@ router.get('/', async (req, res) => {
 
   try {
     let query = `
-      SELECT l.*
+      SELECT l.*, j.job_ref
       FROM qc_inspection.log_entry l
+      LEFT JOIN qc_inspection.inspection_job j ON j.job_id = l.job_id
     `;
     const params = [];
     const conditions = [];
 
-    // Join inspection_jobs if we need role scoping
-    if (req.user.role === 'agency_user' || req.user.role === 'supplier_user') {
-      query = `
-        SELECT l.*
-        FROM qc_inspection.log_entry l
-        LEFT JOIN qc_inspection.inspection_job j ON j.job_id = l.job_id
-      `;
-      if (req.user.role === 'agency_user') {
-        params.push(req.user.agency_code);
-        conditions.push(`(j.agency_code = $${params.length} OR l.job_id IS NULL)`);
-      } else if (req.user.role === 'supplier_user') {
-        params.push(req.user.supplier_code);
-        conditions.push(`(j.supplier_code = $${params.length} OR l.job_id IS NULL)`);
-      }
+    if (req.user.role === 'agency_user') {
+      params.push(req.user.agency_code);
+      conditions.push(`(j.agency_code = $${params.length} OR l.job_id IS NULL)`);
+    } else if (req.user.role === 'supplier_user') {
+      params.push(req.user.supplier_code);
+      conditions.push(`(j.supplier_code = $${params.length} OR l.job_id IS NULL)`);
     }
 
     if (job_id) {
+      // Accept either a UUID job_id or a job_ref like JOB-2026-001
       params.push(job_id);
-      conditions.push(`l.job_id = $${params.length}`);
+      conditions.push(`(l.job_id::text = $${params.length} OR j.job_ref ILIKE $${params.length})`);
     }
 
     if (po_no) {

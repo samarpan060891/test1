@@ -166,10 +166,10 @@ export default function POLogPage() {
             </div>
             <div style={{ flex: 1, minWidth: '180px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                {t('th_job_id')}
+                Job Ref
               </label>
               <input type="text" value={jobIdFilter} onChange={e => setJobIdFilter(e.target.value)}
-                placeholder="Job ID or ref…" className="input" />
+                placeholder="e.g. JOB-2026-001" className="input" />
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button type="submit" className="btn btn-primary">{t('common_search')}</button>
@@ -181,7 +181,7 @@ export default function POLogPage() {
             <div style={{ marginTop: '12px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '12px', color: '#94a3b8' }}>Filtering by:</span>
               {appliedPoNo && <span style={{ background: '#FEF0EB', color: '#E8470F', padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>PO: {appliedPoNo}</span>}
-              {appliedJobId && <span style={{ background: '#f5f3ff', color: '#7c3aed', padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>Job: {appliedJobId.slice(0, 12)}…</span>}
+              {appliedJobId && <span style={{ background: '#f5f3ff', color: '#7c3aed', padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>Job: {appliedJobId}</span>}
             </div>
           )}
         </div>
@@ -234,7 +234,7 @@ export default function POLogPage() {
                           {log.po_no && <span style={{ fontSize: '12px', color: '#64748b' }}>PO: <strong>{log.po_no}</strong></span>}
                           {log.job_id && (
                             <Link to={`/jobs/${log.job_id}`} style={{ fontSize: '12px', color: '#E8470F', textDecoration: 'none', fontWeight: '500' }}>
-                              Job: {log.job_ref || String(log.job_id).slice(0, 8) + '…'}
+                              {log.job_ref || 'View Job →'}
                             </Link>
                           )}
                         </div>
