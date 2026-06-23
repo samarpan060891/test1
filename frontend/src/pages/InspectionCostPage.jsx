@@ -167,6 +167,7 @@ export default function InspectionCostPage() {
   const [invoiceMsg, setInvoiceMsg]     = useState('')
   const [actionSaving, setActionSaving] = useState(false)
   const [activeFilter, setActiveFilter] = useState(null)
+  const [advFilters, setAdvFilters] = useState({})
 
   const [showContracts, setShowContracts] = useState(false)
   const [allContracts, setAllContracts]   = useState([])
@@ -505,8 +506,6 @@ export default function InspectionCostPage() {
             { key: 'created_by_name', label: 'Created' },
             ...(advices.some(a => canApprove(a)) ? [{ key: null, label: 'Actions' }] : []),
           ]
-          // eslint-disable-next-line react-hooks/rules-of-hooks
-          const [advFilters, setAdvFilters] = useState({})
           const displayAdvices = cardFiltered.filter(a =>
             ADVICE_COLS.every(c => {
               if (!c.key) return true
@@ -547,7 +546,7 @@ export default function InspectionCostPage() {
                             placeholder="🔍"
                             style={{ width: '100%', padding: '3px 6px', fontSize: '11px', border: '1px solid #e2e8f0', borderRadius: '4px', background: '#fff', outline: 'none', fontFamily: 'inherit' }}
                           />
-                        ) : (c.label === 'Actions' && hasAdvFilter
+                        ) : (c === ADVICE_COLS[ADVICE_COLS.length - 1] && hasAdvFilter
                           ? <button onClick={() => setAdvFilters({})} style={{ fontSize: '10px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700', padding: 0 }}>✕ Clear</button>
                           : null
                         )}
