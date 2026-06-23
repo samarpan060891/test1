@@ -203,11 +203,11 @@ export default function DashboardPage() {
         {/* Stats — click to filter jobs table */}
         <div className="stat-grid mb-4">
           {[
-            { key: null,       cls: 'blue',  label: t('dashboard_total_jobs'),   value: totalJobs },
-            { key: 'pending',  cls: 'amber', label: t('dashboard_pending_qa'),   value: pendingQA },
-            { key: 'approved', cls: 'green', label: t('dashboard_approved'),     value: approved  },
-            { key: 'rejected', cls: 'red',   label: t('dashboard_rejected'),     value: rejected  },
-          ].map(({ key, cls, label, value }) => {
+            { key: null,       cls: 'blue',  accent: '#E8470F', label: t('dashboard_total_jobs'),   value: totalJobs },
+            { key: 'pending',  cls: 'amber', accent: '#d97706', label: t('dashboard_pending_qa'),   value: pendingQA },
+            { key: 'approved', cls: 'green', accent: '#059669', label: t('dashboard_approved'),     value: approved  },
+            { key: 'rejected', cls: 'red',   accent: '#dc2626', label: t('dashboard_rejected'),     value: rejected  },
+          ].map(({ key, cls, accent, label, value }) => {
             const isActive = activeFilter === key
             return (
               <div
@@ -216,8 +216,8 @@ export default function DashboardPage() {
                 onClick={() => toggleFilter(key)}
                 style={{
                   cursor: 'pointer',
-                  outline: isActive ? '2.5px solid currentColor' : 'none',
-                  boxShadow: isActive ? '0 0 0 3px rgba(0,0,0,0.08)' : undefined,
+                  outline: isActive ? `2.5px solid ${accent}` : 'none',
+                  boxShadow: isActive ? `0 0 0 3px ${accent}28` : undefined,
                   transform: isActive ? 'translateY(-1px)' : undefined,
                   transition: 'transform 0.1s, box-shadow 0.1s',
                   userSelect: 'none',

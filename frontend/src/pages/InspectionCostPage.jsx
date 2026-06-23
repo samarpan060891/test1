@@ -454,23 +454,31 @@ export default function InspectionCostPage() {
         {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && (
           <div className="stat-grid mb-4">
             {[
-              { label: 'Pending QA',       key: 'pending_qa',       cls: 'blue' },
-              { label: 'Pending Buying',    key: 'pending_buying',   cls: 'amber' },
-              { label: 'Pending Imports',   key: 'pending_imports',  cls: 'blue' },
-              { label: 'Pending Accounts',  key: 'pending_accounts', cls: 'amber' },
-              { label: 'Paid',              key: 'paid',             cls: 'green' },
-              { label: 'Rejected',          key: 'rejected',         cls: 'red' },
+              { label: 'All Advices',       key: null,              cls: 'blue',  accent: '#E8470F' },
+              { label: 'Pending QA',        key: 'pending_qa',      cls: 'blue',  accent: '#E8470F' },
+              { label: 'Pending Buying',    key: 'pending_buying',  cls: 'amber', accent: '#d97706' },
+              { label: 'Pending Imports',   key: 'pending_imports', cls: 'blue',  accent: '#E8470F' },
+              { label: 'Pending Accounts',  key: 'pending_accounts',cls: 'amber', accent: '#d97706' },
+              { label: 'Paid',              key: 'paid',            cls: 'green', accent: '#059669' },
+              { label: 'Rejected',          key: 'rejected',        cls: 'red',   accent: '#dc2626' },
             ].map(s => {
               const isActive = activeFilter === s.key
               return (
-                <div key={s.key} className={`stat-card ${s.cls}`}
+                <div key={String(s.key)} className={`stat-card ${s.cls}`}
                   onClick={() => setActiveFilter(p => p === s.key ? null : s.key)}
-                  style={{ cursor: 'pointer', outline: isActive ? '2.5px solid currentColor' : 'none', boxShadow: isActive ? '0 0 0 3px rgba(0,0,0,0.08)' : undefined, transform: isActive ? 'translateY(-1px)' : undefined, transition: 'transform 0.1s, box-shadow 0.1s', userSelect: 'none' }}>
+                  style={{
+                    cursor: 'pointer',
+                    outline: isActive ? `2.5px solid ${s.accent}` : 'none',
+                    boxShadow: isActive ? `0 0 0 3px ${s.accent}28` : undefined,
+                    transform: isActive ? 'translateY(-1px)' : undefined,
+                    transition: 'transform 0.1s, box-shadow 0.1s',
+                    userSelect: 'none',
+                  }}>
                   <div className="stat-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     {s.label}
                     {isActive && <span style={{ fontSize: '10px', fontWeight: '700', opacity: 0.7 }}>✕ FILTER</span>}
                   </div>
-                  <div className="stat-value">{advices.filter(a => a.status === s.key).length}</div>
+                  <div className="stat-value">{s.key === null ? advices.length : advices.filter(a => a.status === s.key).length}</div>
                 </div>
               )
             })}
