@@ -1,44 +1,34 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 
-/**
- * ColumnFilterDropdown — Excel-style per-column filter dropdown
- *
- * Props:
- *   colKey   — field name on the data row
- *   data     — full (unfiltered) dataset for generating unique value list
- *   value    — current filter string for this column
- *   onChange — (value: string) => void
- *   label    — column header label (for tooltip)
- */
 export function ColumnFilterDropdown({ colKey, data, value, onChange, label }) {
   const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const triggerRef = useRef()
   const dropRef = useRef()
   const searchRef = useRef()
   const isActive = !!value
 
+  // Unique values for suggestion list — always from full dataset
   const uniqueVals = useMemo(() => {
     const s = new Set(data.map(r => String(r[colKey] ?? '')).filter(v => v !== ''))
     return [...s].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   }, [data, colKey])
 
-  const visible = search
-    ? uniqueVals.filter(v => v.toLowerCase().includes(search.toLowerCase()))
+  // Suggestions filtered by whatever the user has typed
+  const suggestions = value
+    ? uniqueVals.filter(v => v.toLowerCase().includes(value.toLowerCase()))
     : uniqueVals
 
   const handleOpen = () => {
     if (!open && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect()
+      const dropH = Math.min(suggestions.length * 32 + 90, 320)
       const spaceBelow = window.innerHeight - rect.bottom
-      const dropH = Math.min(visible.length * 32 + 80, 300)
       const top = spaceBelow > dropH ? rect.bottom + 4 : rect.top - dropH - 4
       const left = Math.min(rect.left, window.innerWidth - 220)
       setPos({ top: top + window.scrollY, left: left + window.scrollX })
     }
     setOpen(p => !p)
-    setSearch('')
   }
 
   useEffect(() => {
@@ -47,16 +37,16 @@ export function ColumnFilterDropdown({ colKey, data, value, onChange, label }) {
 
   useEffect(() => {
     if (!open) return
-    const handler = (e) => {
+    const onMouse = (e) => {
       if (dropRef.current && !dropRef.current.contains(e.target) &&
           triggerRef.current && !triggerRef.current.contains(e.target)) {
         setOpen(false)
       }
     }
-    const keyHandler = (e) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('keydown', keyHandler)
-    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', keyHandler) }
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onMouse)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onMouse); document.removeEventListener('keydown', onKey) }
   }, [open])
 
   return (
@@ -95,24 +85,24 @@ export function ColumnFilterDropdown({ colKey, data, value, onChange, label }) {
             border: '1px solid #e2e8f0',
             borderRadius: '10px',
             boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
-            minWidth: '190px',
+            minWidth: '200px',
             maxWidth: '260px',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
-          {/* Search input */}
-          <div style={{ padding: '8px 8px 6px', borderBottom: '1px solid #f1f5f9' }}>
+          {/* Search input — typing here filters the TABLE live */}
+          <div style={{ padding: '8px 8px 6px' }}>
             <input
               ref={searchRef}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search values…"
+              value={value}
+              onChange={e => onChange(e.target.value)}
+              placeholder={`Search ${label}…`}
               style={{
                 width: '100%',
-                padding: '5px 9px',
-                border: '1px solid #e2e8f0',
+                padding: '6px 10px',
+                border: '1.5px solid #e2e8f0',
                 borderRadius: '6px',
                 fontSize: '12px',
                 boxSizing: 'border-box',
@@ -123,9 +113,23 @@ export function ColumnFilterDropdown({ colKey, data, value, onChange, label }) {
             />
           </div>
 
-          {/* Value list */}
-          <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
-            {/* Clear filter row */}
+          {/* Divider + hint */}
+          <div style={{
+            padding: '4px 10px 4px',
+            fontSize: '10px',
+            color: '#b0bec5',
+            fontWeight: '600',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            borderTop: '1px solid #f1f5f9',
+            borderBottom: '1px solid #f1f5f9',
+            background: '#fafafa',
+          }}>
+            {value ? `${suggestions.length} suggestion${suggestions.length !== 1 ? 's' : ''}` : `${uniqueVals.length} unique value${uniqueVals.length !== 1 ? 's' : ''}`}
+          </div>
+
+          {/* Suggestion list */}
+          <div style={{ maxHeight: '210px', overflowY: 'auto' }}>
             {isActive && (
               <button
                 onClick={() => { onChange(''); setOpen(false) }}
@@ -133,34 +137,23 @@ export function ColumnFilterDropdown({ colKey, data, value, onChange, label }) {
                   width: '100%', textAlign: 'left', padding: '7px 12px',
                   fontSize: '12px', color: '#E8470F', background: '#FEF0EB',
                   border: 'none', borderBottom: '1px solid #fde8e0',
-                  cursor: 'pointer', fontWeight: '600', display: 'flex',
-                  alignItems: 'center', gap: '6px',
+                  cursor: 'pointer', fontWeight: '600',
+                  display: 'flex', alignItems: 'center', gap: '6px',
                 }}
               >
-                <span>✕</span> Clear filter
+                ✕ Clear filter
               </button>
             )}
 
-            {/* All values */}
-            {!isActive && (
-              <div style={{
-                padding: '6px 12px', fontSize: '11px', color: '#94a3b8',
-                fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.04em',
-                borderBottom: '1px solid #f8fafc',
-              }}>
-                {uniqueVals.length} unique value{uniqueVals.length !== 1 ? 's' : ''}
-              </div>
-            )}
-
-            {visible.length === 0 ? (
+            {suggestions.length === 0 ? (
               <div style={{ padding: '12px', fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
-                No matches
+                No matching values
               </div>
             ) : (
-              visible.map(v => (
+              suggestions.map(v => (
                 <button
                   key={v}
-                  onClick={() => { onChange(v === value ? '' : v); setOpen(false) }}
+                  onClick={() => { onChange(v); setOpen(false) }}
                   style={{
                     width: '100%',
                     textAlign: 'left',
