@@ -24,8 +24,11 @@ router.get('/', async (req, res) => {
     const conditions = [];
 
     // Each user only sees notifications addressed to their role
-    params.push(req.user.role);
-    conditions.push(`n.recipient_role = $${params.length}`);
+    // Admin sees all notifications
+    if (req.user.role !== 'admin') {
+      params.push(req.user.role);
+      conditions.push(`n.recipient_role = $${params.length}`);
+    }
 
     if (job_id) {
       params.push(job_id);
