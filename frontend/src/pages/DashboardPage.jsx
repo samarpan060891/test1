@@ -91,10 +91,19 @@ export default function DashboardPage() {
     return () => clearInterval(interval)
   }, [])
 
+  const [activeFilter, setActiveFilter] = useState(null)
+
   const totalJobs = jobs.length
   const pendingQA = jobs.filter(j => j.status === 'submitted_pending_qa').length
   const approved  = jobs.filter(j => j.status === 'qa_approved').length
   const rejected  = jobs.filter(j => j.status === 'qa_rejected').length
+
+  const filteredJobs = activeFilter === 'pending' ? jobs.filter(j => j.status === 'submitted_pending_qa')
+    : activeFilter === 'approved' ? jobs.filter(j => j.status === 'qa_approved')
+    : activeFilter === 'rejected' ? jobs.filter(j => j.status === 'qa_rejected')
+    : jobs
+
+  const toggleFilter = (key) => setActiveFilter(p => p === key ? null : key)
 
   const [downloading, setDownloading] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -186,24 +195,37 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats — click to filter jobs table */}
         <div className="stat-grid mb-6">
-          <div className="stat-card blue">
-            <div className="stat-label">{t('dashboard_total_jobs')}</div>
-            <div className="stat-value">{totalJobs}</div>
-          </div>
-          <div className="stat-card amber">
-            <div className="stat-label">{t('dashboard_pending_qa')}</div>
-            <div className="stat-value">{pendingQA}</div>
-          </div>
-          <div className="stat-card green">
-            <div className="stat-label">{t('dashboard_approved')}</div>
-            <div className="stat-value">{approved}</div>
-          </div>
-          <div className="stat-card red">
-            <div className="stat-label">{t('dashboard_rejected')}</div>
-            <div className="stat-value">{rejected}</div>
-          </div>
+          {[
+            { key: null,       cls: 'blue',  label: t('dashboard_total_jobs'),   value: totalJobs },
+            { key: 'pending',  cls: 'amber', label: t('dashboard_pending_qa'),   value: pendingQA },
+            { key: 'approved', cls: 'green', label: t('dashboard_approved'),     value: approved  },
+            { key: 'rejected', cls: 'red',   label: t('dashboard_rejected'),     value: rejected  },
+          ].map(({ key, cls, label, value }) => {
+            const isActive = activeFilter === key
+            return (
+              <div
+                key={String(key)}
+                className={`stat-card ${cls}`}
+                onClick={() => toggleFilter(key)}
+                style={{
+                  cursor: 'pointer',
+                  outline: isActive ? '2.5px solid currentColor' : 'none',
+                  boxShadow: isActive ? '0 0 0 3px rgba(0,0,0,0.08)' : undefined,
+                  transform: isActive ? 'translateY(-1px)' : undefined,
+                  transition: 'transform 0.1s, box-shadow 0.1s',
+                  userSelect: 'none',
+                }}
+              >
+                <div className="stat-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {label}
+                  {isActive && <span style={{ fontSize: '10px', fontWeight: '700', opacity: 0.7 }}>✕ FILTER</span>}
+                </div>
+                <div className="stat-value">{value}</div>
+              </div>
+            )
+          })}
         </div>
 
         {/* Inspection Charges Summary */}
@@ -216,8 +238,17 @@ export default function DashboardPage() {
           {/* Jobs table */}
           <div className="card" style={{ flex: 1, overflow: 'hidden' }}>
             <div className="card-header">
-              <h2 className="section-title">{t('dashboard_inspection_jobs')}</h2>
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>{jobs.length} total</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h2 className="section-title">{t('dashboard_inspection_jobs')}</h2>
+                {activeFilter && (
+                  <span style={{ background: '#FEF0EB', color: '#E8470F', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
+                    {activeFilter === 'pending' ? 'Pending QA' : activeFilter === 'approved' ? 'Approved' : 'Rejected'}
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                {filteredJobs.length}{activeFilter ? ` of ${totalJobs}` : ''} job(s)
+              </span>
             </div>
 
             {loading ? (
@@ -240,7 +271,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {jobs.map((job, idx) => (
+                    {filteredJobs.map((job, idx) => (
                       <tr key={job.job_id || job.id || idx}>
                         <td className="text-mono" style={{ color: '#475569' }}>
                           {job.job_ref || String(job.job_id || '').slice(0, 8) + '…'}
