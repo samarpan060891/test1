@@ -175,7 +175,7 @@ export default function QAReviewPage() {
         <Navbar />
         <div style={{ maxWidth: '700px', margin: '60px auto', padding: '0 24px', textAlign: 'center' }}>
           <p style={{ color: '#dc2626' }}>{error}</p>
-          <Link to={`/jobs/${id}`} style={{ color: '#1e40af' }}>Back to Job</Link>
+          <Link to={`/jobs/${id}`} style={{ color: '#1e40af' }}>{t('jobdetail_job_breadcrumb')}</Link>
         </div>
       </div>
     )

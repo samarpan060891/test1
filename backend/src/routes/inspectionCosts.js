@@ -253,7 +253,7 @@ router.post('/', authorize('agency_user'), upload.single('invoice'), async (req,
     const ctx = await getAdviceContext(advice.advice_id);
     const { qaEmails, buyingEmails } = await getInternalTeamEmails();
     const agencyName = ctx?.agency_name || req.user.agency_code;
-    const msg = `${agencyName} has submitted an inspection charges advice (${advice.advice_ref || advice.advice_id.slice(0,8)}) for ${advice.currency} ${parseFloat(advice.total_cost).toFixed(2)}. Pending QA approval.`;
+    const msg = JSON.stringify({ key: 'CHARGES_SUBMITTED_INTERNAL', agency: agencyName, ref: advice.advice_ref || advice.advice_id.slice(0,8), amt: `${advice.currency} ${parseFloat(advice.total_cost).toFixed(2)}` });
 
     sendNotification(ctx?.first_job_id || null, 'CHARGES_SUBMITTED', 'qa', qaEmails, msg, ctx?.advice_id || null);
     sendNotification(ctx?.first_job_id || null, 'CHARGES_SUBMITTED', 'buying', buyingEmails, msg, ctx?.advice_id || null);
@@ -291,9 +291,9 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
         [user_id, notes || null, req.params.id]
       );
       sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'buying', buyingEmails,
-        `Advice ${ref} approved by QA — now pending your Buying approval.`, ctx?.advice_id || null);
+        JSON.stringify({ key: 'CHARGES_QA_APPROVED_INTERNAL', ref }), ctx?.advice_id || null);
       sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'agency_user', agencyEmails,
-        `Your advice ${ref} has been approved by QA and is now pending Buying approval.`, ctx?.advice_id || null);
+        JSON.stringify({ key: 'CHARGES_QA_APPROVED_AGENCY', ref }), ctx?.advice_id || null);
 
     } else if (role === 'buying') {
       if (advice.status !== 'pending_buying') return res.status(400).json({ error: 'Not pending Buying approval' });
@@ -304,9 +304,9 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
         [user_id, notes || null, req.params.id]
       );
       sendNotification(ctx?.first_job_id || null, 'CHARGES_BUYING_APPROVED', 'imports', importsEmails,
-        `Advice ${ref} (${amt}) approved by Buying — now pending your Imports approval.`, ctx?.advice_id || null);
+        JSON.stringify({ key: 'CHARGES_BUYING_APPROVED_INTERNAL', ref, amt }), ctx?.advice_id || null);
       sendNotification(ctx?.first_job_id || null, 'CHARGES_BUYING_APPROVED', 'agency_user', agencyEmails,
-        `Your advice ${ref} has been approved by Buying and is now pending Imports approval.`, ctx?.advice_id || null);
+        JSON.stringify({ key: 'CHARGES_BUYING_APPROVED_AGENCY', ref }), ctx?.advice_id || null);
 
     } else if (role === 'imports') {
       if (advice.status !== 'pending_imports') return res.status(400).json({ error: 'Not pending Imports approval' });
@@ -317,9 +317,9 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
         [user_id, notes || null, req.params.id]
       );
       sendNotification(ctx?.first_job_id || null, 'CHARGES_IMPORTS_APPROVED', 'accounts', accountsEmails,
-        `Advice ${ref} (${amt}) approved by Imports — now pending your Accounts payment confirmation.`, ctx?.advice_id || null);
+        JSON.stringify({ key: 'CHARGES_IMPORTS_APPROVED_INTERNAL', ref, amt }), ctx?.advice_id || null);
       sendNotification(ctx?.first_job_id || null, 'CHARGES_IMPORTS_APPROVED', 'agency_user', agencyEmails,
-        `Your advice ${ref} has been approved by Imports and is now pending Accounts final payment.`, ctx?.advice_id || null);
+        JSON.stringify({ key: 'CHARGES_IMPORTS_APPROVED_AGENCY', ref }), ctx?.advice_id || null);
 
     } else if (role === 'accounts') {
       if (advice.status !== 'pending_accounts') return res.status(400).json({ error: 'Not pending Accounts payment' });
@@ -330,9 +330,9 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
         [user_id, notes || null, req.params.id]
       );
       sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'agency_user', agencyEmails,
-        `Your advice ${ref} for ${amt} has been marked as PAID by Accounts.`, ctx?.advice_id || null);
+        JSON.stringify({ key: 'CHARGES_PAID_AGENCY', ref, amt }), ctx?.advice_id || null);
       sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'buying', buyingEmails,
-        `Advice ${ref} for ${amt} has been confirmed as paid by Accounts.`, ctx?.advice_id || null);
+        JSON.stringify({ key: 'CHARGES_PAID_INTERNAL', ref, amt }), ctx?.advice_id || null);
     }
 
     res.json(update.rows[0]);
@@ -359,13 +359,11 @@ router.put('/:id/reject', authorize('qa', 'buying', 'imports', 'accounts'), asyn
     const { qaEmails, buyingEmails, importsEmails, accountsEmails } = await getInternalTeamEmails();
     const ref = advice.advice_ref || advice.advice_id.slice(0, 8);
     const roleLabel = { qa: 'QA', buying: 'Buying', imports: 'Imports', accounts: 'Accounts' }[role] || role;
-    const msg = `Your advice ${ref} has been rejected by ${roleLabel}. Reason: ${reason}`;
-
-    sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'agency_user', agencyEmails, msg, ctx?.advice_id || null);
-    // Notify all internal teams of the rejection
+    sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'agency_user', agencyEmails,
+      JSON.stringify({ key: 'CHARGES_REJECTED_AGENCY', ref, by: roleLabel, reason }), ctx?.advice_id || null);
     const allInternal = [...new Set([...qaEmails, ...buyingEmails, ...importsEmails, ...accountsEmails])];
     sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'qa', allInternal,
-      `Advice ${ref} was rejected by ${roleLabel}. Reason: ${reason}`, ctx?.advice_id || null);
+      JSON.stringify({ key: 'CHARGES_REJECTED_INTERNAL', ref, by: roleLabel, reason }), ctx?.advice_id || null);
 
     res.json(advice);
   } catch (err) { res.status(500).json({ error: err.message }); }

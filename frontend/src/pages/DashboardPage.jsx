@@ -13,54 +13,54 @@ import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
 import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
 import { useResizableColumns } from '../hooks/useResizableColumns.js'
 
-const STATUS_META = {
-  mapped_awaiting_inspection: { label: 'Awaiting Inspection', bg: '#eff6ff', color: '#1d4ed8' },
-  submitted_pending_qa:       { label: 'Pending QA Review',  bg: '#fefce8', color: '#92400e' },
-  qa_approved:                { label: 'Approved',           bg: '#f0fdf4', color: '#15803d' },
-  qa_rejected:                { label: 'Rejected',           bg: '#fef2f2', color: '#dc2626' },
+const STATUS_KEYS = {
+  mapped_awaiting_inspection: { key: 'status_awaiting_inspection', bg: '#eff6ff', color: '#1d4ed8' },
+  submitted_pending_qa:       { key: 'status_pending_qa_review',   bg: '#fefce8', color: '#92400e' },
+  qa_approved:                { key: 'status_approved',            bg: '#f0fdf4', color: '#15803d' },
+  qa_rejected:                { key: 'status_rejected',            bg: '#fef2f2', color: '#dc2626' },
 }
 
-const PAYMENT_META = {
-  pending_qa:       { label: 'Pending QA',       bg: '#FEF0EB', color: '#E8470F' },
-  pending_buying:   { label: 'Pending Buying',    bg: '#fefce8', color: '#92400e' },
-  pending_imports:  { label: 'Pending Imports',   bg: '#eff6ff', color: '#1d4ed8' },
-  pending_accounts: { label: 'Pending Accounts',  bg: '#faf5ff', color: '#7e22ce' },
-  paid:             { label: 'Paid',              bg: '#f0fdf4', color: '#15803d' },
-  rejected:         { label: 'Advice Rejected',   bg: '#fef2f2', color: '#dc2626' },
+const PAYMENT_KEYS = {
+  pending_qa:       { key: 'status_pending_qa',       bg: '#FEF0EB', color: '#E8470F' },
+  pending_buying:   { key: 'status_pending_buying',    bg: '#fefce8', color: '#92400e' },
+  pending_imports:  { key: 'status_pending_imports',   bg: '#eff6ff', color: '#1d4ed8' },
+  pending_accounts: { key: 'status_pending_accounts',  bg: '#faf5ff', color: '#7e22ce' },
+  paid:             { key: 'status_paid',              bg: '#f0fdf4', color: '#15803d' },
+  rejected:         { key: 'status_advice_rejected',   bg: '#fef2f2', color: '#dc2626' },
 }
 
-const STAGE_META = {
-  pre_production: { label: 'Pre-Prod', bg: '#fefce8', color: '#92400e' },
-  inline:         { label: 'Inline',   bg: '#eff6ff', color: '#1d4ed8' },
-  final:          { label: 'Final',    bg: '#f0fdf4', color: '#15803d' },
-  loading:        { label: 'Loading',  bg: '#faf5ff', color: '#7e22ce' },
+const STAGE_KEYS = {
+  pre_production: { key: 'stage_pre_production', bg: '#fefce8', color: '#92400e' },
+  inline:         { key: 'stage_inline',          bg: '#eff6ff', color: '#1d4ed8' },
+  final:          { key: 'stage_final',           bg: '#f0fdf4', color: '#15803d' },
+  loading:        { key: 'stage_loading',         bg: '#faf5ff', color: '#7e22ce' },
 }
 
-function StatusBadge({ status }) {
-  const m = STATUS_META[status] || { label: status, bg: '#f1f5f9', color: '#475569' }
+function StatusBadge({ status, t }) {
+  const m = STATUS_KEYS[status] || { key: null, bg: '#f1f5f9', color: '#475569' }
   return (
     <span style={{ background: m.bg, color: m.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>
-      {m.label}
+      {m.key ? t(m.key) : status}
     </span>
   )
 }
 
-function PaymentBadge({ status }) {
-  if (!status) return <span style={{ color: '#94a3b8', fontSize: '12px' }}>No Advice</span>
-  const m = PAYMENT_META[status] || { label: status, bg: '#f1f5f9', color: '#475569' }
+function PaymentBadge({ status, t }) {
+  if (!status) return <span style={{ color: '#94a3b8', fontSize: '12px' }}>{t('common_no_advice')}</span>
+  const m = PAYMENT_KEYS[status] || { key: null, bg: '#f1f5f9', color: '#475569' }
   return (
     <span style={{ background: m.bg, color: m.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>
-      {m.label}
+      {m.key ? t(m.key) : status}
     </span>
   )
 }
 
 function StageBadge({ stage, t }) {
-  const m = STAGE_META[stage]
+  const m = STAGE_KEYS[stage]
   if (!m) return <span style={{ color: '#94a3b8', fontSize: '12px' }}>—</span>
   return (
     <span style={{ background: m.bg, color: m.color, padding: '2px 9px', borderRadius: '5px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-      {m.label}
+      {t(m.key)}
     </span>
   )
 }
@@ -110,16 +110,16 @@ export default function DashboardPage() {
   const toggleFilter = (key) => setActiveFilter(p => p === key ? null : key)
 
   const JOB_COLS = [
-    { key: 'job_ref',        label: 'Job ID' },
-    { key: 'inspection_stage', label: 'Stage' },
-    { key: 'po_no',          label: 'PO No' },
-    { key: 'item_code',      label: 'Item' },
-    { key: 'supplier_code',  label: 'Supplier' },
-    { key: 'agency_code',    label: 'Agency' },
-    { key: 'status',         label: 'Activity Status' },
-    { key: 'payment_status', label: 'Payment Status' },
-    { key: 'inspection_date',label: 'Date' },
-    { key: null,             label: 'Actions' },
+    { key: 'job_ref',        label: t('col_job_ref') },
+    { key: 'inspection_stage', label: t('col_stage') },
+    { key: 'po_no',          label: t('col_po_no') },
+    { key: 'item_code',      label: t('col_item') },
+    { key: 'supplier_code',  label: t('col_supplier') },
+    { key: 'agency_code',    label: t('col_agency') },
+    { key: 'status',         label: t('col_activity_status') },
+    { key: 'payment_status', label: t('col_payment_status') },
+    { key: 'inspection_date',label: t('col_date') },
+    { key: null,             label: t('common_actions') },
   ]
   const JOB_WIDTHS = [120, 90, 120, 90, 100, 100, 160, 160, 100, 80]
   const { filters: jobFilters, setFilter: setJobFilter, filtered: filteredJobs, hasActive: hasJobFilter, clearFilters: clearJobFilters } = useColumnFilter(cardFilteredJobs, JOB_COLS)
@@ -260,12 +260,12 @@ export default function DashboardPage() {
                 <h2 className="section-title">{t('dashboard_inspection_jobs')}</h2>
                 {activeFilter && (
                   <span style={{ background: '#FEF0EB', color: '#E8470F', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
-                    {activeFilter === 'pending' ? 'Pending QA' : activeFilter === 'approved' ? 'Approved' : 'Rejected'}
+                    {activeFilter === 'pending' ? t('dashboard_pending_qa') : activeFilter === 'approved' ? t('dashboard_approved') : t('dashboard_rejected')}
                   </span>
                 )}
               </div>
               <span style={{ fontSize: '12px', color: '#94a3b8' }}>
-                {filteredJobs.length}{activeFilter ? ` of ${totalJobs}` : ''} job(s)
+                {filteredJobs.length}{activeFilter ? ` ${t('common_of')} ${totalJobs}` : ''} {t('common_job_s')}
               </span>
             </div>
 
@@ -321,8 +321,8 @@ export default function DashboardPage() {
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.item_code || '—'}</td>
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.supplier_code || '—'}</td>
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.agency_code || '—'}</td>
-                        <td><StatusBadge status={job.status} /></td>
-                        <td><PaymentBadge status={job.payment_status} /></td>
+                        <td><StatusBadge status={job.status} t={t} /></td>
+                        <td><PaymentBadge status={job.payment_status} t={t} /></td>
                         <td style={{ color: '#94a3b8' }}>
                           {job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : '—'}
                         </td>
@@ -364,21 +364,28 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 notifications.map((n, idx) => {
-                  // Translate standard events; REMARK_POSTED has dynamic content after the label
-                  const eventKey = n.event_type ? `notif_${n.event_type}` : null
-                  const translatedBase = eventKey ? t(eventKey) : null
-                  let displayMsg
-                  if (translatedBase && translatedBase !== eventKey) {
-                    // For REMARK_POSTED, append the remark excerpt from the stored message
+                  const displayMsg = (() => {
+                    // Try JSON message key (new structured format)
+                    try {
+                      const parsed = JSON.parse(n.message)
+                      if (parsed?.key) {
+                        const tmpl = t(`notif_${parsed.key}`)
+                        if (tmpl && tmpl !== `notif_${parsed.key}`) {
+                          return tmpl.replace(/\{(\w+)\}/g, (_, k) => parsed[k] ?? `{${k}}`)
+                        }
+                      }
+                    } catch {}
+                    // Fall back: translate by event_type for standard events
                     if (n.event_type === 'REMARK_POSTED' && n.message) {
+                      const base = t('notif_REMARK_POSTED')
                       const quoteMatch = n.message.match(/"(.+)"/)
-                      displayMsg = quoteMatch ? `${translatedBase}: "${quoteMatch[1]}"` : translatedBase
-                    } else {
-                      displayMsg = translatedBase
+                      return quoteMatch ? `${base}: "${quoteMatch[1]}"` : base
                     }
-                  } else {
-                    displayMsg = n.message || n.body || n.event_type || ''
-                  }
+                    const eventKey = n.event_type ? `notif_${n.event_type}` : null
+                    const translated = eventKey ? t(eventKey) : null
+                    if (translated && translated !== eventKey) return translated
+                    return n.message || n.body || n.event_type || ''
+                  })()
                   return (
                     <div key={n.id || idx} className={`notif-item ${!n.read ? 'unread' : ''}`}>
                       <p className="notif-text">{displayMsg}</p>

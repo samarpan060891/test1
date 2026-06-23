@@ -265,7 +265,7 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
     const stagesSummary = stages.length > 1
       ? `${stages.length} stages (${stages.map(s => s.replace('_', ' ')).join(', ')})`
       : stages[0].replace('_', ' ') + ' stage';
-    const msg = `A new inspection job has been mapped for PO ${po_no} — ${stagesSummary}. Planned date: ${inspection_date}.`;
+    const msg = JSON.stringify({ key: 'JOB_MAPPED_EXTERNAL', po_no, stages: stagesSummary, date: inspection_date });
     for (const [role, emails] of Object.entries(stakeMap)) {
       sendNotification(firstJobId, 'JOB_MAPPED', role, emails, msg);
     }
@@ -341,7 +341,7 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
     await client.query('COMMIT');
 
     // Notify QA + buying
-    const msg = `Inspection checklist submitted for PO ${job.po_no} and is pending QA review.`;
+    const msg = JSON.stringify({ key: 'SUBMITTED_FOR_QA_INTERNAL', po_no: job.po_no });
     const qaUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa'");
     const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying'");
     sendNotification(job.job_id, 'SUBMITTED_FOR_QA', 'qa', qaUsers.rows.map(u => u.email), msg);
@@ -401,8 +401,8 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
 
     // Notify agency + supplier + buying
     const eventType = outcome === 'approved' ? 'QA_APPROVED' : 'QA_REJECTED';
-    const outcomeWord = outcome === 'approved' ? 'approved ✓' : 'rejected ✗';
-    const msg = `Inspection for PO ${job.po_no} has been ${outcomeWord} by QA.${remarks ? ' Remarks: ' + remarks : ''}`;
+    const msgKey = outcome === 'approved' ? 'QA_APPROVED_EXTERNAL' : 'QA_REJECTED_EXTERNAL';
+    const msg = JSON.stringify({ key: msgKey, po_no: job.po_no, remarks: remarks || '' });
 
     const agencyEmails = await db.query('SELECT contact_emails FROM qc_inspection.quality_agency_master WHERE agency_code = $1', [job.agency_code]);
     const supplierEmail = await db.query('SELECT contact_email FROM qc_inspection.supplier_master WHERE supplier_code = $1', [job.supplier_code]);
@@ -473,7 +473,7 @@ router.post('/:id/reinspect', authorize('qa', 'buying'), async (req, res) => {
     await client.query('COMMIT');
 
     // Notify agency, supplier, buying
-    const msg = `A re-inspection has been triggered for PO ${parent.po_no}. New inspection date: ${inspection_date}.`;
+    const msg = JSON.stringify({ key: 'REINSPECTION_TRIGGERED_EXTERNAL', po_no: parent.po_no, date: inspection_date });
     const agencyEmails = await db.query('SELECT contact_emails FROM qc_inspection.quality_agency_master WHERE agency_code = $1', [parent.agency_code]);
     const supplierEmail = await db.query('SELECT contact_email FROM qc_inspection.supplier_master WHERE supplier_code = $1', [parent.supplier_code]);
     const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying'");

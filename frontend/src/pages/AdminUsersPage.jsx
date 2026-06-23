@@ -73,11 +73,11 @@ export default function AdminUsersPage() {
   const roleColor = { qa: '#7c3aed', buying: '#0369a1', imports: '#0891b2', accounts: '#059669', agency_user: '#0f766e', supplier_user: '#b45309', admin: '#dc2626' }
 
   const USER_COLS = [
-    { key: 'name',         label: 'Name' },
-    { key: 'email',        label: 'Email' },
-    { key: 'role',         label: 'Role' },
-    { key: 'agency_code',  label: 'Agency/Supplier' },
-    { key: null,           label: 'Actions' },
+    { key: 'name',         label: t('admin_users_name') },
+    { key: 'email',        label: t('col_email') },
+    { key: 'role',         label: t('col_role') },
+    { key: 'agency_code',  label: t('col_agency_supplier') },
+    { key: null,           label: t('common_actions') },
   ]
   const { filters: userFilters, setFilter: setUserFilter, filtered: filteredUsers, hasActive: hasUserFilter, clearFilters: clearUserFilters } = useColumnFilter(users, USER_COLS)
 
@@ -153,7 +153,7 @@ export default function AdminUsersPage() {
             <p className="modal-title">{editUser ? t('admin_edit') : t('admin_add_user')}</p>
             {error && <div className="alert alert-error mb-4">{error}</div>}
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {[['Name', 'name', 'text'], ['Email', 'email', 'email']].map(([label, key, type]) => (
+              {[[t('admin_users_name'), 'name', 'text'], [t('col_email'), 'email', 'email']].map(([label, key, type]) => (
                 <div key={key} className="field" style={{ marginBottom: 0 }}>
                   <label>{label} *</label>
                   <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} required className="input" />
@@ -161,26 +161,26 @@ export default function AdminUsersPage() {
               ))}
               {!editUser && (
                 <div className="field" style={{ marginBottom: 0 }}>
-                  <label>Password *</label>
+                  <label>{t('admin_users_new_password')} *</label>
                   <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} className="input" />
                 </div>
               )}
               <div className="field" style={{ marginBottom: 0 }}>
-                <label>Role *</label>
+                <label>{t('col_role')} *</label>
                 <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value, agency_code: '', supplier_code: '' }))} className="input">
                   {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               {form.role === 'agency_user' && (
                 <div className="field" style={{ marginBottom: 0 }}>
-                  <label>Agency Code *</label>
-                  <input value={form.agency_code} onChange={e => setForm(p => ({ ...p, agency_code: e.target.value }))} placeholder="e.g. AGC-001" className="input" />
+                  <label>{t('admin_users_agency_code')} *</label>
+                  <input value={form.agency_code} onChange={e => setForm(p => ({ ...p, agency_code: e.target.value }))} placeholder={t('admin_users_agency_placeholder')} className="input" />
                 </div>
               )}
               {form.role === 'supplier_user' && (
                 <div className="field" style={{ marginBottom: 0 }}>
-                  <label>Supplier Code *</label>
-                  <input value={form.supplier_code} onChange={e => setForm(p => ({ ...p, supplier_code: e.target.value }))} placeholder="e.g. SUP-001" className="input" />
+                  <label>{t('admin_users_supplier_code')} *</label>
+                  <input value={form.supplier_code} onChange={e => setForm(p => ({ ...p, supplier_code: e.target.value }))} placeholder={t('admin_users_supplier_placeholder')} className="input" />
                 </div>
               )}
               <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
@@ -198,8 +198,8 @@ export default function AdminUsersPage() {
             <p className="modal-title">{t('admin_reset_pwd')}</p>
             <p className="modal-subtitle">{resetModal.name} ({resetModal.email})</p>
             <div className="field">
-              <label>New Password</label>
-              <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder="Min 6 characters" className="input" />
+              <label>{t('admin_users_new_password')}</label>
+              <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder={t('admin_users_min_chars')} className="input" />
             </div>
             {resetMsg && <div className={`alert mb-4 ${resetMsg.includes('success') ? 'alert-success' : 'alert-error'}`}>{resetMsg}</div>}
             <div style={{ display: 'flex', gap: '10px' }}>

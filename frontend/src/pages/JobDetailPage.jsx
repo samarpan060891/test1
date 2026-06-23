@@ -13,17 +13,17 @@ import { generateInspectionReport } from '../utils/generateInspectionReport.js'
 import { getChecklistReport } from '../api/reports.js'
 
 const STATUS_META = {
-  mapped_awaiting_inspection: { label: 'Awaiting Inspection', bg: '#FEF0EB', color: '#E8470F' },
-  submitted_pending_qa:       { label: 'Pending QA Review',  bg: '#fefce8', color: '#92400e' },
-  qa_approved:                { label: 'Approved',           bg: '#f0fdf4', color: '#15803d' },
-  qa_rejected:                { label: 'Rejected',           bg: '#fef2f2', color: '#dc2626' },
+  mapped_awaiting_inspection: { key: 'status_awaiting_inspection', bg: '#FEF0EB', color: '#E8470F' },
+  submitted_pending_qa:       { key: 'status_pending_qa_review',  bg: '#fefce8', color: '#92400e' },
+  qa_approved:                { key: 'status_approved',           bg: '#f0fdf4', color: '#15803d' },
+  qa_rejected:                { key: 'status_rejected',           bg: '#fef2f2', color: '#dc2626' },
 }
 
 const STAGE_META = {
-  pre_production: { label: 'Pre-Production', bg: '#fefce8', color: '#92400e' },
-  inline:         { label: 'Inline',         bg: '#FEF0EB', color: '#E8470F' },
-  final:          { label: 'Final',          bg: '#f0fdf4', color: '#15803d' },
-  loading:        { label: 'Loading',        bg: '#faf5ff', color: '#7e22ce' },
+  pre_production: { key: 'stage_pre_production', bg: '#fefce8', color: '#92400e' },
+  inline:         { key: 'stage_inline',          bg: '#FEF0EB', color: '#E8470F' },
+  final:          { key: 'stage_final',           bg: '#f0fdf4', color: '#15803d' },
+  loading:        { key: 'stage_loading',         bg: '#faf5ff', color: '#7e22ce' },
 }
 
 const ROLE_META = {
@@ -34,11 +34,11 @@ const ROLE_META = {
   admin:         { label: 'Admin',    bg: '#fee2e2', color: '#991b1b' },
 }
 
-function StatusBadge({ status }) {
-  const m = STATUS_META[status] || { label: status, bg: '#f1f5f9', color: '#475569' }
+function StatusBadge({ status, t }) {
+  const m = STATUS_META[status] || { key: null, bg: '#f1f5f9', color: '#475569' }
   return (
     <span style={{ background: m.bg, color: m.color, padding: '5px 14px', borderRadius: '9999px', fontSize: '13px', fontWeight: '700' }}>
-      {m.label}
+      {m.key ? t(m.key) : status}
     </span>
   )
 }
@@ -240,7 +240,7 @@ export default function JobDetailPage() {
                   </p>
                 )}
               </div>
-              <StatusBadge status={job.status} />
+              <StatusBadge status={job.status} t={t} />
             </div>
 
             {/* Re-inspection banner */}
@@ -250,16 +250,16 @@ export default function JobDetailPage() {
                   <span style={{ fontSize: '20px' }}>🔁</span>
                   <div>
                     <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#92400e' }}>
-                      Re-inspection triggered by {job.reinspection_job.triggered_by_role === 'qa' ? 'QA' : job.reinspection_job.triggered_by_role}
+                      {t('jobdetail_reinspect_triggered')} {job.reinspection_job.triggered_by_role === 'qa' ? 'QA' : job.reinspection_job.triggered_by_role}
                       {job.reinspection_job.triggered_by_name ? ` — ${job.reinspection_job.triggered_by_name}` : ''}
                     </p>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#b45309' }}>
-                      New job: <strong>{job.reinspection_job.job_ref}</strong> · Status: <strong>{job.reinspection_job.status?.replace(/_/g, ' ')}</strong> · {new Date(job.reinspection_job.mapped_at).toLocaleDateString()}
+                      {t('jobdetail_new_job')} <strong>{job.reinspection_job.job_ref}</strong> · {t('jobdetail_status_label')} <strong>{job.reinspection_job.status?.replace(/_/g, ' ')}</strong> · {new Date(job.reinspection_job.mapped_at).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
                 <Link to={`/jobs/${job.reinspection_job.job_id}`} className="btn btn-warning btn-sm">
-                  View Re-inspection →
+                  {t('jobdetail_view_reinspect')}
                 </Link>
               </div>
             )}
@@ -267,10 +267,10 @@ export default function JobDetailPage() {
             {/* Fields grid */}
             <div>
               {job.inspection_stage && (
-                <Field label="Stage">
+                <Field label={t('col_stage')}>
                   {stageMeta && (
                     <span style={{ background: stageMeta.bg, color: stageMeta.color, padding: '3px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '700' }}>
-                      {stageMeta.label}
+                      {t(stageMeta.key)}
                     </span>
                   )}
                 </Field>
@@ -284,8 +284,8 @@ export default function JobDetailPage() {
               <Field label={t('job_submitted_at')}>{job.submitted_at ? new Date(job.submitted_at).toLocaleString() : null}</Field>
               <Field label={t('job_decided_at')}>{job.decided_at ? new Date(job.decided_at).toLocaleString() : null}</Field>
               <Field label={t('job_created_at')}>{job.created_at ? new Date(job.created_at).toLocaleString() : null}</Field>
-              {job.final_outcome && <Field label="Final Outcome">{job.final_outcome}</Field>}
-              {job.qa_remarks && <Field label="QA Remarks"><span style={{ fontStyle: 'italic', color: '#475569' }}>{job.qa_remarks}</span></Field>}
+              {job.final_outcome && <Field label={t('jobdetail_final_outcome')}>{job.final_outcome}</Field>}
+              {job.qa_remarks && <Field label={t('jobdetail_qa_remarks')}><span style={{ fontStyle: 'italic', color: '#475569' }}>{job.qa_remarks}</span></Field>}
             </div>
 
             {/* Actions */}
@@ -314,10 +314,10 @@ export default function JobDetailPage() {
                 📂 {t('nav_po_log')}
               </Link>
               <button onClick={openChecklist} className="btn" style={{ background: '#1C1208', color: '#fff' }}>
-                📋 View Checklist
+                {t('jobdetail_view_checklist')}
               </button>
               <button onClick={handleDownloadPDF} disabled={pdfLoading} className="btn btn-success">
-                {pdfLoading ? '⏳ Generating…' : '⬇ Download Report'}
+                {pdfLoading ? t('jobdetail_generating') : t('jobdetail_download_report')}
               </button>
             </div>
           </div>
@@ -390,7 +390,7 @@ export default function JobDetailPage() {
           {/* Panel header */}
           <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div>
-              <div style={{ fontWeight: '800', fontSize: '16px', color: '#fff' }}>📋 Checklist Report</div>
+              <div style={{ fontWeight: '800', fontSize: '16px', color: '#fff' }}>{t('jobdetail_checklist_report')}</div>
               <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', marginTop: '2px' }}>
                 {job?.job_ref} · {job?.po_no}
               </div>
@@ -407,14 +407,14 @@ export default function JobDetailPage() {
             ) : checklistRows.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
                 <div style={{ fontSize: '36px', marginBottom: '12px' }}>📋</div>
-                <p>No checklist responses found for this job.</p>
+                <p>{t('jobdetail_no_checklist')}</p>
               </div>
             ) : (() => {
               const RESULT_META = {
-                pass:    { bg: '#f0fdf4', color: '#15803d', label: 'Pass' },
-                fail:    { bg: '#fef2f2', color: '#991b1b', label: 'Fail' },
-                na:      { bg: '#f8fafc', color: '#64748b', label: 'N/A' },
-                pending: { bg: '#fefce8', color: '#92400e', label: 'Pending' },
+                pass:    { bg: '#f0fdf4', color: '#15803d', key: 'result_pass' },
+                fail:    { bg: '#fef2f2', color: '#991b1b', key: 'result_fail' },
+                na:      { bg: '#f8fafc', color: '#64748b', key: 'result_na' },
+                pending: { bg: '#fefce8', color: '#92400e', key: 'result_pending' },
               }
               const CRIT_META = {
                 critical: { bg: '#fef2f2', color: '#991b1b' },
@@ -431,13 +431,13 @@ export default function JobDetailPage() {
                 <div>
                   {/* Job meta strip */}
                   <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '20px', fontSize: '12px', color: '#475569' }}>
-                    {checklistRows[0]?.item_name    && <span><strong>Item:</strong> {checklistRows[0].item_name}</span>}
-                    {checklistRows[0]?.supplier_name && <span><strong>Supplier:</strong> {checklistRows[0].supplier_name}</span>}
-                    {checklistRows[0]?.agency_name   && <span><strong>Agency:</strong> {checklistRows[0].agency_name}</span>}
-                    {checklistRows[0]?.inspection_date && <span><strong>Date:</strong> {new Date(checklistRows[0].inspection_date).toLocaleDateString()}</span>}
-                    <span><strong>Responses:</strong> {checklistRows.length}</span>
+                    {checklistRows[0]?.item_name    && <span><strong>{t('col_item')}:</strong> {checklistRows[0].item_name}</span>}
+                    {checklistRows[0]?.supplier_name && <span><strong>{t('col_supplier')}:</strong> {checklistRows[0].supplier_name}</span>}
+                    {checklistRows[0]?.agency_name   && <span><strong>{t('col_agency')}:</strong> {checklistRows[0].agency_name}</span>}
+                    {checklistRows[0]?.inspection_date && <span><strong>{t('col_date')}:</strong> {new Date(checklistRows[0].inspection_date).toLocaleDateString()}</span>}
+                    <span><strong>{t('jobdetail_responses')}</strong> {checklistRows.length}</span>
                     <span style={{ color: checklistRows.filter(r => r.result === 'fail').length > 0 ? '#dc2626' : '#15803d', fontWeight: '700' }}>
-                      {checklistRows.filter(r => r.result === 'fail').length} Fail{checklistRows.filter(r => r.result === 'fail').length !== 1 ? 's' : ''}
+                      {checklistRows.filter(r => r.result === 'fail').length} {t('jobdetail_fails')}
                     </span>
                   </div>
 
@@ -449,7 +449,7 @@ export default function JobDetailPage() {
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                         <thead>
                           <tr style={{ background: '#f8fafc' }}>
-                            {['#', 'Checkpoint', 'Criticality', 'Result', 'Remarks'].map(h => (
+                            {['#', t('col_checkpoint'), t('col_criticality'), t('col_result'), t('col_remark')].map(h => (
                               <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
                             ))}
                           </tr>
@@ -466,7 +466,7 @@ export default function JobDetailPage() {
                                   <span style={{ ...cm, padding: '2px 8px', borderRadius: '9999px', fontWeight: '600', fontSize: '11px' }}>{r.criticality}</span>
                                 </td>
                                 <td style={{ padding: '7px 12px' }}>
-                                  <span style={{ background: rm.bg, color: rm.color, padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{rm.label}</span>
+                                  <span style={{ background: rm.bg, color: rm.color, padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{t(rm.key)}</span>
                                 </td>
                                 <td style={{ padding: '7px 12px', color: '#64748b', fontStyle: r.remarks ? 'normal' : 'italic' }}>{r.remarks || '—'}</td>
                               </tr>
@@ -485,7 +485,7 @@ export default function JobDetailPage() {
         {/* Activity Log */}
         <div className="card" style={{ overflow: 'hidden' }}>
           <div className="card-header">
-            <h2 className="section-title">{t('job_activity_log') || 'Activity Log'}</h2>
+            <h2 className="section-title">{t('jobdetail_activity_log')}</h2>
             <span style={{ fontSize: '12px', color: '#94a3b8' }}>{logs.length} entries</span>
           </div>
 

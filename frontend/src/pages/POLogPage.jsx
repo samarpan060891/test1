@@ -149,7 +149,7 @@ export default function POLogPage() {
             <p className="page-subtitle">{t('po_log_subtitle') || 'View and post log entries for purchase orders and inspection jobs.'}</p>
           </div>
           <button onClick={openSlider} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            📋 View Checklist Report
+            📋 {t('polog_view_checklist')}
           </button>
         </div>
 
@@ -166,7 +166,7 @@ export default function POLogPage() {
             </div>
             <div style={{ flex: 1, minWidth: '180px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Job Ref
+                {t('polog_job_ref_label')}
               </label>
               <input type="text" value={jobIdFilter} onChange={e => setJobIdFilter(e.target.value)}
                 placeholder="e.g. JOB-2026-001" className="input" />
@@ -179,7 +179,7 @@ export default function POLogPage() {
 
           {hasFilter && (
             <div style={{ marginTop: '12px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>Filtering by:</span>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>{t('common_filtering_by')}:</span>
               {appliedPoNo && <span style={{ background: '#FEF0EB', color: '#E8470F', padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>PO: {appliedPoNo}</span>}
               {appliedJobId && <span style={{ background: '#f5f3ff', color: '#7c3aed', padding: '2px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>Job: {appliedJobId}</span>}
             </div>
@@ -190,7 +190,7 @@ export default function POLogPage() {
         <div className="card mb-6" style={{ overflow: 'hidden' }}>
           <div className="card-header">
             <h2 className="section-title">
-              Log Entries {!loading && <span style={{ fontWeight: '400', color: '#94a3b8', fontSize: '13px' }}>({logs.length})</span>}
+              {t('polog_log_entries')} {!loading && <span style={{ fontWeight: '400', color: '#94a3b8', fontSize: '13px' }}>({logs.length})</span>}
             </h2>
           </div>
 
@@ -201,7 +201,7 @@ export default function POLogPage() {
           ) : logs.length === 0 ? (
             <div className="empty-state">
               <div style={{ fontSize: '36px' }}>📝</div>
-              <p>No log entries found.{!hasFilter && ' Use the filter above to search by PO Number or Job ID.'}</p>
+              <p>{t('polog_no_logs')}{!hasFilter && ` ${t('polog_use_filter')}`}</p>
             </div>
           ) : (
             <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
@@ -234,7 +234,7 @@ export default function POLogPage() {
                           {log.po_no && <span style={{ fontSize: '12px', color: '#64748b' }}>PO: <strong>{log.po_no}</strong></span>}
                           {log.job_id && (
                             <Link to={`/jobs/${log.job_id}`} style={{ fontSize: '12px', color: '#E8470F', textDecoration: 'none', fontWeight: '500' }}>
-                              {log.job_ref || 'View Job →'}
+                              {log.job_ref || t('common_view_job')}
                             </Link>
                           )}
                         </div>
@@ -262,7 +262,7 @@ export default function POLogPage() {
             <textarea
               value={newMessage}
               onChange={e => setNewMessage(e.target.value)}
-              placeholder={!hasFilter ? 'Filter by PO Number or Job ID first, then post a remark…' : 'Type your remark here…'}
+              placeholder={!hasFilter ? t('polog_use_filter') : t('polog_placeholder_job')}
               rows={4}
               disabled={!hasFilter}
               className="textarea"
@@ -282,7 +282,7 @@ export default function POLogPage() {
               >
                 {posting ? t('common_saving') : t('job_post_remark')}
               </button>
-              {!hasFilter && <span style={{ fontSize: '12px', color: '#94a3b8' }}>Filter by PO No or Job ID to enable posting</span>}
+              {!hasFilter && <span style={{ fontSize: '12px', color: '#94a3b8' }}>{t('polog_use_filter')}</span>}
             </div>
           </form>
         </div>
@@ -311,8 +311,8 @@ export default function POLogPage() {
         {/* Slider header */}
         <div style={{ padding: '14px 20px', background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <div style={{ fontWeight: '700', fontSize: '15px', color: '#fff' }}>📋 Checklist Report</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>{checklistRows.length} response(s)</div>
+            <div style={{ fontWeight: '700', fontSize: '15px', color: '#fff' }}>📋 {t('polog_checklist_title')}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>{checklistRows.length} {t('polog_responses')}</div>
           </div>
           <button onClick={closeSlider} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, transition: 'background 0.15s' }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
@@ -325,31 +325,31 @@ export default function POLogPage() {
         <div style={{ padding: '12px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>PO No</label>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>{t('col_po_no')}</label>
               <input type="text" value={clPoNo} onChange={e => setClPoNo(e.target.value)} placeholder="e.g. PO-2026-001"
                 style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', width: '150px' }} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>Job Ref</label>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>{t('polog_job_ref_label')}</label>
               <input type="text" value={clJobId} onChange={e => setClJobId(e.target.value)} placeholder="Job ref…"
                 style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', width: '140px' }} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>From</label>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>{t('common_from')}</label>
               <input type="date" value={clFrom} onChange={e => setClFrom(e.target.value)}
                 style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '12px' }} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>To</label>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>{t('common_to')}</label>
               <input type="date" value={clTo} onChange={e => setClTo(e.target.value)}
                 style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '12px' }} />
             </div>
             <button onClick={() => fetchChecklist({ po_no: clPoNo || undefined, job_id: clJobId || undefined, from: clFrom || undefined, to: clTo || undefined })}
               className="btn btn-primary btn-sm" disabled={checklistLoading}>
-              {checklistLoading ? '…' : 'Apply'}
+              {checklistLoading ? '…' : t('common_apply')}
             </button>
             <button onClick={() => { setClPoNo(''); setClJobId(''); setClFrom(''); setClTo(''); fetchChecklist({}) }}
-              className="btn btn-ghost btn-sm">Clear</button>
+              className="btn btn-ghost btn-sm">{t('common_clear')}</button>
           </div>
         </div>
 
@@ -360,7 +360,7 @@ export default function POLogPage() {
           ) : checklistError ? (
             <div className="alert alert-error">{checklistError}</div>
           ) : checklistRows.length === 0 ? (
-            <div className="empty-state"><div style={{ fontSize: '36px' }}>📋</div><p>No checklist responses found. Try adjusting the filters above.</p></div>
+            <div className="empty-state"><div style={{ fontSize: '36px' }}>📋</div><p>{t('polog_no_checklist')}</p></div>
           ) : (
             Object.entries(groupedByJob).map(([jobRef, { meta, items }]) => (
               <div key={jobRef} style={{ marginBottom: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
@@ -382,7 +382,7 @@ export default function POLogPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <thead>
                       <tr style={{ background: '#f8fafc' }}>
-                        {['Section', 'Checkpoint', 'Criticality', 'Result', 'Remark'].map(h => (
+                        {[t('col_section'), t('col_checkpoint'), t('col_criticality'), t('col_result'), t('col_remark')].map(h => (
                           <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>

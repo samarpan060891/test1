@@ -11,19 +11,19 @@ import { getJobs } from '../api/inspectionJobs.js'
 import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
 
 const STATUS_META = {
-  pending_qa:       { bg: '#FEF0EB', color: '#E8470F',  label: 'Pending QA' },
-  pending_buying:   { bg: '#fefce8', color: '#92400e',  label: 'Pending Buying' },
-  pending_imports:  { bg: '#eff6ff', color: '#1d4ed8',  label: 'Pending Imports' },
-  pending_accounts: { bg: '#faf5ff', color: '#7e22ce',  label: 'Pending Accounts' },
-  paid:             { bg: '#f0fdf4', color: '#15803d',  label: 'Paid' },
-  rejected:         { bg: '#fef2f2', color: '#991b1b',  label: 'Rejected' },
+  pending_qa:       { bg: '#FEF0EB', color: '#E8470F',  key: 'status_pending_qa' },
+  pending_buying:   { bg: '#fefce8', color: '#92400e',  key: 'status_pending_buying' },
+  pending_imports:  { bg: '#eff6ff', color: '#1d4ed8',  key: 'status_pending_imports' },
+  pending_accounts: { bg: '#faf5ff', color: '#7e22ce',  key: 'status_pending_accounts' },
+  paid:             { bg: '#f0fdf4', color: '#15803d',  key: 'status_paid' },
+  rejected:         { bg: '#fef2f2', color: '#991b1b',  key: 'status_rejected' },
 }
 
-function StatusBadge({ status }) {
-  const s = STATUS_META[status] || { bg: '#f1f5f9', color: '#475569', label: status }
+function StatusBadge({ status, t }) {
+  const s = STATUS_META[status] || { bg: '#f1f5f9', color: '#475569', key: null }
   return (
     <span style={{ background: s.bg, color: s.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '700' }}>
-      {s.label}
+      {s.key ? t(s.key) : status}
     </span>
   )
 }
@@ -34,13 +34,13 @@ function fmt(num, currency = 'USD') {
 }
 
 const JOB_STATUS_LABEL = {
-  qa_approved: { label: 'Pass', color: '#15803d', bg: '#f0fdf4' },
-  qa_rejected: { label: 'Fail', color: '#991b1b', bg: '#fef2f2' },
-  submitted_pending_qa: { label: 'Pending QA', color: '#92400e', bg: '#fefce8' },
-  mapped_awaiting_inspection: { label: 'Scheduled', color: '#1d4ed8', bg: '#eff6ff' },
+  qa_approved: { key: 'result_pass', color: '#15803d', bg: '#f0fdf4' },
+  qa_rejected: { key: 'result_fail', color: '#991b1b', bg: '#fef2f2' },
+  submitted_pending_qa: { key: 'status_pending_qa', color: '#92400e', bg: '#fefce8' },
+  mapped_awaiting_inspection: { key: 'status_awaiting_inspection', color: '#1d4ed8', bg: '#eff6ff' },
 }
 
-function AgencyBreakdown({ advices }) {
+function AgencyBreakdown({ advices, t }) {
   const byAgency = {}
   advices.forEach(a => {
     if (!byAgency[a.agency_code]) {
@@ -59,7 +59,7 @@ function AgencyBreakdown({ advices }) {
   return (
     <div className="card mb-6" style={{ overflow: 'hidden' }}>
       <div className="card-header">
-        <h2 className="section-title">Agency Inspection Breakdown</h2>
+        <h2 className="section-title">{t('costs_agency_breakdown')}</h2>
       </div>
       {agencies.map(ag => {
         const allJobs = ag.advices.flatMap(a => (a.jobs || []).map(j => ({ ...j, adviceStatus: a.status, totalCost: a.total_cost, poValue: a.po_value, currency: a.currency })))
@@ -86,21 +86,21 @@ function AgencyBreakdown({ advices }) {
               <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>{totalJobs}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>Allocated</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('costs_allocated')}</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '18px', fontWeight: '800', color: '#15803d' }}>{finished}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>Finished</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('costs_finished')}</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '18px', fontWeight: '800', color: '#E8470F' }}>{fmt(totalCharges, ag.currency)}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>Total Charges</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('costs_total_charges_col')}</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '18px', fontWeight: '800', color: pct > 5 ? '#dc2626' : pct > 3 ? '#d97706' : '#15803d' }}>
                     {pct != null ? `${pct}%` : '—'}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>% to PO Value</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('col_pct_to_po')}</div>
                 </div>
               </div>
             </div>
@@ -111,12 +111,12 @@ function AgencyBreakdown({ advices }) {
                 <table className="data-table" style={{ fontSize: '12px' }}>
                   <thead>
                     <tr>
-                      {['Job Ref', 'PO No', 'Item', 'Inspection Date', 'Result', 'Charges', '% to PO'].map(h => <th key={h} style={{ fontSize: '11px' }}>{h}</th>)}
+                      {[t('col_job_ref'), t('col_po_no'), t('col_item'), t('col_insp_date'), t('col_result'), t('col_charges'), t('col_pct_to_po')].map(h => <th key={h} style={{ fontSize: '11px' }}>{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
                     {allJobs.map((j, idx) => {
-                      const sm = JOB_STATUS_LABEL[j.status] || { label: '—', color: '#94a3b8', bg: '#f1f5f9' }
+                      const sm = JOB_STATUS_LABEL[j.status] || { key: null, color: '#94a3b8', bg: '#f1f5f9' }
                       const jobPct = j.poValue > 0 ? ((parseFloat(j.totalCost) / parseFloat(j.poValue)) * 100).toFixed(2) : null
                       return (
                         <tr key={j.job_id || idx}>
@@ -126,7 +126,7 @@ function AgencyBreakdown({ advices }) {
                           <td style={{ color: '#64748b' }}>{j.inspection_date ? new Date(j.inspection_date).toLocaleDateString() : '—'}</td>
                           <td>
                             <span style={{ background: sm.bg, color: sm.color, padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>
-                              {sm.label}
+                              {sm.key ? t(sm.key) : j.status}
                             </span>
                           </td>
                           <td style={{ fontWeight: '600', color: '#0f172a' }}>{fmt(j.totalCost, j.currency)}</td>
@@ -409,18 +409,18 @@ export default function InspectionCostPage() {
         {role === 'agency_user' && (
           <div className="card mb-6" style={{ overflow: 'hidden' }}>
             <div className="card-header">
-              <h2 className="section-title">Completed Inspections</h2>
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>{eligibleJobs.length} job(s) ready for charges advice</span>
+              <h2 className="section-title">{t('costs_completed_inspections')}</h2>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>{eligibleJobs.length} {t('costs_ready_for_advice')}</span>
             </div>
             {jobsLoading ? (
               <div className="loading-center"><div className="spinner" /></div>
             ) : eligibleJobs.length === 0 ? (
-              <div className="empty-state"><div style={{ fontSize: '32px' }}>🔍</div><p>No completed inspections found</p></div>
+              <div className="empty-state"><div style={{ fontSize: '32px' }}>🔍</div><p>{t('costs_no_completed')}</p></div>
             ) : (
               <div className="table-wrap">
                 <table className="data-table">
                   <thead>
-                    <tr>{['Job Ref', 'PO No', 'Item', 'Supplier', 'Insp. Date', 'Stage', 'Status', ''].map(h => <th key={h}>{h}</th>)}</tr>
+                    <tr>{[t('col_job_ref'), t('col_po_no'), t('col_item'), t('col_supplier'), t('col_insp_date'), t('col_stage'), t('common_status'), ''].map(h => <th key={h}>{h}</th>)}</tr>
                   </thead>
                   <tbody>
                     {eligibleJobs.map(j => (
@@ -437,14 +437,14 @@ export default function InspectionCostPage() {
                             color: j.status === 'qa_approved' ? '#15803d' : j.status === 'qa_rejected' ? '#991b1b' : '#E8470F',
                             padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700',
                           }}>
-                            {j.status === 'qa_approved' ? 'QA Approved' : j.status === 'qa_rejected' ? 'QA Rejected' : 'Submitted'}
+                            {j.status === 'qa_approved' ? t('status_qa_approved') : j.status === 'qa_rejected' ? t('status_qa_rejected') : t('status_submitted')}
                           </span>
                         </td>
                         <td>
                           {raisedJobIds.has(j.job_id) ? (
-                            <span style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}>✓ Raised</span>
+                            <span style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}>{t('costs_raised')}</span>
                           ) : (
-                            <button onClick={() => openCreate(j.job_id)} className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap' }}>+ Raise Advice</button>
+                            <button onClick={() => openCreate(j.job_id)} className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap' }}>{t('costs_raise_advice')}</button>
                           )}
                         </td>
                       </tr>
@@ -460,13 +460,13 @@ export default function InspectionCostPage() {
         {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && (
           <div className="stat-grid mb-4">
             {[
-              { label: 'All Advices',       key: null,              cls: 'blue',  accent: '#E8470F' },
-              { label: 'Pending QA',        key: 'pending_qa',      cls: 'blue',  accent: '#E8470F' },
-              { label: 'Pending Buying',    key: 'pending_buying',  cls: 'amber', accent: '#d97706' },
-              { label: 'Pending Imports',   key: 'pending_imports', cls: 'blue',  accent: '#E8470F' },
-              { label: 'Pending Accounts',  key: 'pending_accounts',cls: 'amber', accent: '#d97706' },
-              { label: 'Paid',              key: 'paid',            cls: 'green', accent: '#059669' },
-              { label: 'Rejected',          key: 'rejected',        cls: 'red',   accent: '#dc2626' },
+              { label: t('costs_all_advices'),      key: null,              cls: 'blue',  accent: '#E8470F' },
+              { label: t('status_pending_qa'),      key: 'pending_qa',      cls: 'blue',  accent: '#E8470F' },
+              { label: t('status_pending_buying'),  key: 'pending_buying',  cls: 'amber', accent: '#d97706' },
+              { label: t('status_pending_imports'), key: 'pending_imports', cls: 'blue',  accent: '#E8470F' },
+              { label: t('status_pending_accounts'),key: 'pending_accounts',cls: 'amber', accent: '#d97706' },
+              { label: t('status_paid'),            key: 'paid',            cls: 'green', accent: '#059669' },
+              { label: t('status_rejected'),        key: 'rejected',        cls: 'red',   accent: '#dc2626' },
             ].map(s => {
               const isActive = activeFilter === s.key
               return (
@@ -495,20 +495,20 @@ export default function InspectionCostPage() {
         ) : advices.length === 0 ? (
           <div className="card"><div className="empty-state"><div style={{ fontSize: '40px' }}>📋</div><p>{t('costs_no_records')}</p></div></div>
         ) : (() => {
-          const STAT_LABELS = { pending_qa: 'Pending QA', pending_buying: 'Pending Buying', pending_imports: 'Pending Imports', pending_accounts: 'Pending Accounts', paid: 'Paid', rejected: 'Rejected' }
+          const STAT_LABELS = { pending_qa: t('status_pending_qa'), pending_buying: t('status_pending_buying'), pending_imports: t('status_pending_imports'), pending_accounts: t('status_pending_accounts'), paid: t('status_paid'), rejected: t('status_rejected') }
           const cardFiltered = activeFilter ? advices.filter(a => a.status === activeFilter) : advices
           const ADVICE_COLS = [
-            { key: 'advice_ref',   label: 'Advice Ref' },
-            { key: 'agency_name',  label: 'Agency' },
-            { key: null,           label: 'Jobs' },
-            { key: null,           label: 'Rate' },
-            { key: null,           label: 'Total Cost' },
-            { key: 'cost_bearer',  label: 'Cost Bearer' },
-            { key: 'status',       label: 'Status' },
-            { key: null,           label: 'Approvals' },
-            ...(role === 'imports' || role === 'qa' || role === 'buying' || role === 'accounts' || role === 'admin' ? [{ key: null, label: 'Invoice' }] : []),
-            { key: 'created_by_name', label: 'Created' },
-            ...(advices.some(a => canApprove(a)) ? [{ key: null, label: 'Actions' }] : []),
+            { key: 'advice_ref',   label: t('col_advice_ref') },
+            { key: 'agency_name',  label: t('col_agency') },
+            { key: null,           label: t('col_jobs') },
+            { key: null,           label: t('col_rate') },
+            { key: null,           label: t('col_total_cost') },
+            { key: 'cost_bearer',  label: t('col_cost_bearer') },
+            { key: 'status',       label: t('common_status') },
+            { key: null,           label: t('col_approvals') },
+            ...(role === 'imports' || role === 'qa' || role === 'buying' || role === 'accounts' || role === 'admin' ? [{ key: null, label: t('col_invoice') }] : []),
+            { key: 'created_by_name', label: t('col_created') },
+            ...(advices.some(a => canApprove(a)) ? [{ key: null, label: t('common_actions') }] : []),
           ]
           const displayAdvices = cardFiltered.filter(a =>
             ADVICE_COLS.every(c => {
@@ -523,7 +523,7 @@ export default function InspectionCostPage() {
           <div className="card mb-6" style={{ overflow: 'hidden' }}>
             <div className="card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <h2 className="section-title">{role === 'agency_user' ? 'Submitted Charges Advice' : 'Charges Advice'}</h2>
+                <h2 className="section-title">{role === 'agency_user' ? t('costs_submitted_advice') : t('costs_charges_advice_title')}</h2>
                 {activeFilter && (
                   <span style={{ background: '#FEF0EB', color: '#E8470F', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
                     {STAT_LABELS[activeFilter]}
@@ -589,10 +589,10 @@ export default function InspectionCostPage() {
                           color: a.cost_bearer === 'supplier' ? '#92400e' : '#5b21b6',
                           padding: '2px 7px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap',
                         }}>
-                          {a.cost_bearer === 'supplier' ? 'Supplier' : 'Homes R Us'}
+                          {a.cost_bearer === 'supplier' ? t('costs_supplier_bears') : t('costs_company_bears')}
                         </span>
                       </td>
-                      <td style={{ whiteSpace: 'nowrap' }}><StatusBadge status={a.status} /></td>
+                      <td style={{ whiteSpace: 'nowrap' }}><StatusBadge status={a.status} t={t} /></td>
                       <td style={{ fontSize: '11px', color: '#64748b' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '120px' }}>
                           {a.qa_user_name       && <span>✅ QA: <strong>{a.qa_user_name}</strong></span>}
@@ -625,7 +625,7 @@ export default function InspectionCostPage() {
                             <div style={{ display: 'flex', gap: '5px' }}>
                               <button onClick={() => { setShowApprove({ advice: a, action: 'approve' }); setActionNote(''); setActionMsg('') }}
                                 style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                {role === 'accounts' ? '💰 Paid' : '✓ Approve'}
+                                {role === 'accounts' ? t('costs_paid_confirm') : t('costs_approve')}
                               </button>
                               <button onClick={() => { setShowApprove({ advice: a, action: 'reject' }); setActionNote(''); setActionMsg('') }}
                                 style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>
@@ -645,7 +645,7 @@ export default function InspectionCostPage() {
 
         {/* Agency Breakdown — QA / Buying / Admin */}
         {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && !loading && advices.length > 0 && (
-          <AgencyBreakdown advices={advices} />
+          <AgencyBreakdown advices={advices} t={t} />
         )}
 
         {/* Standard Contracts toggle */}
@@ -655,40 +655,40 @@ export default function InspectionCostPage() {
               onClick={() => { setShowContracts(p => !p); if (!showContracts) loadContracts() }}
               className={showContracts ? 'btn btn-primary' : 'btn btn-outline'}
             >
-              {showContracts ? '▲ Hide' : '▼ Manage'} {t('costs_std_contracts')}
+              {showContracts ? `▲ ${t('costs_hide')}` : `▼ ${t('costs_manage')}`} {t('costs_std_contracts')}
             </button>
 
             {showContracts && (
               <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: '370px 1fr', gap: '20px' }}>
                 {/* Contract form */}
                 <div className="card" style={{ padding: '24px' }}>
-                  <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', marginBottom: '16px' }}>Add / Update Contract</h3>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', marginBottom: '16px' }}>{t('costs_add_contract')}</h3>
                   <form onSubmit={handleCreateContract} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div>
-                      <label style={labelSt}>Agency *</label>
+                      <label style={labelSt}>{t('col_agency')} *</label>
                       <select value={contractForm.agency_code} onChange={e => setContractForm(p => ({ ...p, agency_code: e.target.value }))} required style={inputSt}>
                         <option value="">Select agency…</option>
                         {allAgencies.map(a => <option key={a.agency_code} value={a.agency_code}>{a.name} ({a.agency_code})</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={labelSt}>Rate Structure Name *</label>
+                      <label style={labelSt}>{t('costs_rate_structure')}</label>
                       <input type="text" value={contractForm.contract_name} onChange={e => setContractForm(p => ({ ...p, contract_name: e.target.value }))} required placeholder="e.g. Standard Rate" style={inputSt} />
                     </div>
                     <div>
-                      <label style={labelSt}>Rate Type *</label>
+                      <label style={labelSt}>{t('costs_rate_type_label')}</label>
                       <select value={contractForm.rate_type} onChange={e => setContractForm(p => ({ ...p, rate_type: e.target.value }))} style={inputSt}>
-                        <option value="manday">Per Manday</option>
-                        <option value="percentage">% of PO Value</option>
+                        <option value="manday">{t('costs_per_manday')}</option>
+                        <option value="percentage">{t('costs_pct_po')}</option>
                       </select>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
-                        <label style={labelSt}>Rate Value *</label>
+                        <label style={labelSt}>{t('costs_rate_value')}</label>
                         <input type="number" min="0" step="0.01" value={contractForm.rate_value} onChange={e => setContractForm(p => ({ ...p, rate_value: e.target.value }))} required placeholder="e.g. 250" style={inputSt} />
                       </div>
                       <div>
-                        <label style={labelSt}>Currency</label>
+                        <label style={labelSt}>{t('col_currency')}</label>
                         <select value={contractForm.currency} onChange={e => setContractForm(p => ({ ...p, currency: e.target.value }))} style={inputSt}>
                           {['USD','AED','INR','EUR','GBP'].map(c => <option key={c}>{c}</option>)}
                         </select>
@@ -696,21 +696,21 @@ export default function InspectionCostPage() {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
-                        <label style={{ ...labelSt, color: contractForm.rate_type === 'percentage' ? '#94a3b8' : undefined }}>Travel Allowance</label>
+                        <label style={{ ...labelSt, color: contractForm.rate_type === 'percentage' ? '#94a3b8' : undefined }}>{t('costs_travel_allowance')}</label>
                         <input type="number" min="0" step="0.01" value={contractForm.travel_allowance} onChange={e => setContractForm(p => ({ ...p, travel_allowance: e.target.value }))} placeholder="0" disabled={contractForm.rate_type === 'percentage'} style={{ ...inputSt, opacity: contractForm.rate_type === 'percentage' ? 0.4 : 1, cursor: contractForm.rate_type === 'percentage' ? 'not-allowed' : 'auto' }} />
                       </div>
                       <div>
-                        <label style={{ ...labelSt, color: contractForm.rate_type === 'percentage' ? '#94a3b8' : undefined }}>Stay/Day</label>
+                        <label style={{ ...labelSt, color: contractForm.rate_type === 'percentage' ? '#94a3b8' : undefined }}>{t('col_stay_day')}</label>
                         <input type="number" min="0" step="0.01" value={contractForm.stay_allowance_per_day} onChange={e => setContractForm(p => ({ ...p, stay_allowance_per_day: e.target.value }))} placeholder="0" disabled={contractForm.rate_type === 'percentage'} style={{ ...inputSt, opacity: contractForm.rate_type === 'percentage' ? 0.4 : 1, cursor: contractForm.rate_type === 'percentage' ? 'not-allowed' : 'auto' }} />
                       </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
-                        <label style={labelSt}>Valid From</label>
+                        <label style={labelSt}>{t('costs_valid_from')}</label>
                         <input type="date" value={contractForm.valid_from} onChange={e => setContractForm(p => ({ ...p, valid_from: e.target.value }))} style={inputSt} />
                       </div>
                       <div>
-                        <label style={labelSt}>Valid To</label>
+                        <label style={labelSt}>{t('costs_valid_to')}</label>
                         <input type="date" value={contractForm.valid_to} onChange={e => setContractForm(p => ({ ...p, valid_to: e.target.value }))} style={inputSt} />
                       </div>
                     </div>
@@ -732,7 +732,7 @@ export default function InspectionCostPage() {
                     <div className="table-wrap">
                       <table className="data-table">
                         <thead>
-                          <tr>{['Agency', 'Structure', 'Rate Type', 'Rate', 'Travel', 'Stay/Day', 'Currency', 'Valid'].map(h => <th key={h}>{h}</th>)}</tr>
+                          <tr>{[t('col_agency'), t('col_structure'), t('col_rate_type'), t('col_rate'), t('col_travel'), t('col_stay_day'), t('col_currency'), t('col_valid')].map(h => <th key={h}>{h}</th>)}</tr>
                         </thead>
                         <tbody>
                           {allContracts.map(c => (
@@ -763,14 +763,14 @@ export default function InspectionCostPage() {
         <div className="modal-overlay" style={{ alignItems: 'flex-start', overflowY: 'auto', padding: '32px 16px' }}>
           <div className="modal-box" style={{ maxWidth: '620px' }}>
             <p className="modal-title">{t('costs_new_advice_modal')}</p>
-            <p className="modal-subtitle">Select completed inspection jobs and enter charge details.</p>
+            <p className="modal-subtitle">{t('costs_select_jobs')}</p>
 
             <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="field" style={{ marginBottom: 0 }}>
                 <label style={{ ...labelSt, fontSize: '13px', textTransform: 'none', letterSpacing: 0 }}>Select Jobs * ({selectedJobs.length} selected)</label>
                 <div style={{ border: '1.5px solid #e2e8f0', borderRadius: '8px', maxHeight: '220px', overflowY: 'auto' }}>
                   {jobs.length === 0 ? (
-                    <p style={{ padding: '16px', color: '#94a3b8', fontSize: '13px', margin: 0 }}>No eligible jobs found</p>
+                    <p style={{ padding: '16px', color: '#94a3b8', fontSize: '13px', margin: 0 }}>{t('costs_no_eligible_jobs')}</p>
                   ) : jobs.map(j => {
                     const isSelf = j.inspection_type === 'self'
                     const isReinspect = !!j.parent_job_id
@@ -780,8 +780,8 @@ export default function InspectionCostPage() {
                         <div>
                           <span style={{ fontWeight: '600', fontSize: '13px', color: '#0f172a' }}>{j.job_ref || j.job_id?.slice(0, 8)}</span>
                           <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>{j.po_no} · {j.item_name || j.supplier_code}</span>
-                          {isSelf && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#dc2626', fontWeight: '600' }}>Self-inspection — no charges</span>}
-                          {isReinspect && !isSelf && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#92400e', fontWeight: '600', background: '#fefce8', padding: '1px 6px', borderRadius: '4px' }}>Re-inspection — supplier bears cost</span>}
+                          {isSelf && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#dc2626', fontWeight: '600' }}>{t('costs_self_no_charge')}</span>}
+                          {isReinspect && !isSelf && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#92400e', fontWeight: '600', background: '#fefce8', padding: '1px 6px', borderRadius: '4px' }}>{t('costs_reinspect_supplier')}</span>}
                         </div>
                       </label>
                     )
@@ -791,9 +791,9 @@ export default function InspectionCostPage() {
 
               {contracts.length > 0 && (
                 <div>
-                  <label style={labelSt}>Load from Standard Contract</label>
+                  <label style={labelSt}>{t('costs_load_contract')}</label>
                   <select value={selectedContract} onChange={e => applyContract(e.target.value)} style={inputSt}>
-                    <option value="">— Manual entry —</option>
+                    <option value="">{t('costs_manual_entry')}</option>
                     {contracts.map(c => (
                       <option key={c.contract_id} value={c.contract_id}>
                         {c.contract_name || 'Standard Rate'} — {c.rate_type === 'manday' ? `${c.rate_value} ${c.currency}/manday` : `${c.rate_value}% of PO value`}{c.valid_to ? ` (till ${c.valid_to})` : ''}
@@ -804,12 +804,12 @@ export default function InspectionCostPage() {
               )}
 
               <div>
-                <label style={labelSt}>Rate Type *</label>
+                <label style={labelSt}>{t('costs_rate_type_label')}</label>
                 <div style={{ display: 'flex', gap: '20px' }}>
                   {['manday', 'percentage'].map(rt => (
                     <label key={rt} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px', color: '#334155', fontWeight: '500' }}>
                       <input type="radio" value={rt} checked={rateType === rt} onChange={() => setRateType(rt)} />
-                      {rt === 'manday' ? 'Per Manday' : '% of PO Value'}
+                      {rt === 'manday' ? t('costs_per_manday') : t('costs_pct_po')}
                     </label>
                   ))}
                 </div>
@@ -817,12 +817,12 @@ export default function InspectionCostPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: rateType === 'manday' ? '1fr 1fr' : '1fr', gap: '12px' }}>
                 <div>
-                  <label style={labelSt}>{rateType === 'manday' ? 'Rate per Manday *' : 'Percentage (%) *'}</label>
+                  <label style={labelSt}>{rateType === 'manday' ? t('costs_rate_manday') : t('costs_percentage')}</label>
                   <input type="number" min="0" step="0.01" value={rateValue} onChange={e => setRateValue(e.target.value)} required placeholder={rateType === 'manday' ? 'e.g. 250' : 'e.g. 3.5'} style={inputSt} />
                 </div>
                 {rateType === 'manday' && (
                   <div>
-                    <label style={labelSt}>No. of Mandays *</label>
+                    <label style={labelSt}>{t('costs_num_mandays')}</label>
                     <input type="number" min="0.5" step="0.5" value={numMandays} onChange={e => setNumMandays(e.target.value)} required placeholder="e.g. 2" style={inputSt} />
                   </div>
                 )}
@@ -830,15 +830,15 @@ export default function InspectionCostPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ ...labelSt, color: rateType === 'percentage' ? '#94a3b8' : undefined }}>Travel Allowance</label>
+                  <label style={{ ...labelSt, color: rateType === 'percentage' ? '#94a3b8' : undefined }}>{t('costs_travel_allowance')}</label>
                   <input type="number" min="0" step="0.01" value={rateType === 'percentage' ? '' : travel} onChange={e => setTravel(e.target.value)} placeholder="0" style={{ ...inputSt, opacity: rateType === 'percentage' ? 0.4 : 1, cursor: rateType === 'percentage' ? 'not-allowed' : 'auto' }} disabled={rateType === 'percentage'} />
                 </div>
                 <div>
-                  <label style={{ ...labelSt, color: rateType === 'percentage' ? '#94a3b8' : undefined }}>Stay Allowance</label>
+                  <label style={{ ...labelSt, color: rateType === 'percentage' ? '#94a3b8' : undefined }}>{t('costs_stay_allowance')}</label>
                   <input type="number" min="0" step="0.01" value={rateType === 'percentage' ? '' : stay} onChange={e => setStay(e.target.value)} placeholder="0" style={{ ...inputSt, opacity: rateType === 'percentage' ? 0.4 : 1, cursor: rateType === 'percentage' ? 'not-allowed' : 'auto' }} disabled={rateType === 'percentage'} />
                 </div>
                 <div>
-                  <label style={labelSt}>Currency</label>
+                  <label style={labelSt}>{t('col_currency')}</label>
                   <select value={currency} onChange={e => setCurrency(e.target.value)} style={inputSt}>
                     {['USD','AED','INR','EUR','GBP'].map(c => <option key={c}>{c}</option>)}
                   </select>
@@ -847,28 +847,28 @@ export default function InspectionCostPage() {
 
               {rateType === 'manday' && calcCost() !== null && (
                 <div className="alert alert-success">
-                  Estimated Total: <strong>{fmt(calcCost(), currency)}</strong>
+                  {t('costs_estimated_total')} <strong>{fmt(calcCost(), currency)}</strong>
                   <span style={{ fontSize: '12px', fontWeight: '400', marginLeft: '8px' }}>({rateValue} × {numMandays} days + {travel || 0} travel + {stay || 0} stay)</span>
                 </div>
               )}
               {rateType === 'percentage' && rateValue && (
                 <div className="alert alert-info">
                   {calcCost() !== null
-                    ? <><strong>Estimated Total: {fmt(calcCost(), currency)}</strong></>
+                    ? <><strong>{t('costs_estimated_total')} {fmt(calcCost(), currency)}</strong></>
                     : <>Cost: <strong>{rateValue}%</strong> of total PO value of selected jobs</>}
                 </div>
               )}
 
               <div>
-                <label style={labelSt}>Notes</label>
+                <label style={labelSt}>{t('costs_notes_optional')}</label>
                 <textarea value={adviceNotes} onChange={e => setAdviceNotes(e.target.value)} rows={2} placeholder="Any additional details…" className="textarea" style={{ ...inputSt, resize: 'vertical' }} />
               </div>
 
               <div>
-                <label style={labelSt}>Agency Invoice * <span style={{ color: '#dc2626' }}>(required)</span></label>
+                <label style={labelSt}>{t('costs_agency_invoice')} <span style={{ color: '#dc2626' }}>(required)</span></label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: invoiceFile ? '#f0fdf4' : '#fff', border: `1.5px solid ${invoiceFile ? '#86efac' : '#e2e8f0'}`, borderRadius: '7px', padding: '8px 14px', fontSize: '13px', fontWeight: '600', color: invoiceFile ? '#15803d' : '#374151', transition: 'all 0.15s' }}>
-                    📄 {invoiceFile ? invoiceFile.name : 'Choose invoice (PDF/JPG/PNG)'}
+                    📄 {invoiceFile ? invoiceFile.name : t('costs_choose_invoice')}
                     <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={e => setInvoiceFile(e.target.files[0] || null)} />
                   </label>
                   {invoiceFile && (
@@ -897,7 +897,7 @@ export default function InspectionCostPage() {
         <div className="modal-overlay">
           <div className="modal-box">
             <p className="modal-title">
-              {showApprove.action === 'approve' ? '✓ Approve' : '✕ Reject'} Charges Advice
+              {showApprove.action === 'approve' ? t('costs_confirm_approval') : t('costs_confirm_rejection')}
             </p>
             <p className="modal-subtitle">
               {showApprove.advice.advice_ref} — <strong>{fmt(showApprove.advice.total_cost, showApprove.advice.currency)}</strong>
@@ -914,12 +914,12 @@ export default function InspectionCostPage() {
             )}
 
             <div className="field">
-              <label>{showApprove.action === 'approve' ? 'Notes (optional)' : 'Rejection Reason *'}</label>
+              <label>{showApprove.action === 'approve' ? t('costs_notes_optional') : t('costs_rejection_reason')}</label>
               <textarea
                 value={actionNote}
                 onChange={e => setActionNote(e.target.value)}
                 rows={3}
-                placeholder={showApprove.action === 'approve' ? 'Any remarks…' : 'Please explain the reason for rejection…'}
+                placeholder={showApprove.action === 'approve' ? t('costs_any_remarks') : t('costs_rejection_placeholder')}
                 className="textarea"
               />
             </div>

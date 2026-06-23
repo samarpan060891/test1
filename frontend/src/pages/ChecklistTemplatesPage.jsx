@@ -18,6 +18,7 @@ const statusColors = {
 const criticalityOptions = ['critical', 'major', 'minor']
 
 function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
+  const { t } = useLanguage()
   const [expanded, setExpanded] = useState(false)
   const [showAddItem, setShowAddItem] = useState(false)
   const [activating, setActivating] = useState(false)
@@ -138,7 +139,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                 cursor: activating ? 'not-allowed' : 'pointer'
               }}
             >
-              {activating ? 'Activating...' : 'Activate'}
+              {activating ? t('common_activating') : t('common_activate')}
             </button>
           )}
           <button
@@ -154,7 +155,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
               cursor: 'pointer'
             }}
           >
-            {expanded ? 'Collapse ▲' : 'Expand ▼'}
+            {expanded ? `${t('tmpl_collapse')} ▲` : `${t('tmpl_expand')} ▼`}
           </button>
         </div>
       </div>
@@ -164,13 +165,13 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
         <div style={{ padding: '16px 20px' }}>
           {/* Items list */}
           {items.length === 0 ? (
-            <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '12px' }}>No items yet. Add one below.</p>
+            <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '12px' }}>{t('tmpl_no_items')}</p>
           ) : (
             <div style={{ marginBottom: '16px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f3f4f6' }}>
-                    {['Section', 'Checkpoint', 'Criticality', 'Sort', ''].map(h => (
+                    {[t('col_section'), t('col_checkpoint'), t('col_criticality'), t('col_sort'), ''].map(h => (
                       <th key={h} style={{
                         padding: '8px 12px',
                         textAlign: 'left',
@@ -227,7 +228,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                               cursor: 'pointer'
                             }}
                           >
-                            Delete
+                            {t('common_delete')}
                           </button>
                         </td>
                       </tr>
@@ -254,7 +255,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                 width: '100%'
               }}
             >
-              + Add Checklist Item
+              + {t('tmpl_add_item')}
             </button>
           ) : (
             <div style={{
@@ -264,7 +265,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
               padding: '16px'
             }}>
               <h4 style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: '700', color: '#374151' }}>
-                Add New Checklist Item
+                {t('tmpl_add_item_title')}
               </h4>
 
               {addItemError && (
@@ -277,7 +278,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: '600', color: '#374151' }}>
-                      Section *
+                      {t('tmpl_section_label')} *
                     </label>
                     <input
                       type="text"
@@ -289,7 +290,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                   </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: '600', color: '#374151' }}>
-                      Criticality *
+                      {t('col_criticality')} *
                     </label>
                     <select
                       value={newItem.criticality}
@@ -305,7 +306,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
 
                 <div style={{ marginBottom: '10px' }}>
                   <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: '600', color: '#374151' }}>
-                    Checkpoint Text *
+                    {t('tmpl_checkpoint_label')} *
                   </label>
                   <textarea
                     value={newItem.checkpoint_text}
@@ -318,7 +319,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
 
                 <div style={{ marginBottom: '14px' }}>
                   <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: '600', color: '#374151' }}>
-                    Sort Order
+                    {t('tmpl_sort_label')}
                   </label>
                   <input
                     type="number"
@@ -344,7 +345,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                       cursor: addingItem ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    {addingItem ? 'Adding...' : 'Add Item'}
+                    {addingItem ? t('tmpl_adding') : t('tmpl_add_item')}
                   </button>
                   <button
                     type="button"
@@ -359,7 +360,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                       cursor: 'pointer'
                     }}
                   >
-                    Cancel
+                    {t('admin_cancel')}
                   </button>
                 </div>
               </form>
@@ -553,25 +554,25 @@ export default function ChecklistTemplatesPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#374151' }}>
-                    Category <span style={{ color: '#dc2626' }}>*</span>
+                    {t('tmpl_category_label')} <span style={{ color: '#dc2626' }}>*</span>
                   </label>
                   <input
                     type="text"
                     value={newTemplate.category}
                     onChange={e => setNewTemplate(prev => ({ ...prev, category: e.target.value }))}
-                    placeholder="e.g. Apparel"
+                    placeholder={t('tmpl_category_placeholder')}
                     style={inputStyle}
                   />
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#374151' }}>
-                    Sub-Category
+                    {t('tmpl_subcategory_label')}
                   </label>
                   <input
                     type="text"
                     value={newTemplate.sub_category}
                     onChange={e => setNewTemplate(prev => ({ ...prev, sub_category: e.target.value }))}
-                    placeholder="e.g. Knitwear"
+                    placeholder={t('tmpl_subcategory_placeholder')}
                     style={inputStyle}
                   />
                 </div>
