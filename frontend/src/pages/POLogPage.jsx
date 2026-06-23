@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { getLogs, createLog } from '../api/logEntries.js'
+import { getChecklistReport } from '../api/reports.js'
 
 const ROLE_META = {
   qa:            { label: 'QA',       bg: '#ede9fe', color: '#5b21b6' },
@@ -29,6 +30,60 @@ export default function POLogPage() {
   const [postError, setPostError] = useState('')
   const [postSuccess, setPostSuccess] = useState('')
   const [textFocused, setTextFocused] = useState(false)
+
+  const [sliderOpen, setSliderOpen]           = useState(false)
+  const [checklistRows, setChecklistRows]     = useState([])
+  const [checklistLoading, setChecklistLoading] = useState(false)
+  const [checklistError, setChecklistError]   = useState('')
+  const [clPoNo, setClPoNo]   = useState('')
+  const [clJobId, setClJobId] = useState('')
+  const [clFrom, setClFrom]   = useState('')
+  const [clTo, setClTo]       = useState('')
+  const sliderRef = useRef(null)
+
+  const fetchChecklist = async (params = {}) => {
+    setChecklistLoading(true); setChecklistError('')
+    try {
+      const res = await getChecklistReport(params)
+      setChecklistRows(res.data || [])
+    } catch (err) {
+      setChecklistError(err?.response?.data?.error || 'Failed to load checklist data')
+    } finally { setChecklistLoading(false) }
+  }
+
+  const openSlider = () => {
+    setSliderOpen(true)
+    fetchChecklist({ po_no: appliedPoNo || undefined, job_id: appliedJobId || undefined })
+    setClPoNo(appliedPoNo); setClJobId(appliedJobId); setClFrom(''); setClTo('')
+  }
+
+  const closeSlider = () => setSliderOpen(false)
+
+  useEffect(() => {
+    if (!sliderOpen) return
+    const handleKey = (e) => { if (e.key === 'Escape') closeSlider() }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [sliderOpen])
+
+  const RESULT_META = {
+    pass: { bg: '#f0fdf4', color: '#15803d' },
+    fail: { bg: '#fef2f2', color: '#dc2626' },
+    na:   { bg: '#f1f5f9', color: '#475569' },
+  }
+  const CRIT_META = {
+    critical: { bg: '#fef2f2', color: '#dc2626' },
+    major:    { bg: '#fefce8', color: '#92400e' },
+    minor:    { bg: '#f0fdf4', color: '#15803d' },
+  }
+
+  // Group checklist rows by job for display
+  const groupedByJob = checklistRows.reduce((acc, row) => {
+    const key = row.job_ref || row.po_no
+    if (!acc[key]) acc[key] = { meta: row, items: [] }
+    acc[key].items.push(row)
+    return acc
+  }, {})
 
   const fetchLogs = async (poNo, jobId) => {
     setLoading(true); setError('')
@@ -86,11 +141,16 @@ export default function POLogPage() {
     <div className="page">
       <Navbar />
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '36px 28px' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px 24px' }}>
         {/* Header */}
-        <div style={{ marginBottom: '28px' }}>
-          <h1 className="page-title">{t('nav_po_log')}</h1>
-          <p className="page-subtitle">{t('po_log_subtitle') || 'View and post log entries for purchase orders and inspection jobs.'}</p>
+        <div className="flex-between mb-4" style={{ flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <h1 className="page-title">{t('nav_po_log')}</h1>
+            <p className="page-subtitle">{t('po_log_subtitle') || 'View and post log entries for purchase orders and inspection jobs.'}</p>
+          </div>
+          <button onClick={openSlider} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            📋 View Checklist Report
+          </button>
         </div>
 
         {/* Filter */}
@@ -225,6 +285,134 @@ export default function POLogPage() {
               {!hasFilter && <span style={{ fontSize: '12px', color: '#94a3b8' }}>Filter by PO No or Job ID to enable posting</span>}
             </div>
           </form>
+        </div>
+      </div>
+
+      {/* ── Checklist Report Slider ──────────────────────────────────────── */}
+      {/* Backdrop */}
+      {sliderOpen && (
+        <div
+          onClick={closeSlider}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.35)', zIndex: 200, backdropFilter: 'blur(2px)', transition: 'opacity 0.2s' }}
+        />
+      )}
+
+      {/* Panel */}
+      <div ref={sliderRef} style={{
+        position: 'fixed', top: 0, right: 0, bottom: 0,
+        width: 'min(820px, 92vw)',
+        background: '#fff',
+        boxShadow: '-8px 0 40px rgba(0,0,0,0.18)',
+        zIndex: 201,
+        display: 'flex', flexDirection: 'column',
+        transform: sliderOpen ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+      }}>
+        {/* Slider header */}
+        <div style={{ padding: '14px 20px', background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontWeight: '700', fontSize: '15px', color: '#fff' }}>📋 Checklist Report</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>{checklistRows.length} response(s)</div>
+          </div>
+          <button onClick={closeSlider} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, transition: 'background 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+            ×
+          </button>
+        </div>
+
+        {/* Slider filters */}
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>PO No</label>
+              <input type="text" value={clPoNo} onChange={e => setClPoNo(e.target.value)} placeholder="e.g. PO-2026-001"
+                style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', width: '150px' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>Job Ref</label>
+              <input type="text" value={clJobId} onChange={e => setClJobId(e.target.value)} placeholder="Job ref…"
+                style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', width: '140px' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>From</label>
+              <input type="date" value={clFrom} onChange={e => setClFrom(e.target.value)}
+                style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '12px' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>To</label>
+              <input type="date" value={clTo} onChange={e => setClTo(e.target.value)}
+                style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '12px' }} />
+            </div>
+            <button onClick={() => fetchChecklist({ po_no: clPoNo || undefined, job_id: clJobId || undefined, from: clFrom || undefined, to: clTo || undefined })}
+              className="btn btn-primary btn-sm" disabled={checklistLoading}>
+              {checklistLoading ? '…' : 'Apply'}
+            </button>
+            <button onClick={() => { setClPoNo(''); setClJobId(''); setClFrom(''); setClTo(''); fetchChecklist({}) }}
+              className="btn btn-ghost btn-sm">Clear</button>
+          </div>
+        </div>
+
+        {/* Slider body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+          {checklistLoading ? (
+            <div className="loading-center"><div className="spinner" /></div>
+          ) : checklistError ? (
+            <div className="alert alert-error">{checklistError}</div>
+          ) : checklistRows.length === 0 ? (
+            <div className="empty-state"><div style={{ fontSize: '36px' }}>📋</div><p>No checklist responses found. Try adjusting the filters above.</p></div>
+          ) : (
+            Object.entries(groupedByJob).map(([jobRef, { meta, items }]) => (
+              <div key={jobRef} style={{ marginBottom: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                {/* Job header */}
+                <div style={{ padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontWeight: '800', fontSize: '13px', color: '#E8470F' }}>{meta.job_ref}</span>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>PO: <strong>{meta.po_no}</strong></span>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>{meta.item_name}</span>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>Supplier: <strong>{meta.supplier_name}</strong></span>
+                  {meta.inspection_date && <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(meta.inspection_date).toLocaleDateString()}</span>}
+                  {meta.final_outcome && (
+                    <span style={{ background: meta.final_outcome === 'pass' ? '#f0fdf4' : '#fef2f2', color: meta.final_outcome === 'pass' ? '#15803d' : '#dc2626', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>
+                      {meta.final_outcome === 'pass' ? 'Pass' : 'Fail'}
+                    </span>
+                  )}
+                </div>
+                {/* Checklist items table */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc' }}>
+                        {['Section', 'Checkpoint', 'Criticality', 'Result', 'Remark'].map(h => (
+                          <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item, idx) => {
+                        const rm = RESULT_META[item.result] || { bg: '#f1f5f9', color: '#475569' }
+                        const cm = CRIT_META[item.criticality] || { bg: '#f1f5f9', color: '#475569' }
+                        return (
+                          <tr key={idx} style={{ borderBottom: idx < items.length - 1 ? '1px solid #f1f5f9' : 'none' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                            onMouseLeave={e => e.currentTarget.style.background = ''}>
+                            <td style={{ padding: '6px 10px', color: '#64748b', fontWeight: '600', whiteSpace: 'nowrap' }}>{item.section || '—'}</td>
+                            <td style={{ padding: '6px 10px', color: '#0f172a', maxWidth: '260px' }}>{item.checkpoint_text}</td>
+                            <td style={{ padding: '6px 10px', whiteSpace: 'nowrap' }}>
+                              {item.criticality && <span style={{ ...cm, padding: '2px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: '700', textTransform: 'capitalize' }}>{item.criticality}</span>}
+                            </td>
+                            <td style={{ padding: '6px 10px', whiteSpace: 'nowrap' }}>
+                              <span style={{ ...rm, padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase' }}>{item.result || '—'}</span>
+                            </td>
+                            <td style={{ padding: '6px 10px', color: '#64748b', maxWidth: '180px', wordBreak: 'break-word' }}>{item.remark || '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

@@ -318,4 +318,47 @@ router.get('/download', async (req, res) => {
   }
 });
 
+// ── Checklist report as JSON (for slide-in panel) ─────────────────────────
+router.get('/checklist', async (req, res) => {
+  try {
+    const { role, agency_code, supplier_code } = req.user;
+    const { from, to, po_no, job_id } = req.query;
+
+    const conditions = ['1=1'];
+    const params = [];
+    const p = (val) => { params.push(val); return `$${params.length}`; };
+
+    if (role === 'agency_user')   conditions.push(`j.agency_code = ${p(agency_code)}`);
+    else if (role === 'supplier_user') conditions.push(`j.supplier_code = ${p(supplier_code)}`);
+    if (po_no)  conditions.push(`j.po_no ILIKE ${p('%' + po_no + '%')}`);
+    if (job_id) { const pv = p('%' + job_id + '%'); conditions.push(`(j.job_ref ILIKE ${pv} OR j.job_id::text ILIKE ${pv})`); }
+    if (from)   conditions.push(`j.inspection_date >= ${p(from)}::date`);
+    if (to)     conditions.push(`j.inspection_date <= ${p(to)}::date`);
+
+    const q = `
+      SELECT
+        j.job_ref, j.po_no, j.item_code, i.name AS item_name,
+        j.supplier_code, s.name AS supplier_name,
+        j.agency_code, ag.name AS agency_name,
+        j.status, j.final_outcome, j.inspection_date,
+        ci.section, ci.checkpoint_text, ci.criticality,
+        r.result, r.remark
+      FROM qc_inspection.inspection_response r
+      JOIN qc_inspection.inspection_job j ON j.job_id = r.job_id
+      JOIN qc_inspection.item_master i ON i.item_code = j.item_code
+      JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+      LEFT JOIN qc_inspection.quality_agency_master ag ON ag.agency_code = j.agency_code
+      JOIN qc_inspection.checklist_item ci ON ci.item_id = r.checklist_item_id
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY j.inspection_date DESC NULLS LAST, ci.sort_order
+    `;
+
+    const result = await db.query(q, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Checklist report error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
