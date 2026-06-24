@@ -121,8 +121,45 @@ function buildEmailForEvent(eventType, extraMessage) {
   }
 }
 
+function buildReadableMessage(eventType, extraMessage) {
+  let data = {};
+  try { data = JSON.parse(extraMessage); } catch { return extraMessage || EVENT_MESSAGES[eventType] || eventType; }
+
+  const jobRef = data.job_ref ? `Job ${data.job_ref}` : (data.po_no ? `PO ${data.po_no}` : '');
+  const ref = data.ref || '';
+
+  switch (eventType) {
+    case 'JOB_MAPPED':
+      return `New inspection job mapped${jobRef ? ` — ${jobRef}` : ''}. Item: ${data.item_name || '—'}. Agency: ${data.agency_name || 'Self Inspection'}.`;
+    case 'SUBMITTED_FOR_QA':
+      return `Checklist submitted for QA review${jobRef ? ` — ${jobRef}` : ''}. Item: ${data.item_name || '—'}.${data.failed_checkpoints?.length ? ` ⚠️ ${data.failed_checkpoints.length} checkpoint(s) failed.` : ''}`;
+    case 'QA_APPROVED':
+      return `Inspection approved by QA${jobRef ? ` — ${jobRef}` : ''}. Reviewed by ${data.reviewer_name || '—'}.`;
+    case 'QA_REJECTED':
+      return `Inspection rejected by QA${jobRef ? ` — ${jobRef}` : ''}. Reviewed by ${data.reviewer_name || '—'}.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
+    case 'REINSPECTION_TRIGGERED':
+      return `Re-inspection triggered${jobRef ? ` — ${jobRef}` : ''}. New inspection date: ${data.inspection_date ? new Date(data.inspection_date).toLocaleDateString('en-GB') : '—'}.`;
+    case 'CHARGES_SUBMITTED':
+      return `Inspection charges submitted — ${ref}. Agency: ${data.agency || '—'}. Amount: ${data.currency || 'USD'} ${parseFloat(data.amt || 0).toFixed(2)}.`;
+    case 'CHARGES_QA_APPROVED':
+      return `Charges approved by QA — ${ref}. Amount: ${data.currency || 'USD'} ${parseFloat(data.amt || 0).toFixed(2)}. Pending Buying approval.`;
+    case 'CHARGES_BUYING_APPROVED':
+      return `Charges approved by Buying — ${ref}. Amount: ${data.currency || 'USD'} ${parseFloat(data.amt || 0).toFixed(2)}. Pending Imports approval.`;
+    case 'CHARGES_IMPORTS_APPROVED':
+      return `Charges approved by Imports — ${ref}. Amount: ${data.currency || 'USD'} ${parseFloat(data.amt || 0).toFixed(2)}. Pending Accounts payment.`;
+    case 'CHARGES_PAID':
+      return `Charges payment confirmed — ${ref}. Amount: ${data.currency || 'USD'} ${parseFloat(data.amt || 0).toFixed(2)}.`;
+    case 'CHARGES_REJECTED':
+      return `Charges rejected — ${ref}. Rejected by ${data.rejected_by || '—'}.${data.reason ? ` Reason: ${data.reason}` : ''}`;
+    case 'REMARK_POSTED':
+      return `New remark on ${jobRef || 'job'} by ${data.posted_by || '—'} (${data.role || ''}): "${(data.remark || '').slice(0, 120)}${(data.remark || '').length > 120 ? '…' : ''}"`;
+    default:
+      return EVENT_MESSAGES[eventType] || eventType;
+  }
+}
+
 async function sendNotification(jobId, eventType, recipientRole, recipientEmails = [], extraMessage = null, adviceId = null) {
-  const message = extraMessage || EVENT_MESSAGES[eventType] || `Notification: ${eventType}`;
+  const message = buildReadableMessage(eventType, extraMessage);
 
   console.log(`\n📧 [NOTIFICATION] ${eventType} → ${recipientRole}`);
   console.log(`   Emails: ${recipientEmails.filter(Boolean).join(', ') || 'none'}\n`);
