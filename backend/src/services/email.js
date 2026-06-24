@@ -22,6 +22,8 @@ function getTransporter() {
  * @param {{ to: string|string[], subject: string, html: string, text?: string }} opts
  */
 async function sendEmail({ to, subject, html, text }) {
+  console.log(`📧 [EMAIL ATTEMPT] To: ${to} | Subject: ${subject}`);
+  console.log(`📧 [EMAIL ENV] GMAIL_USER=${process.env.GMAIL_USER || 'NOT SET'} | TEST_EMAIL_TO=${process.env.TEST_EMAIL_TO || 'NOT SET'} | APP_PASSWORD=${process.env.GMAIL_APP_PASSWORD ? 'SET' : 'NOT SET'}`);
   const transport = getTransporter();
   if (!transport) {
     console.log(`📧 [EMAIL SKIPPED — no credentials] To: ${to} | Subject: ${subject}`);
