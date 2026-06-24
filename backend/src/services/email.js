@@ -37,15 +37,21 @@ async function sendEmail({ to, subject, html, text }) {
        </div>`
     : '';
 
-  const info = await transport.sendMail({
-    from: `"QC Inspection Portal" <${process.env.GMAIL_USER}>`,
-    to: recipient,
-    subject: process.env.TEST_EMAIL_TO ? `[TEST] ${subject}` : subject,
-    html: testBanner + html,
-    text: text || '',
-  });
-
-  console.log(`📧 [EMAIL SENT] To: ${recipient} | Subject: ${subject} | MsgId: ${info.messageId}`);
+  let info;
+  try {
+    info = await transport.sendMail({
+      from: `"QC Inspection Portal" <${process.env.GMAIL_USER}>`,
+      to: recipient,
+      subject: process.env.TEST_EMAIL_TO ? `[TEST] ${subject}` : subject,
+      html: testBanner + html,
+      text: text || '',
+    });
+    console.log(`📧 [EMAIL SENT] To: ${recipient} | Subject: ${subject} | MsgId: ${info.messageId}`);
+  } catch (err) {
+    console.error(`📧 [EMAIL FAILED] To: ${recipient} | Subject: ${subject}`);
+    console.error(`📧 [EMAIL FAILED] Code: ${err.code} | Response: ${err.response} | Message: ${err.message}`);
+    throw err;
+  }
   return info;
 }
 
