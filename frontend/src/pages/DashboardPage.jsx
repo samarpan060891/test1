@@ -92,6 +92,13 @@ function AgencyBreakdown({ advices, t }) {
   })
   if (agencies.length === 0) return null
 
+  const PENDING_PAYMENT_LABELS = {
+    pending_qa:       { label: 'Pending QA Approval',    color: '#92400e', bg: '#fefce8', dot: '#d97706' },
+    pending_buying:   { label: 'Pending Buying Approval', color: '#1d4ed8', bg: '#eff6ff', dot: '#3b82f6' },
+    pending_imports:  { label: 'Pending Imports Approval',color: '#7e22ce', bg: '#faf5ff', dot: '#9333ea' },
+    pending_accounts: { label: 'Pending Accounts',        color: '#0f766e', bg: '#f0fdfa', dot: '#14b8a6' },
+  }
+
   return (
     <div className="card" style={{ marginTop: '16px' }}>
       <div className="card-header">
@@ -110,10 +117,13 @@ function AgencyBreakdown({ advices, t }) {
           const pct = totalPoValue > 0 ? ((totalCharges / totalPoValue) * 100).toFixed(2) : null
           const pctColor = pct > 5 ? '#dc2626' : pct > 3 ? '#d97706' : '#15803d'
 
+          // Pending advices that need action
+          const pendingAdvices = ag.advices.filter(a => PENDING_PAYMENT_LABELS[a.status])
+
           return (
-            <div key={ag.agency_code} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
+            <div key={ag.agency_code} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {/* Agency header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FEF0EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '800', color: '#E8470F', flexShrink: 0 }}>
                   {ag.agency_name?.charAt(0)}
                 </div>
@@ -142,6 +152,26 @@ function AgencyBreakdown({ advices, t }) {
                   <div style={{ fontSize: '10px', color: pct != null ? pctColor : '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>{t('col_pct_to_po')}</div>
                 </div>
               </div>
+
+              {/* Pending activity highlights */}
+              {pendingAdvices.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {pendingAdvices.map((a, i) => {
+                    const m = PENDING_PAYMENT_LABELS[a.status]
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '7px', background: m.bg, borderRadius: '6px', padding: '6px 10px' }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: m.dot, flexShrink: 0, display: 'inline-block' }} />
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: m.color, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {m.label}
+                        </span>
+                        <span style={{ fontSize: '11px', fontWeight: '800', color: m.color, flexShrink: 0 }}>
+                          {fmt(a.total_cost, a.currency)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )
         })}
@@ -444,6 +474,11 @@ export default function DashboardPage() {
           <CountryBreakdown jobs={jobs} t={t} />
         )}
 
+        {/* Agency Inspection Breakdown */}
+        {!loading && advices.length > 0 && (
+          <AgencyBreakdown advices={advices} t={t} />
+        )}
+
         {/* Main layout */}
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           {/* Jobs table */}
@@ -593,10 +628,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Agency Inspection Breakdown */}
-        {!loading && advices.length > 0 && (
-          <AgencyBreakdown advices={advices} t={t} />
-        )}
       </div>
     </div>
   )
