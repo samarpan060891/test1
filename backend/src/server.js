@@ -137,7 +137,7 @@ async function runMigrations() {
 
   await safeQuery(`
     INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text, criticality, sort_order)
-    SELECT v.template_id, v.section, v.checkpoint_text, v.criticality, v.sort_order
+    SELECT v.template_id::uuid, v.section, v.checkpoint_text, v.criticality, v.sort_order::int
     FROM (VALUES
       -- Living Room Furniture (Rattan Coffee Table, Velvet Accent Chair, Woven Storage Ottoman)
       ('aaaaaaaa-0001-0001-0001-000000000010', 'Structure',   'Frame/base is sturdy with no wobble or flex under load',             'critical', 1),

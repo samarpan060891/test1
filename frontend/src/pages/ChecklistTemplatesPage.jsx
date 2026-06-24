@@ -155,7 +155,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
               cursor: 'pointer'
             }}
           >
-            {expanded ? `${t('tmpl_collapse')} ▲` : `${t('tmpl_expand')} ▼`}
+            {expanded ? t('tmpl_collapse') : t('tmpl_expand')}
           </button>
         </div>
       </div>
