@@ -305,6 +305,49 @@ table.data-table tbody tr:hover td { background: var(--gray-50); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ─── Responsive: Tablet (≤ 1024px) ────────────────────────────── */
+@media (max-width: 1024px) {
+  .page-content         { padding: 16px 20px; }
+  .page-content-narrow  { padding: 16px 20px; }
+  .nav-links-desktop    { display: none !important; }
+  .hamburger            { display: flex !important; }
+  .nav-email            { display: none !important; }
+  .nav-password-link    { display: none !important; }
+  .nav-logout-btn       { display: none !important; }
+  .nav-lang             { display: none !important; }
+  .stat-value           { font-size: 22px; }
+}
+
+/* ─── Responsive: Mobile (≤ 640px) ─────────────────────────────── */
+@media (max-width: 640px) {
+  .page-content         { padding: 12px 12px; }
+  .page-content-narrow  { padding: 12px 12px; }
+  .modal-overlay        { padding: 12px; align-items: flex-end; }
+  .modal-box            { border-radius: 16px 16px 0 0; max-width: 100%; padding: 20px 16px; }
+  .card-header          { padding: 10px 14px; flex-wrap: wrap; }
+  .card-body            { padding: 14px; }
+  .stat-grid            { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-value           { font-size: 20px; }
+  .stat-card            { padding: 10px 12px; }
+  .page-title           { font-size: 17px; }
+  .breadcrumb           { font-size: 12px; }
+
+  /* Tables: horizontal scroll with full-width container */
+  .table-wrap           { -webkit-overflow-scrolling: touch; }
+  table.data-table th,
+  table.data-table td   { padding: 7px 10px; font-size: 12px; }
+
+  /* Stack flex rows on mobile */
+  .flex-between         { flex-wrap: wrap; gap: 8px; }
+
+  /* Buttons: full-width in forms */
+  .btn-block-mobile     { width: 100%; }
+
+  /* Timeline compact */
+  .timeline             { padding-left: 18px; }
+  .timeline-card        { padding: 10px 12px; }
+}
+
 /* ─── Misc utilities ────────────────────────────────────────────── */
 .text-mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
 .flex-between { display: flex; align-items: center; justify-content: space-between; }
