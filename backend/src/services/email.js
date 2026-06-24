@@ -117,7 +117,7 @@ function emailJobMapped({ jobRef, poNo, itemName, supplierName, agencyName, insp
         ['Inspection Date', inspectionDate ? new Date(inspectionDate).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'],
         ['Stage', stage || '—'],
       ])}
-      ${ctaButton('View Job →', `${APP_URL}/jobs`)}
+      ${ctaButton('Open Portal →', `${APP_URL}`)}
     `),
   };
 }
@@ -135,7 +135,7 @@ function emailSubmittedForQA({ jobRef, poNo, itemName, supplierName, agencyName,
         ['Agency', agencyName || '—'],
         ['Inspection Date', inspectionDate ? new Date(inspectionDate).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'],
       ])}
-      ${ctaButton('Review Checklist →', `${APP_URL}/jobs`)}
+      ${ctaButton('Review Checklist →', `${APP_URL}`)}
     `),
   };
 }
@@ -154,7 +154,7 @@ function emailQAApproved({ jobRef, poNo, itemName, supplierName, reviewerName })
         ['Supplier', supplierName],
         ['Reviewed By', reviewerName || '—'],
       ])}
-      ${ctaButton('View Job →', `${APP_URL}/jobs`)}
+      ${ctaButton('View Job →', `${APP_URL}`)}
     `),
   };
 }
@@ -177,7 +177,7 @@ function emailQARejected({ jobRef, poNo, itemName, supplierName, reviewerName, r
         <p style="margin:0;font-size:13px;font-weight:700;color:#991b1b;">QA Remarks:</p>
         <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${remarks}</p>
       </div>` : ''}
-      ${ctaButton('View Job →', `${APP_URL}/jobs`)}
+      ${ctaButton('View Job →', `${APP_URL}`)}
     `),
   };
 }
@@ -194,7 +194,7 @@ function emailChargesSubmitted({ adviceRef, agencyName, totalCost, currency, job
         ['Jobs Covered', jobCount || '—'],
         ['Submitted By', submittedBy || '—'],
       ])}
-      ${ctaButton('Review Charges →', `${APP_URL}/inspection-costs`)}
+      ${ctaButton('Review Charges →', `${APP_URL}`)}
     `),
   };
 }
@@ -213,7 +213,7 @@ function emailChargesApproved({ adviceRef, agencyName, totalCost, currency, appr
         ['Total Amount', `<strong>${currency || 'USD'} ${parseFloat(totalCost || 0).toFixed(2)}</strong>`],
         ['Approved By', approvedBy || '—'],
       ])}
-      ${ctaButton('View Charges →', `${APP_URL}/inspection-costs`)}
+      ${ctaButton('View Charges →', `${APP_URL}`)}
     `),
   };
 }
@@ -235,7 +235,7 @@ function emailChargesRejected({ adviceRef, agencyName, totalCost, currency, reje
         <p style="margin:0;font-size:13px;font-weight:700;color:#991b1b;">Reason:</p>
         <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${reason}</p>
       </div>` : ''}
-      ${ctaButton('View Charges →', `${APP_URL}/inspection-costs`)}
+      ${ctaButton('View Charges →', `${APP_URL}`)}
     `),
   };
 }
@@ -254,7 +254,7 @@ function emailRemarkPosted({ jobRef, poNo, remarkText, postedBy, postedByRole })
         <p style="margin:0;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Remark</p>
         <p style="margin:8px 0 0;font-size:14px;color:#0f172a;line-height:1.5;">"${remarkText}"</p>
       </div>
-      ${ctaButton('View Job →', `${APP_URL}/jobs`)}
+      ${ctaButton('View Job →', `${APP_URL}`)}
     `),
   };
 }
