@@ -181,37 +181,47 @@ function AgencyBreakdown({ advices, t }) {
   )
 }
 
-const COUNTRY_FLAGS = {
-  'Afghanistan': '🇦🇫', 'Albania': '🇦🇱', 'Algeria': '🇩🇿', 'Argentina': '🇦🇷',
-  'Australia': '🇦🇺', 'Austria': '🇦🇹', 'Azerbaijan': '🇦🇿', 'Bangladesh': '🇧🇩',
-  'Belarus': '🇧🇾', 'Belgium': '🇧🇪', 'Bolivia': '🇧🇴', 'Brazil': '🇧🇷',
-  'Bulgaria': '🇧🇬', 'Cambodia': '🇰🇭', 'Canada': '🇨🇦', 'Chile': '🇨🇱',
-  'China': '🇨🇳', 'Colombia': '🇨🇴', 'Croatia': '🇭🇷', 'Czech Republic': '🇨🇿',
-  'Denmark': '🇩🇰', 'Ecuador': '🇪🇨', 'Egypt': '🇪🇬', 'Ethiopia': '🇪🇹',
-  'Finland': '🇫🇮', 'France': '🇫🇷', 'Germany': '🇩🇪', 'Ghana': '🇬🇭',
-  'Greece': '🇬🇷', 'Guatemala': '🇬🇹', 'Honduras': '🇭🇳', 'Hong Kong': '🇭🇰',
-  'Hungary': '🇭🇺', 'India': '🇮🇳', 'Indonesia': '🇮🇩', 'Iran': '🇮🇷',
-  'Iraq': '🇮🇶', 'Ireland': '🇮🇪', 'Israel': '🇮🇱', 'Italy': '🇮🇹',
-  'Japan': '🇯🇵', 'Jordan': '🇯🇴', 'Kazakhstan': '🇰🇿', 'Kenya': '🇰🇪',
-  'South Korea': '🇰🇷', 'Korea': '🇰🇷', 'Kuwait': '🇰🇼', 'Laos': '🇱🇦',
-  'Latvia': '🇱🇻', 'Lebanon': '🇱🇧', 'Libya': '🇱🇾', 'Lithuania': '🇱🇹',
-  'Malaysia': '🇲🇾', 'Mexico': '🇲🇽', 'Morocco': '🇲🇦', 'Myanmar': '🇲🇲',
-  'Nepal': '🇳🇵', 'Netherlands': '🇳🇱', 'New Zealand': '🇳🇿', 'Nigeria': '🇳🇬',
-  'Norway': '🇳🇴', 'Oman': '🇴🇲', 'Pakistan': '🇵🇰', 'Peru': '🇵🇪',
-  'Philippines': '🇵🇭', 'Poland': '🇵🇱', 'Portugal': '🇵🇹', 'Qatar': '🇶🇦',
-  'Romania': '🇷🇴', 'Russia': '🇷🇺', 'Saudi Arabia': '🇸🇦', 'Serbia': '🇷🇸',
-  'Singapore': '🇸🇬', 'Slovakia': '🇸🇰', 'South Africa': '🇿🇦', 'Spain': '🇪🇸',
-  'Sri Lanka': '🇱🇰', 'Sweden': '🇸🇪', 'Switzerland': '🇨🇭', 'Taiwan': '🇹🇼',
-  'Tanzania': '🇹🇿', 'Thailand': '🇹🇭', 'Tunisia': '🇹🇳', 'Turkey': '🇹🇷',
-  'Türkiye': '🇹🇷', 'Uganda': '🇺🇬', 'Ukraine': '🇺🇦', 'United Arab Emirates': '🇦🇪',
-  'UAE': '🇦🇪', 'United Kingdom': '🇬🇧', 'UK': '🇬🇧', 'United States': '🇺🇸',
-  'USA': '🇺🇸', 'Uruguay': '🇺🇾', 'Uzbekistan': '🇺🇿', 'Venezuela': '🇻🇪',
-  'Vietnam': '🇻🇳', 'Viet Nam': '🇻🇳', 'Yemen': '🇾🇪', 'Zimbabwe': '🇿🇼',
+const COUNTRY_ISO2 = {
+  'Afghanistan': 'af', 'Albania': 'al', 'Algeria': 'dz', 'Argentina': 'ar',
+  'Australia': 'au', 'Austria': 'at', 'Azerbaijan': 'az', 'Bangladesh': 'bd',
+  'Belarus': 'by', 'Belgium': 'be', 'Bolivia': 'bo', 'Brazil': 'br',
+  'Bulgaria': 'bg', 'Cambodia': 'kh', 'Canada': 'ca', 'Chile': 'cl',
+  'China': 'cn', 'Colombia': 'co', 'Croatia': 'hr', 'Czech Republic': 'cz',
+  'Denmark': 'dk', 'Ecuador': 'ec', 'Egypt': 'eg', 'Ethiopia': 'et',
+  'Finland': 'fi', 'France': 'fr', 'Germany': 'de', 'Ghana': 'gh',
+  'Greece': 'gr', 'Guatemala': 'gt', 'Honduras': 'hn', 'Hong Kong': 'hk',
+  'Hungary': 'hu', 'India': 'in', 'Indonesia': 'id', 'Iran': 'ir',
+  'Iraq': 'iq', 'Ireland': 'ie', 'Israel': 'il', 'Italy': 'it',
+  'Japan': 'jp', 'Jordan': 'jo', 'Kazakhstan': 'kz', 'Kenya': 'ke',
+  'South Korea': 'kr', 'Korea': 'kr', 'Kuwait': 'kw', 'Laos': 'la',
+  'Latvia': 'lv', 'Lebanon': 'lb', 'Libya': 'ly', 'Lithuania': 'lt',
+  'Malaysia': 'my', 'Mexico': 'mx', 'Morocco': 'ma', 'Myanmar': 'mm',
+  'Nepal': 'np', 'Netherlands': 'nl', 'New Zealand': 'nz', 'Nigeria': 'ng',
+  'Norway': 'no', 'Oman': 'om', 'Pakistan': 'pk', 'Peru': 'pe',
+  'Philippines': 'ph', 'Poland': 'pl', 'Portugal': 'pt', 'Qatar': 'qa',
+  'Romania': 'ro', 'Russia': 'ru', 'Saudi Arabia': 'sa', 'Serbia': 'rs',
+  'Singapore': 'sg', 'Slovakia': 'sk', 'South Africa': 'za', 'Spain': 'es',
+  'Sri Lanka': 'lk', 'Sweden': 'se', 'Switzerland': 'ch', 'Taiwan': 'tw',
+  'Tanzania': 'tz', 'Thailand': 'th', 'Tunisia': 'tn', 'Turkey': 'tr',
+  'Türkiye': 'tr', 'Uganda': 'ug', 'Ukraine': 'ua', 'United Arab Emirates': 'ae',
+  'UAE': 'ae', 'United Kingdom': 'gb', 'UK': 'gb', 'United States': 'us',
+  'USA': 'us', 'Uruguay': 'uy', 'Uzbekistan': 'uz', 'Venezuela': 've',
+  'Vietnam': 'vn', 'Viet Nam': 'vn', 'Yemen': 'ye', 'Zimbabwe': 'zw',
 }
 
-function countryFlag(name) {
-  if (!name || name === '—') return '🌐'
-  return COUNTRY_FLAGS[name] || COUNTRY_FLAGS[name.trim()] || '🌐'
+function CountryFlag({ name }) {
+  const iso = COUNTRY_ISO2[name?.trim()]
+  if (!iso) return <span style={{ fontSize: '20px' }}>🌐</span>
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${iso}.png`}
+      alt={name}
+      width="28"
+      height="20"
+      style={{ borderRadius: '3px', objectFit: 'cover', flexShrink: 0 }}
+      onError={e => { e.target.style.display = 'none' }}
+    />
+  )
 }
 
 function CountryBreakdown({ jobs, t }) {
@@ -240,7 +250,7 @@ function CountryBreakdown({ jobs, t }) {
           return (
             <div key={r.country} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
               <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '22px', lineHeight: 1 }}>{countryFlag(r.country)}</span>
+                <CountryFlag name={r.country} />
                 {r.country}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
