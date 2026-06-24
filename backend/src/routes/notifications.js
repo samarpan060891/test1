@@ -8,7 +8,7 @@ router.use(authenticate);
 
 /**
  * GET /api/notifications
- * List notification events scoped by user role, excluding ones this user has dismissed.
+ * Returns notifications for this user's role that they haven't dismissed.
  */
 router.get('/', async (req, res) => {
   const { job_id, limit = 50, offset = 0 } = req.query;
@@ -18,9 +18,7 @@ router.get('/', async (req, res) => {
       SELECT n.*, j.po_no, j.item_code, j.status AS job_status
       FROM qc_inspection.notification_event n
       LEFT JOIN qc_inspection.inspection_job j ON j.job_id = n.job_id
-      LEFT JOIN qc_inspection.notification_dismissal d
-        ON d.event_id = n.event_id AND d.user_id = $1
-      WHERE d.event_id IS NULL
+      WHERE NOT ($1 = ANY(COALESCE(n.dismissed_by, '{}')))
     `;
     const params = [req.user.user_id];
     const conditions = [];
@@ -57,7 +55,6 @@ router.get('/', async (req, res) => {
 
 /**
  * POST /api/notifications/trigger
- * Manually trigger a notification. QA/Buying only.
  */
 router.post('/trigger', async (req, res) => {
   if (!['qa', 'buying'].includes(req.user.role)) {
@@ -100,14 +97,15 @@ router.post('/trigger', async (req, res) => {
 
 /**
  * DELETE /api/notifications/:id
- * Dismiss a notification for this user only (records in dismissal table).
+ * Marks this notification as dismissed for this user only.
  */
 router.delete('/:id', async (req, res) => {
   try {
     await db.query(
-      `INSERT INTO qc_inspection.notification_dismissal (user_id, event_id)
-       VALUES ($1, $2)
-       ON CONFLICT (user_id, event_id) DO NOTHING`,
+      `UPDATE qc_inspection.notification_event
+       SET dismissed_by = array_append(COALESCE(dismissed_by, '{}'), $1::uuid)
+       WHERE event_id = $2
+         AND NOT ($1::uuid = ANY(COALESCE(dismissed_by, '{}')))`,
       [req.user.user_id, req.params.id]
     );
     res.json({ ok: true });

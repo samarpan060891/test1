@@ -119,17 +119,10 @@ async function runMigrations() {
     }
   }
 
-  // 010: per-user notification dismissal
-  await safeQuery(`
-    CREATE TABLE IF NOT EXISTS qc_inspection.notification_dismissal (
-      user_id      UUID NOT NULL REFERENCES qc_inspection.team_stakeholder(user_id) ON DELETE CASCADE,
-      event_id     UUID NOT NULL REFERENCES qc_inspection.notification_event(event_id) ON DELETE CASCADE,
-      dismissed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (user_id, event_id)
-    )`, 'notification_dismissal table');
+  // 010: per-user notification dismissal — store dismissed_by as UUID array on the event row
   await safeQuery(
-    `CREATE INDEX IF NOT EXISTS idx_notif_dismissal_user ON qc_inspection.notification_dismissal(user_id)`,
-    'notification_dismissal index'
+    `ALTER TABLE qc_inspection.notification_event ADD COLUMN IF NOT EXISTS dismissed_by UUID[] DEFAULT '{}'`,
+    'notification_event dismissed_by col'
   );
 
   console.log('✅ Migrations applied');
