@@ -124,11 +124,10 @@ router.post('/', async (req, res) => {
     if (job_id) {
       const posterRole = req.user.role;
       const posterLabel = { qa: 'QA', buying: 'Buying', agency_user: 'Agency', supplier_user: 'Supplier' }[posterRole] || posterRole;
-      const notifMsg = `${posterLabel} posted a remark on job (PO: ${resolvedPoNo}): "${message.trim().slice(0, 100)}${message.trim().length > 100 ? '…' : ''}"`;
 
-      // Get all stakeholder contacts for this job
+      // Get all stakeholder contacts + job details
       const jobInfo = await db.query(
-        `SELECT j.agency_code, j.supplier_code,
+        `SELECT j.job_ref, j.po_no, j.agency_code, j.supplier_code,
                 a.contact_emails AS agency_emails,
                 s.contact_email AS supplier_email
          FROM qc_inspection.inspection_job j
@@ -139,6 +138,15 @@ router.post('/', async (req, res) => {
       const ji = jobInfo.rows[0] || {};
       const qaUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa' AND email IS NOT NULL");
       const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying' AND email IS NOT NULL");
+
+      const notifMsg = JSON.stringify({
+        job_ref: ji.job_ref || null,
+        job_id,
+        po_no: ji.po_no || resolvedPoNo,
+        remark: message.trim(),
+        posted_by: req.user.name || req.user.email,
+        role: posterLabel,
+      });
 
       // Notify everyone EXCEPT the poster
       if (posterRole !== 'qa') sendNotification(job_id, 'REMARK_POSTED', 'qa', qaUsers.rows.map(u => u.email), notifMsg);

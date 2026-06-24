@@ -103,7 +103,8 @@ const APP_URL = process.env.APP_URL || 'https://your-app.up.railway.app';
 
 // ─── Specific email templates ────────────────────────────────────────────────
 
-function emailJobMapped({ jobRef, poNo, itemName, supplierName, agencyName, inspectionDate, stage }) {
+function emailJobMapped({ jobRef, poNo, itemName, supplierName, agencyName, inspectionDate, stage, jobId }) {
+  const jobUrl = jobId ? `${APP_URL}/jobs/${jobId}` : APP_URL;
   return {
     subject: `New Inspection Job Mapped — ${jobRef}`,
     html: layout('New Inspection Job Assigned', `
@@ -117,7 +118,7 @@ function emailJobMapped({ jobRef, poNo, itemName, supplierName, agencyName, insp
         ['Inspection Date', inspectionDate ? new Date(inspectionDate).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'],
         ['Stage', stage || '—'],
       ])}
-      ${ctaButton('Open Portal →', `${APP_URL}`)}
+      ${ctaButton('Open Portal →', jobUrl)}
     `),
   };
 }
@@ -283,7 +284,8 @@ function emailChargesRejected({ adviceRef, agencyName, totalCost, currency, reje
   };
 }
 
-function emailRemarkPosted({ jobRef, poNo, remarkText, postedBy, postedByRole }) {
+function emailRemarkPosted({ jobRef, poNo, remarkText, postedBy, postedByRole, jobId }) {
+  const jobUrl = jobId ? `${APP_URL}/jobs/${jobId}` : APP_URL;
   return {
     subject: `New Remark on Job ${jobRef}`,
     html: layout('New Remark Posted', `
@@ -297,7 +299,7 @@ function emailRemarkPosted({ jobRef, poNo, remarkText, postedBy, postedByRole })
         <p style="margin:0;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Remark</p>
         <p style="margin:8px 0 0;font-size:14px;color:#0f172a;line-height:1.5;">"${remarkText}"</p>
       </div>
-      ${ctaButton('View Job →', `${APP_URL}`)}
+      ${ctaButton('View Job →', jobUrl)}
     `),
   };
 }

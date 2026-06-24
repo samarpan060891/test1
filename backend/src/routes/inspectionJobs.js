@@ -526,8 +526,26 @@ router.post('/:id/reinspect', authorize('qa', 'buying'), async (req, res) => {
     await client.query('COMMIT');
 
     // Notify agency, supplier, buying
-    const msg = JSON.stringify({ key: 'REINSPECTION_TRIGGERED_EXTERNAL', po_no: parent.po_no, date: inspection_date });
-    const agencyEmails = await db.query('SELECT contact_emails FROM qc_inspection.quality_agency_master WHERE agency_code = $1', [parent.agency_code]);
+    const reinspectDetail = await db.query(
+      `SELECT j.job_ref, i.name AS item_name, s.name AS supplier_name, a.name AS agency_name
+       FROM qc_inspection.inspection_job j
+       JOIN qc_inspection.item_master i ON i.item_code = j.item_code
+       JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+       LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+       WHERE j.job_id = $1`, [newJob.job_id]
+    );
+    const rd = reinspectDetail.rows[0] || {};
+    const msg = JSON.stringify({
+      job_ref: rd.job_ref || null,
+      job_id: newJob.job_id,
+      po_no: parent.po_no,
+      item_name: rd.item_name,
+      supplier_name: rd.supplier_name,
+      agency_name: rd.agency_name || null,
+      inspection_date,
+      triggered_by: req.user.name || req.user.email,
+    });
+    const agencyEmails = await db.query('SELECT contact_emails FROM qc_inspection.quality_agency_master WHERE agency_code = $1', [agency_code || parent.agency_code]);
     const supplierEmail = await db.query('SELECT contact_email FROM qc_inspection.supplier_master WHERE supplier_code = $1', [parent.supplier_code]);
     const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying'");
 

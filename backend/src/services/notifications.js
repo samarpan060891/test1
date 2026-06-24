@@ -37,6 +37,7 @@ function buildEmailForEvent(eventType, extraMessage) {
         agencyName: data.agency_name,
         inspectionDate: data.date || data.inspection_date,
         stage: data.stages,
+        jobId: data.job_id,
       });
     case 'SUBMITTED_FOR_QA':
       return emailSubmittedForQA({
@@ -109,6 +110,7 @@ function buildEmailForEvent(eventType, extraMessage) {
         remarkText: data.remark || data.text || '—',
         postedBy: data.posted_by,
         postedByRole: data.role,
+        jobId: data.job_id,
       });
     default:
       return {
