@@ -97,7 +97,7 @@ export default function NotificationBell() {
     setDismissing(s => new Set([...s, id]))
     try {
       await deleteNotification(id)
-      setNotifications(prev => prev.filter(x => (x.notification_id || x.id) !== id))
+      setNotifications(prev => prev.filter(x => (x.event_id || x.id) !== id))
     } catch {}
     setDismissing(s => { const ns = new Set(s); ns.delete(id); return ns })
   }
