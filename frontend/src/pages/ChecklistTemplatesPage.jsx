@@ -28,6 +28,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem, onUpdateI
   const [editingItemId, setEditingItemId] = useState(null)
   const [editValues, setEditValues] = useState({})
   const [savingItemId, setSavingItemId] = useState(null)
+  const [editError, setEditError] = useState('')
 
   const [newItem, setNewItem] = useState({
     section: '',
@@ -212,11 +213,17 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem, onUpdateI
 
                     const handleSave = async () => {
                       setSavingItemId(itemId)
+                      setEditError('')
                       try {
-                        await onUpdateItem(templateId, itemId, editValues)
+                        await onUpdateItem(templateId, itemId, {
+                          ...editValues,
+                          sort_order: editValues.sort_order !== '' ? editValues.sort_order : null
+                        })
                         const res = await getTemplate(templateId)
                         setLoadedItems(res.data?.items || [])
                         setEditingItemId(null)
+                      } catch (err) {
+                        setEditError(err?.response?.data?.error || 'Failed to save changes.')
                       } finally {
                         setSavingItemId(null)
                       }
@@ -255,13 +262,16 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem, onUpdateI
                         </td>
                         <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                           {isEditing ? (
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <button onClick={handleSave} disabled={isSaving} style={{ backgroundColor: isSaving ? '#86efac' : '#059669', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                                {isSaving ? 'Saving…' : 'Save'}
-                              </button>
-                              <button onClick={() => setEditingItemId(null)} style={{ backgroundColor: '#fff', color: '#374151', border: '1px solid #d1d5db', padding: '4px 10px', borderRadius: '5px', fontSize: '12px', cursor: 'pointer' }}>
-                                Cancel
-                              </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button onClick={handleSave} disabled={isSaving} style={{ backgroundColor: isSaving ? '#86efac' : '#059669', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                                  {isSaving ? 'Saving…' : 'Save'}
+                                </button>
+                                <button onClick={() => { setEditingItemId(null); setEditError('') }} style={{ backgroundColor: '#fff', color: '#374151', border: '1px solid #d1d5db', padding: '4px 10px', borderRadius: '5px', fontSize: '12px', cursor: 'pointer' }}>
+                                  Cancel
+                                </button>
+                              </div>
+                              {editError && <span style={{ color: '#dc2626', fontSize: '11px' }}>{editError}</span>}
                             </div>
                           ) : (
                             <div style={{ display: 'flex', gap: '6px' }}>

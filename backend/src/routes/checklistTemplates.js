@@ -255,6 +255,8 @@ router.post('/:id/items', authorize('qa'), async (req, res) => {
  */
 router.put('/:id/items/:itemId', authorize('qa'), async (req, res) => {
   const { section, checkpoint_text, criticality, sort_order } = req.body;
+  const parsedSort = (sort_order !== undefined && sort_order !== '' && sort_order !== null)
+    ? parseInt(sort_order, 10) : null;
   try {
     const result = await db.query(
       `UPDATE qc_inspection.checklist_item
@@ -264,7 +266,7 @@ router.put('/:id/items/:itemId', authorize('qa'), async (req, res) => {
            sort_order = COALESCE($4, sort_order)
        WHERE item_id = $5 AND template_id = $6
        RETURNING *`,
-      [section || null, checkpoint_text || null, criticality || null, sort_order ?? null, req.params.itemId, req.params.id]
+      [section || null, checkpoint_text || null, criticality || null, parsedSort, req.params.itemId, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Checklist item not found' });
     res.json(result.rows[0]);
