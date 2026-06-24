@@ -136,7 +136,9 @@ async function runMigrations() {
   `, 'new checklist templates for Living Room, Decor, Outdoor, Bathroom');
 
   await safeQuery(`
-    INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text, criticality, sort_order) VALUES
+    INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text, criticality, sort_order)
+    SELECT v.template_id, v.section, v.checkpoint_text, v.criticality, v.sort_order
+    FROM (VALUES
       -- Living Room Furniture (Rattan Coffee Table, Velvet Accent Chair, Woven Storage Ottoman)
       ('aaaaaaaa-0001-0001-0001-000000000010', 'Structure',   'Frame/base is sturdy with no wobble or flex under load',             'critical', 1),
       ('aaaaaaaa-0001-0001-0001-000000000010', 'Structure',   'All joints, fixings and welds are tight and correctly assembled',    'critical', 2),
@@ -191,7 +193,10 @@ async function runMigrations() {
       ('aaaaaaaa-0001-0001-0001-000000000013', 'Finishing',   'Country of origin and care labels correctly attached',              'minor',   10),
       ('aaaaaaaa-0001-0001-0001-000000000013', 'Packaging',   'Each piece individually protected to prevent scratching in transit', 'major',   11),
       ('aaaaaaaa-0001-0001-0001-000000000013', 'Packaging',   'Correct barcode/SKU on packaging matches PO specification',          'minor',   12)
-    ON CONFLICT DO NOTHING
+    ) AS v(template_id, section, checkpoint_text, criticality, sort_order)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM qc_inspection.checklist_item ci WHERE ci.template_id = v.template_id::uuid AND ci.sort_order = v.sort_order
+    )
   `, 'checklist items for Living Room, Decor, Outdoor, Bathroom templates');
 
   // 011: new items and POs for testing
