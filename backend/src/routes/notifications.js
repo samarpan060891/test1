@@ -8,8 +8,7 @@ router.use(authenticate);
 
 /**
  * GET /api/notifications
- * List notification events scoped by user role.
- * Query params: ?job_id=&limit=&offset=
+ * List notification events scoped by user role, excluding ones this user has dismissed.
  */
 router.get('/', async (req, res) => {
   const { job_id, limit = 50, offset = 0 } = req.query;
@@ -19,12 +18,13 @@ router.get('/', async (req, res) => {
       SELECT n.*, j.po_no, j.item_code, j.status AS job_status
       FROM qc_inspection.notification_event n
       LEFT JOIN qc_inspection.inspection_job j ON j.job_id = n.job_id
+      LEFT JOIN qc_inspection.notification_dismissal d
+        ON d.event_id = n.event_id AND d.user_id = $1
+      WHERE d.event_id IS NULL
     `;
-    const params = [];
+    const params = [req.user.user_id];
     const conditions = [];
 
-    // Each user only sees notifications addressed to their role
-    // Admin sees all notifications
     if (req.user.role !== 'admin') {
       params.push(req.user.role);
       conditions.push(`n.recipient_role = $${params.length}`);
@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
     }
 
     if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
+      query += ' AND ' + conditions.join(' AND ');
     }
 
     query += ' ORDER BY n.sent_at DESC';
@@ -58,7 +58,6 @@ router.get('/', async (req, res) => {
 /**
  * POST /api/notifications/trigger
  * Manually trigger a notification. QA/Buying only.
- * Body: { job_id, event_type, recipient_role }
  */
 router.post('/trigger', async (req, res) => {
   if (!['qa', 'buying'].includes(req.user.role)) {
@@ -101,17 +100,19 @@ router.post('/trigger', async (req, res) => {
 
 /**
  * DELETE /api/notifications/:id
- * Dismiss (delete) a single notification after reading.
+ * Dismiss a notification for this user only (records in dismissal table).
  */
 router.delete('/:id', async (req, res) => {
   try {
     await db.query(
-      'DELETE FROM qc_inspection.notification_event WHERE event_id = $1',
-      [req.params.id]
+      `INSERT INTO qc_inspection.notification_dismissal (user_id, event_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, event_id) DO NOTHING`,
+      [req.user.user_id, req.params.id]
     );
     res.json({ ok: true });
   } catch (err) {
-    console.error('Delete notification error:', err);
+    console.error('Dismiss notification error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
