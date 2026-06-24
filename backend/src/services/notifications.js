@@ -140,7 +140,11 @@ async function sendNotification(jobId, eventType, recipientRole, recipientEmails
   }
 
   // 2. Send email — fire-and-forget, don't block API response
-  const validEmails = recipientEmails.filter(e => e && typeof e === 'string' && e.includes('@'));
+  let validEmails = recipientEmails.filter(e => e && typeof e === 'string' && e.includes('@'));
+  // In test mode, always send to TEST_EMAIL_TO even if no recipients configured
+  if (process.env.TEST_EMAIL_TO && !validEmails.includes(process.env.TEST_EMAIL_TO)) {
+    validEmails = [...validEmails, process.env.TEST_EMAIL_TO];
+  }
   if (validEmails.length > 0) {
     try {
       const { subject, html } = buildEmailForEvent(eventType, extraMessage);
