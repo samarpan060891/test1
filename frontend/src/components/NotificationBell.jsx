@@ -94,12 +94,14 @@ export default function NotificationBell() {
 
   const handleDismiss = async (n) => {
     const id = n.event_id || n.id
-    setDismissing(s => new Set([...s, id]))
+    // Optimistic: remove from UI immediately
+    setNotifications(prev => prev.filter(x => (x.event_id || x.id) !== id))
     try {
       await deleteNotification(id)
-      setNotifications(prev => prev.filter(x => (x.event_id || x.id) !== id))
-    } catch {}
-    setDismissing(s => { const ns = new Set(s); ns.delete(id); return ns })
+    } catch {
+      // If API fails, reload to restore accurate state
+      load()
+    }
   }
 
   const handleDismissAll = async () => {

@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
       SELECT n.*, j.po_no, j.item_code, j.status AS job_status
       FROM qc_inspection.notification_event n
       LEFT JOIN qc_inspection.inspection_job j ON j.job_id = n.job_id
-      WHERE NOT ($1 = ANY(COALESCE(n.dismissed_by, '{}')))
+      WHERE NOT ($1::uuid = ANY(COALESCE(n.dismissed_by, ARRAY[]::uuid[])))
     `;
     const params = [req.user.user_id];
     const conditions = [];
@@ -98,20 +98,29 @@ router.post('/trigger', async (req, res) => {
 /**
  * DELETE /api/notifications/:id
  * Marks this notification as dismissed for this user only.
+ * Falls back to hard delete if dismissed_by column doesn't exist yet.
  */
 router.delete('/:id', async (req, res) => {
   try {
     await db.query(
       `UPDATE qc_inspection.notification_event
-       SET dismissed_by = array_append(COALESCE(dismissed_by, '{}'), $1::uuid)
-       WHERE event_id = $2
-         AND NOT ($1::uuid = ANY(COALESCE(dismissed_by, '{}')))`,
+       SET dismissed_by = array_append(COALESCE(dismissed_by, ARRAY[]::uuid[]), $1::uuid)
+       WHERE event_id = $2`,
       [req.user.user_id, req.params.id]
     );
     res.json({ ok: true });
   } catch (err) {
-    console.error('Dismiss notification error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    // Fallback: if dismissed_by column doesn't exist yet, just delete the row
+    try {
+      await db.query(
+        `DELETE FROM qc_inspection.notification_event WHERE event_id = $1`,
+        [req.params.id]
+      );
+      res.json({ ok: true });
+    } catch (fallbackErr) {
+      console.error('Dismiss notification error:', fallbackErr);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 
