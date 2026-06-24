@@ -181,6 +181,39 @@ function AgencyBreakdown({ advices, t }) {
   )
 }
 
+const COUNTRY_FLAGS = {
+  'Afghanistan': '🇦🇫', 'Albania': '🇦🇱', 'Algeria': '🇩🇿', 'Argentina': '🇦🇷',
+  'Australia': '🇦🇺', 'Austria': '🇦🇹', 'Azerbaijan': '🇦🇿', 'Bangladesh': '🇧🇩',
+  'Belarus': '🇧🇾', 'Belgium': '🇧🇪', 'Bolivia': '🇧🇴', 'Brazil': '🇧🇷',
+  'Bulgaria': '🇧🇬', 'Cambodia': '🇰🇭', 'Canada': '🇨🇦', 'Chile': '🇨🇱',
+  'China': '🇨🇳', 'Colombia': '🇨🇴', 'Croatia': '🇭🇷', 'Czech Republic': '🇨🇿',
+  'Denmark': '🇩🇰', 'Ecuador': '🇪🇨', 'Egypt': '🇪🇬', 'Ethiopia': '🇪🇹',
+  'Finland': '🇫🇮', 'France': '🇫🇷', 'Germany': '🇩🇪', 'Ghana': '🇬🇭',
+  'Greece': '🇬🇷', 'Guatemala': '🇬🇹', 'Honduras': '🇭🇳', 'Hong Kong': '🇭🇰',
+  'Hungary': '🇭🇺', 'India': '🇮🇳', 'Indonesia': '🇮🇩', 'Iran': '🇮🇷',
+  'Iraq': '🇮🇶', 'Ireland': '🇮🇪', 'Israel': '🇮🇱', 'Italy': '🇮🇹',
+  'Japan': '🇯🇵', 'Jordan': '🇯🇴', 'Kazakhstan': '🇰🇿', 'Kenya': '🇰🇪',
+  'South Korea': '🇰🇷', 'Korea': '🇰🇷', 'Kuwait': '🇰🇼', 'Laos': '🇱🇦',
+  'Latvia': '🇱🇻', 'Lebanon': '🇱🇧', 'Libya': '🇱🇾', 'Lithuania': '🇱🇹',
+  'Malaysia': '🇲🇾', 'Mexico': '🇲🇽', 'Morocco': '🇲🇦', 'Myanmar': '🇲🇲',
+  'Nepal': '🇳🇵', 'Netherlands': '🇳🇱', 'New Zealand': '🇳🇿', 'Nigeria': '🇳🇬',
+  'Norway': '🇳🇴', 'Oman': '🇴🇲', 'Pakistan': '🇵🇰', 'Peru': '🇵🇪',
+  'Philippines': '🇵🇭', 'Poland': '🇵🇱', 'Portugal': '🇵🇹', 'Qatar': '🇶🇦',
+  'Romania': '🇷🇴', 'Russia': '🇷🇺', 'Saudi Arabia': '🇸🇦', 'Serbia': '🇷🇸',
+  'Singapore': '🇸🇬', 'Slovakia': '🇸🇰', 'South Africa': '🇿🇦', 'Spain': '🇪🇸',
+  'Sri Lanka': '🇱🇰', 'Sweden': '🇸🇪', 'Switzerland': '🇨🇭', 'Taiwan': '🇹🇼',
+  'Tanzania': '🇹🇿', 'Thailand': '🇹🇭', 'Tunisia': '🇹🇳', 'Turkey': '🇹🇷',
+  'Türkiye': '🇹🇷', 'Uganda': '🇺🇬', 'Ukraine': '🇺🇦', 'United Arab Emirates': '🇦🇪',
+  'UAE': '🇦🇪', 'United Kingdom': '🇬🇧', 'UK': '🇬🇧', 'United States': '🇺🇸',
+  'USA': '🇺🇸', 'Uruguay': '🇺🇾', 'Uzbekistan': '🇺🇿', 'Venezuela': '🇻🇪',
+  'Vietnam': '🇻🇳', 'Viet Nam': '🇻🇳', 'Yemen': '🇾🇪', 'Zimbabwe': '🇿🇼',
+}
+
+function countryFlag(name) {
+  if (!name || name === '—') return '🌐'
+  return COUNTRY_FLAGS[name] || COUNTRY_FLAGS[name.trim()] || '🌐'
+}
+
 function CountryBreakdown({ jobs, t }) {
   const byCountry = {}
   jobs.forEach(j => {
@@ -207,7 +240,7 @@ function CountryBreakdown({ jobs, t }) {
           return (
             <div key={r.country} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
               <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>🌍</span>
+                <span style={{ fontSize: '22px', lineHeight: 1 }}>{countryFlag(r.country)}</span>
                 {r.country}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -427,6 +460,11 @@ export default function DashboardPage() {
           })}
         </div>
 
+        {/* Country-Wise Breakdown */}
+        {!loading && jobs.length > 0 && (
+          <CountryBreakdown jobs={jobs} t={t} />
+        )}
+
         {/* Main layout */}
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           {/* Jobs table */}
@@ -579,11 +617,6 @@ export default function DashboardPage() {
         {/* Agency Inspection Breakdown */}
         {!loading && advices.length > 0 && (
           <AgencyBreakdown advices={advices} t={t} />
-        )}
-
-        {/* Country-Wise Breakdown */}
-        {!loading && jobs.length > 0 && (
-          <CountryBreakdown jobs={jobs} t={t} />
         )}
       </div>
     </div>
