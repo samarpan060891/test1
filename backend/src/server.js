@@ -125,15 +125,31 @@ async function runMigrations() {
     'notification_event dismissed_by col'
   );
 
-  // 011a: deduplicate checklist items (keep only one row per template+sort_order)
+  // 011a: nuclear clean of the 4 new templates then re-insert — runs only once via version guard
   await safeQuery(`
-    DELETE FROM qc_inspection.checklist_item a
-    USING qc_inspection.checklist_item b
-    WHERE a.template_id = b.template_id
-      AND a.sort_order = b.sort_order
-      AND a.checkpoint_text = b.checkpoint_text
-      AND a.ctid > b.ctid
-  `, 'deduplicate checklist items');
+    CREATE TABLE IF NOT EXISTS qc_inspection._migration_flags (flag TEXT PRIMARY KEY)
+  `, 'migration flags table');
+
+  try {
+    const flagged = await db.query(
+      `SELECT 1 FROM qc_inspection._migration_flags WHERE flag = 'dedup_new_templates_v2'`
+    );
+    if (flagged.rows.length === 0) {
+      await db.query(`
+        DELETE FROM qc_inspection.checklist_item
+        WHERE template_id IN (
+          'aaaaaaaa-0001-0001-0001-000000000010'::uuid,
+          'aaaaaaaa-0001-0001-0001-000000000011'::uuid,
+          'aaaaaaaa-0001-0001-0001-000000000012'::uuid,
+          'aaaaaaaa-0001-0001-0001-000000000013'::uuid
+        )
+      `);
+      await db.query(`INSERT INTO qc_inspection._migration_flags VALUES ('dedup_new_templates_v2')`);
+      console.log('✅ [MIGRATION] Cleared duplicate checklist items for new templates');
+    }
+  } catch (err) {
+    console.error('⚠️  [MIGRATION] dedup_new_templates_v2 failed:', err.message);
+  }
 
   // 011: checklist templates for new item categories
   await safeQuery(`
