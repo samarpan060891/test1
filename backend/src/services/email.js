@@ -1,65 +1,49 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-let transporter = null;
+let resendClient = null;
 
-function getTransporter() {
-  if (transporter) return transporter;
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return null;
-  transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    requireTLS: true,
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-    tls: { rejectUnauthorized: false },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-  });
-  return transporter;
+function getResend() {
+  if (resendClient) return resendClient;
+  if (!process.env.RESEND_API_KEY) return null;
+  resendClient = new Resend(process.env.RESEND_API_KEY);
+  return resendClient;
 }
 
-/**
- * Send an email.
- * In test mode (TEST_EMAIL_TO set), all emails are redirected to that address.
- *
- * @param {{ to: string|string[], subject: string, html: string, text?: string }} opts
- */
-async function sendEmail({ to, subject, html, text }) {
+async function sendEmail({ to, subject, html }) {
   console.log(`📧 [EMAIL ATTEMPT] To: ${to} | Subject: ${subject}`);
-  console.log(`📧 [EMAIL ENV] GMAIL_USER=${process.env.GMAIL_USER || 'NOT SET'} | TEST_EMAIL_TO=${process.env.TEST_EMAIL_TO || 'NOT SET'} | APP_PASSWORD=${process.env.GMAIL_APP_PASSWORD ? 'SET' : 'NOT SET'}`);
-  const transport = getTransporter();
-  if (!transport) {
-    console.log(`📧 [EMAIL SKIPPED — no credentials] To: ${to} | Subject: ${subject}`);
+  const client = getResend();
+  if (!client) {
+    console.log(`📧 [EMAIL SKIPPED — no RESEND_API_KEY]`);
     return;
   }
 
-  const recipient = process.env.TEST_EMAIL_TO || (Array.isArray(to) ? to.join(',') : to);
+  const recipients = process.env.TEST_EMAIL_TO
+    ? [process.env.TEST_EMAIL_TO]
+    : (Array.isArray(to) ? to : [to]);
+
   const testBanner = process.env.TEST_EMAIL_TO
     ? `<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:10px 14px;margin-bottom:20px;font-size:12px;color:#92400e;">
         <strong>🧪 TEST MODE</strong> — Original recipient: <code>${Array.isArray(to) ? to.join(', ') : to}</code>
        </div>`
     : '';
 
-  let info;
   try {
-    info = await transport.sendMail({
-      from: `"QC Inspection Portal" <${process.env.GMAIL_USER}>`,
-      to: recipient,
+    const { data, error } = await client.emails.send({
+      from: 'QC Inspection Portal <onboarding@resend.dev>',
+      to: recipients,
       subject: process.env.TEST_EMAIL_TO ? `[TEST] ${subject}` : subject,
       html: testBanner + html,
-      text: text || '',
     });
-    console.log(`📧 [EMAIL SENT] To: ${recipient} | Subject: ${subject} | MsgId: ${info.messageId}`);
+    if (error) {
+      console.error(`📧 [EMAIL FAILED] ${subject} | Error: ${JSON.stringify(error)}`);
+      throw new Error(error.message);
+    }
+    console.log(`📧 [EMAIL SENT] To: ${recipients.join(',')} | Subject: ${subject} | Id: ${data?.id}`);
+    return data;
   } catch (err) {
-    console.error(`📧 [EMAIL FAILED] To: ${recipient} | Subject: ${subject}`);
-    console.error(`📧 [EMAIL FAILED] Code: ${err.code} | Response: ${err.response} | Message: ${err.message}`);
+    console.error(`📧 [EMAIL FAILED] ${subject} | ${err.message}`);
     throw err;
   }
-  return info;
 }
 
 // ─── Email templates ────────────────────────────────────────────────────────
