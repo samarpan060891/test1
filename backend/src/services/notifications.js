@@ -148,9 +148,9 @@ async function sendNotification(jobId, eventType, recipientRole, recipientEmails
   if (validEmails.length > 0) {
     try {
       const { subject, html } = buildEmailForEvent(eventType, extraMessage);
-      sendEmail({ to: validEmails, subject, html }).catch(err =>
-        console.error(`[EMAIL ERROR] ${eventType} → ${recipientRole}:`, err.message)
-      );
+      sendEmail({ to: validEmails, subject, html })
+        .then(() => console.log(`[EMAIL SUCCESS] ${eventType} → ${recipientRole}`))
+        .catch(err => console.error(`[EMAIL ERROR] ${eventType} → ${recipientRole}:`, err.message, err.code, err.response));
     } catch (err) {
       console.error(`[EMAIL BUILD ERROR] ${eventType}:`, err.message);
     }
