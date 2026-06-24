@@ -37,7 +37,20 @@ router.get('/', async (req, res) => {
       query += ' AND ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY n.sent_at DESC';
+    if (req.user.role === 'admin') {
+      // Deduplicate: one notification per (job_id, advice_id, event_type) — pick the latest
+      query = `SELECT * FROM (
+        SELECT DISTINCT ON (COALESCE(n.job_id::text,''), COALESCE(n.advice_id::text,''), n.event_type)
+          n.*, j.po_no, j.item_code, j.status AS job_status
+        FROM qc_inspection.notification_event n
+        LEFT JOIN qc_inspection.inspection_job j ON j.job_id = n.job_id
+        WHERE NOT ($1::uuid = ANY(COALESCE(n.dismissed_by, ARRAY[]::uuid[])))
+        ${job_id ? `AND n.job_id = $2` : ''}
+        ORDER BY COALESCE(n.job_id::text,''), COALESCE(n.advice_id::text,''), n.event_type, n.sent_at DESC
+      ) deduped ORDER BY sent_at DESC`;
+    } else {
+      query += ' ORDER BY n.sent_at DESC';
+    }
 
     const result = await db.query(query, params);
     res.json(result.rows);
