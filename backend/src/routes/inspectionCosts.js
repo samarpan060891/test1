@@ -294,6 +294,7 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
       amt: parseFloat(advice.total_cost).toFixed(2),
       currency: advice.currency,
       approved_by: approverName,
+      notes: notes || null,
       ...extra,
     });
 

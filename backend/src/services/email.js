@@ -243,7 +243,7 @@ function emailChargesSubmitted({ adviceRef, agencyName, totalCost, currency, job
   };
 }
 
-function emailChargesApproved({ adviceRef, agencyName, totalCost, currency, approvedBy, nextStep }) {
+function emailChargesApproved({ adviceRef, agencyName, totalCost, currency, approvedBy, nextStep, notes }) {
   return {
     subject: `Charges Approved — ${adviceRef}`,
     html: layout('Inspection Charges Approved', `
@@ -257,6 +257,10 @@ function emailChargesApproved({ adviceRef, agencyName, totalCost, currency, appr
         ['Total Amount', `<strong>${currency || 'USD'} ${parseFloat(totalCost || 0).toFixed(2)}</strong>`],
         ['Approved By', approvedBy || '—'],
       ])}
+      ${notes ? `<div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#15803d;">Remarks:</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${notes}</p>
+      </div>` : ''}
       ${ctaButton('View Charges →', `${APP_URL}`)}
     `),
   };

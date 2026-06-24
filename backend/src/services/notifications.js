@@ -89,6 +89,7 @@ function buildEmailForEvent(eventType, extraMessage) {
         totalCost: data.amt,
         currency: data.currency,
         approvedBy: data.approved_by,
+        notes: data.notes,
         nextStep: eventType === 'CHARGES_QA_APPROVED' ? 'Pending Buying approval'
           : eventType === 'CHARGES_BUYING_APPROVED' ? 'Pending Imports approval'
           : eventType === 'CHARGES_IMPORTS_APPROVED' ? 'Pending Accounts payment'
