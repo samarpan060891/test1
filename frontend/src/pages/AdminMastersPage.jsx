@@ -134,6 +134,26 @@ export default function AdminMastersPage() {
       }))
     : rows
 
+  const downloadData = () => {
+    const data = filteredRows.map(row =>
+      Object.fromEntries(cfg.fields.map(f => [f.label, row[f.key] ?? '']))
+    )
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, activeTab)
+    XLSX.writeFile(wb, `${activeTab}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const downloadTemplate = () => {
+    const headers = Object.fromEntries(cfg.fields.map(f => [f.key, '']))
+    const example = Object.fromEntries(cfg.fields.map(f => [f.key, f.placeholder || '']))
+    const ws = XLSX.utils.json_to_sheet([headers, example])
+    // Bold the header row comment
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Template')
+    XLSX.writeFile(wb, `${activeTab}_bulk_template.xlsx`)
+  }
+
   return (
     <div className="page">
       <Navbar />
@@ -191,10 +211,24 @@ export default function AdminMastersPage() {
             {/* Bulk Upload */}
             <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
               <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: '700', color: '#111827' }}>{t('admin_bulk_upload') || 'Bulk Upload'}</h3>
-              <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#6b7280' }}>
-                Upload a CSV or Excel file. First row must be headers matching:<br />
-                <code style={{ fontSize: '11px', color: '#374151' }}>{colKeys.join(', ')}</code>
+              <p style={{ margin: '0 0 4px', fontSize: '12px', color: '#6b7280' }}>
+                {t('masters_bulk_instructions') || 'Upload a CSV or Excel file. First row must be headers matching:'}
               </p>
+              <code style={{ fontSize: '11px', color: '#374151', display: 'block', marginBottom: '10px', wordBreak: 'break-all' }}>{colKeys.join(', ')}</code>
+
+              {/* Download blank template */}
+              <button
+                onClick={downloadTemplate}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '5px', width: '100%', justifyContent: 'center',
+                  padding: '7px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600',
+                  backgroundColor: '#eff6ff', color: '#1d4ed8',
+                  border: '1px solid #bfdbfe', cursor: 'pointer', marginBottom: '8px',
+                }}
+              >
+                📄 {t('masters_download_template') || 'Download Blank Template'}
+              </button>
+
               <input
                 ref={fileRef}
                 type="file"
@@ -212,16 +246,32 @@ export default function AdminMastersPage() {
                 {bulkLoading ? t('common_saving') : (t('admin_bulk_select') || 'Click to select CSV / Excel file')}
               </label>
               {bulkMsg && (
-                <p style={{ margin: '10px 0 0', fontSize: '13px', color: bulkMsg.includes('success') ? '#059669' : '#dc2626' }}>{bulkMsg}</p>
+                <p style={{ margin: '10px 0 0', fontSize: '13px', color: bulkMsg.includes('Inserted') || bulkMsg.includes('success') ? '#059669' : '#dc2626' }}>{bulkMsg}</p>
               )}
             </div>
           </div>
 
           {/* Right: Table */}
           <div style={{ backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>{activeTab}</span>
-              <span style={{ fontSize: '13px', color: '#6b7280' }}>{rows.length} records</span>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>{activeTab}</span>
+                <span style={{ fontSize: '12px', color: '#94a3b8' }}>{filteredRows.length}{hasActiveMasterFilter ? ` of ${rows.length}` : ''} {t('common_records')}</span>
+              </div>
+              <button
+                onClick={downloadData}
+                disabled={rows.length === 0}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: '600',
+                  backgroundColor: rows.length === 0 ? '#f1f5f9' : '#f0fdf4',
+                  color: rows.length === 0 ? '#94a3b8' : '#15803d',
+                  border: `1px solid ${rows.length === 0 ? '#e2e8f0' : '#86efac'}`,
+                  cursor: rows.length === 0 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                ⬇ {t('common_download') || 'Download Data'}
+              </button>
             </div>
             {loading ? (
               <p style={{ padding: '24px', color: '#6b7280', fontSize: '14px' }}>{t('common_loading')}</p>
