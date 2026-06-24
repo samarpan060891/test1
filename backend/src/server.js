@@ -125,6 +125,37 @@ async function runMigrations() {
     'notification_event dismissed_by col'
   );
 
+  // 011: new items and POs for testing
+  await safeQuery(`
+    INSERT INTO qc_inspection.item_master (item_code, name, category, sub_category, description) VALUES
+      ('ITM-011', 'Rattan Coffee Table',          'Furniture',  'Living Room',          'Natural rattan, round, 90cm diameter'),
+      ('ITM-012', 'Velvet Accent Chair',           'Furniture',  'Upholstered Seating',  'Teal velvet, gold legs, single seater'),
+      ('ITM-013', 'Ceramic Vase Set 3pcs',         'Household',  'Décor',                'Matte white, varying heights'),
+      ('ITM-014', 'Linen Bed Sheet Set King',      'Household',  'Soft Furnishings',     '100% linen, stone wash, king size'),
+      ('ITM-015', 'Wooden Wall Shelf 3-tier',      'Furniture',  'Storage & Organisation','Pine wood, floating, 120cm wide'),
+      ('ITM-016', 'Glass Pendant Light',           'Household',  'Lighting',             'Amber glass shade, E27 fitting'),
+      ('ITM-017', 'Outdoor Garden Chair',          'Furniture',  'Outdoor',              'Powder coated steel, stackable'),
+      ('ITM-018', 'Woven Storage Ottoman',         'Furniture',  'Living Room',          'Seagrass weave, hinged lid, grey'),
+      ('ITM-019', 'Non-stick Frying Pan Set',      'Household',  'Cookware',             '3-piece, granite coating, induction safe'),
+      ('ITM-020', 'Bathroom Accessory Set 5pcs',   'Household',  'Bathroom',             'Matte black, soap dispenser, tumbler, etc')
+    ON CONFLICT (item_code) DO NOTHING
+  `, 'new items ITM-011 to ITM-020');
+
+  await safeQuery(`
+    INSERT INTO qc_inspection.po_master (po_no, supplier_code, item_code, quantity, unit_price, order_date, status) VALUES
+      ('PO-2026-021', 'SUP-005', 'ITM-011', 180,  42.00, '2026-06-01', 'open'),
+      ('PO-2026-022', 'SUP-001', 'ITM-012', 120,  78.50, '2026-06-02', 'open'),
+      ('PO-2026-023', 'SUP-003', 'ITM-013', 600,  14.00, '2026-06-03', 'open'),
+      ('PO-2026-024', 'SUP-002', 'ITM-014', 400,  29.90, '2026-06-04', 'open'),
+      ('PO-2026-025', 'SUP-004', 'ITM-015', 200,  36.00, '2026-06-05', 'open'),
+      ('PO-2026-026', 'SUP-001', 'ITM-016', 300,  55.00, '2026-06-06', 'open'),
+      ('PO-2026-027', 'SUP-005', 'ITM-017', 250,  48.00, '2026-06-07', 'open'),
+      ('PO-2026-028', 'SUP-003', 'ITM-018', 350,  33.50, '2026-06-08', 'open'),
+      ('PO-2026-029', 'SUP-002', 'ITM-019', 500,  22.00, '2026-06-09', 'open'),
+      ('PO-2026-030', 'SUP-004', 'ITM-020', 280,  19.75, '2026-06-10', 'open')
+    ON CONFLICT (po_no) DO NOTHING
+  `, 'new POs PO-2026-021 to PO-2026-030');
+
   console.log('✅ Migrations applied');
 }
 
