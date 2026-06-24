@@ -43,7 +43,7 @@ export default function NotificationBell() {
       // Detect new notifications and fire browser notification
       if (prevIdsRef.current !== null) {
         const prevIds = prevIdsRef.current
-        const newItems = items.filter(n => !prevIds.has(String(n.notification_id || n.id)))
+        const newItems = items.filter(n => !prevIds.has(String(n.event_id || n.id)))
         if (newItems.length > 0 && 'Notification' in window) {
           if (Notification.permission === 'granted') {
             newItems.forEach(n => {
@@ -66,7 +66,7 @@ export default function NotificationBell() {
           }
         }
       }
-      prevIdsRef.current = new Set(items.map(n => String(n.notification_id || n.id)))
+      prevIdsRef.current = new Set(items.map(n => String(n.event_id || n.id)))
     } catch {}
   }, [t])
 
@@ -93,7 +93,7 @@ export default function NotificationBell() {
   }, [open])
 
   const handleDismiss = async (n) => {
-    const id = n.notification_id || n.id
+    const id = n.event_id || n.id
     setDismissing(s => new Set([...s, id]))
     try {
       await deleteNotification(id)
@@ -106,7 +106,7 @@ export default function NotificationBell() {
     const all = [...notifications]
     setNotifications([])
     for (const n of all) {
-      try { await deleteNotification(n.notification_id || n.id) } catch {}
+      try { await deleteNotification(n.event_id || n.id) } catch {}
     }
   }
 
@@ -229,7 +229,7 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map((n) => {
-                const id = n.notification_id || n.id
+                const id = n.event_id || n.id
                 const msg = buildMessage(n, t)
                 const isDismissing = dismissing.has(id)
                 return (

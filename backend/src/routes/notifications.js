@@ -106,7 +106,7 @@ router.post('/trigger', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     await db.query(
-      'DELETE FROM qc_inspection.notification_event WHERE notification_id = $1',
+      'DELETE FROM qc_inspection.notification_event WHERE event_id = $1',
       [req.params.id]
     );
     res.json({ ok: true });
