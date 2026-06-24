@@ -11,7 +11,7 @@ router.use(authenticate);
  * Returns notifications for this user's role that they haven't dismissed.
  */
 router.get('/', async (req, res) => {
-  const { job_id, limit = 50, offset = 0 } = req.query;
+  const { job_id } = req.query;
 
   try {
     let query = `
@@ -38,12 +38,6 @@ router.get('/', async (req, res) => {
     }
 
     query += ' ORDER BY n.sent_at DESC';
-
-    params.push(parseInt(limit));
-    query += ` LIMIT $${params.length}`;
-
-    params.push(parseInt(offset));
-    query += ` OFFSET $${params.length}`;
 
     const result = await db.query(query, params);
     res.json(result.rows);
