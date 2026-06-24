@@ -194,9 +194,10 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
     await client.query('BEGIN');
 
     const poResult = await client.query(
-      `SELECT p.*, i.category, i.sub_category, i.name AS item_name
+      `SELECT p.*, i.category, i.sub_category, i.name AS item_name, s.name AS supplier_name
        FROM qc_inspection.po_master p
        JOIN qc_inspection.item_master i ON i.item_code = p.item_code
+       JOIN qc_inspection.supplier_master s ON s.supplier_code = p.supplier_code
        WHERE p.po_no = $1`,
       [po_no]
     );
@@ -266,7 +267,16 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
     const stagesSummary = stages.length > 1
       ? `${stages.length} stages (${stages.map(s => s.replace('_', ' ')).join(', ')})`
       : stages[0].replace('_', ' ') + ' stage';
-    const msg = JSON.stringify({ key: 'JOB_MAPPED_EXTERNAL', po_no, stages: stagesSummary, date: inspection_date });
+    const msg = JSON.stringify({
+      key: 'JOB_MAPPED_EXTERNAL',
+      job_ref: createdJobs[0].job_ref || null,
+      po_no,
+      item_name: po.item_name,
+      supplier_name: po.supplier_name,
+      agency_name: inspection_type === 'agency' ? (agencyResult.rows[0].name || agency_code) : null,
+      stages: stagesSummary,
+      inspection_date,
+    });
     for (const [role, emails] of Object.entries(stakeMap)) {
       sendNotification(firstJobId, 'JOB_MAPPED', role, emails, msg);
     }
