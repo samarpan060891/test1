@@ -135,10 +135,6 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
               {template.status}
             </span>
           </div>
-          <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>
-            Version {template.version || 1} · {expanded ? items.length : (template.item_count ?? '?')} item{(expanded ? items.length : template.item_count) !== 1 ? 's' : ''}
-            · ID: <code style={{ fontFamily: 'monospace' }}>{templateId ? String(templateId).slice(0, 8) + '...' : 'N/A'}</code>
-          </p>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
