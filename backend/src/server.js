@@ -125,6 +125,16 @@ async function runMigrations() {
     'notification_event dismissed_by col'
   );
 
+  // 011a: deduplicate checklist items (keep only one row per template+sort_order)
+  await safeQuery(`
+    DELETE FROM qc_inspection.checklist_item
+    WHERE item_id NOT IN (
+      SELECT MIN(item_id)
+      FROM qc_inspection.checklist_item
+      GROUP BY template_id, sort_order
+    )
+  `, 'deduplicate checklist items');
+
   // 011: checklist templates for new item categories
   await safeQuery(`
     INSERT INTO qc_inspection.checklist_template (template_id, category, sub_category, name, version, status) VALUES

@@ -481,14 +481,39 @@ export default function ChecklistTemplatesPage() {
   const draftTemplates = templates.filter(t => t.status === 'draft')
   const otherTemplates = templates.filter(t => t.status !== 'active' && t.status !== 'draft')
 
+  const [activeCategory, setActiveCategory] = useState('Furniture')
+
   const renderSection = (title, list, color) => {
     if (list.length === 0) return null
+    const categories = [...new Set(list.map(t => t.category).filter(Boolean))].sort()
+    const filtered = list.filter(t => t.category === activeCategory)
     return (
       <div style={{ marginBottom: '28px' }}>
         <h2 style={{ fontSize: '14px', fontWeight: '700', color, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
           {title} ({list.length})
         </h2>
-        {list.map(t => (
+        {/* Category tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              style={{
+                padding: '7px 18px',
+                borderRadius: '8px',
+                border: activeCategory === cat ? '2px solid #1e40af' : '1px solid #d1d5db',
+                background: activeCategory === cat ? '#eff6ff' : '#fff',
+                color: activeCategory === cat ? '#1e40af' : '#374151',
+                fontWeight: activeCategory === cat ? '700' : '500',
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              {cat} ({list.filter(t => t.category === cat).length})
+            </button>
+          ))}
+        </div>
+        {filtered.map(t => (
           <TemplateCard
             key={t.template_id || t.checklist_template_id || t.id}
             template={t}
