@@ -85,98 +85,67 @@ function AgencyBreakdown({ advices, t }) {
     }
     byAgency[a.agency_code].advices.push(a)
   })
-  const agencies = Object.values(byAgency)
+  const agencies = Object.values(byAgency).sort((a, b) => {
+    const aJobs = a.advices.flatMap(x => x.jobs || []).length
+    const bJobs = b.advices.flatMap(x => x.jobs || []).length
+    return bJobs - aJobs
+  })
   if (agencies.length === 0) return null
 
   return (
     <div className="card" style={{ marginTop: '16px' }}>
       <div className="card-header">
         <h2 className="section-title">{t('costs_agency_breakdown')}</h2>
+        <span style={{ fontSize: '12px', color: '#94a3b8' }}>{agencies.length} agencies</span>
       </div>
-      {agencies.map(ag => {
-        const allJobs = ag.advices.flatMap(a =>
-          (a.jobs || []).map(j => ({ ...j, adviceStatus: a.status, totalCost: a.total_cost, poValue: a.po_value, currency: a.currency }))
-        )
-        const finished = allJobs.filter(j => j.status === 'qa_approved' || j.status === 'qa_rejected').length
-        const finalStatuses = ['paid', 'pending_imports', 'pending_accounts', 'approved']
-        const totalCharges = ag.advices.filter(a => finalStatuses.includes(a.status)).reduce((s, a) => s + parseFloat(a.total_cost || 0), 0)
-        const totalPoValue = ag.advices.filter(a => finalStatuses.includes(a.status)).reduce((s, a) => s + parseFloat(a.po_value || 0), 0)
-        const pct = totalPoValue > 0 ? ((totalCharges / totalPoValue) * 100).toFixed(2) : null
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px', padding: '16px 24px 20px' }}>
+        {agencies.map(ag => {
+          const allJobs = ag.advices.flatMap(a =>
+            (a.jobs || []).map(j => ({ ...j, adviceStatus: a.status, totalCost: a.total_cost, poValue: a.po_value, currency: a.currency }))
+          )
+          const finished = allJobs.filter(j => j.status === 'qa_approved' || j.status === 'qa_rejected').length
+          const finalStatuses = ['paid', 'pending_imports', 'pending_accounts', 'approved']
+          const totalCharges = ag.advices.filter(a => finalStatuses.includes(a.status)).reduce((s, a) => s + parseFloat(a.total_cost || 0), 0)
+          const totalPoValue = ag.advices.filter(a => finalStatuses.includes(a.status)).reduce((s, a) => s + parseFloat(a.po_value || 0), 0)
+          const pct = totalPoValue > 0 ? ((totalCharges / totalPoValue) * 100).toFixed(2) : null
+          const pctColor = pct > 5 ? '#dc2626' : pct > 3 ? '#d97706' : '#15803d'
 
-        return (
-          <div key={ag.agency_code} style={{ borderBottom: '1px solid #f1f5f9' }}>
-            {/* Agency header */}
-            <div style={{ padding: '14px 24px', background: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#FEF0EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: '#E8470F' }}>
+          return (
+            <div key={ag.agency_code} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
+              {/* Agency header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FEF0EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '800', color: '#E8470F', flexShrink: 0 }}>
                   {ag.agency_name?.charAt(0)}
                 </div>
-                <div>
-                  <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>{ag.agency_name}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ag.agency_name}</div>
                   <div style={{ fontSize: '11px', color: '#94a3b8' }}>{ag.agency_code}</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>{allJobs.length}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('costs_allocated')}</div>
+
+              {/* Stats grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ textAlign: 'center', background: '#fff', borderRadius: '6px', padding: '8px 4px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{allJobs.length}</div>
+                  <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>{t('costs_allocated')}</div>
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: '#15803d' }}>{finished}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('costs_finished')}</div>
+                <div style={{ textAlign: 'center', background: '#fff', borderRadius: '6px', padding: '8px 4px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '800', color: '#15803d' }}>{finished}</div>
+                  <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>{t('costs_finished')}</div>
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: '#E8470F' }}>{fmt(totalCharges, ag.currency)}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('costs_total_charges_col')}</div>
+                <div style={{ textAlign: 'center', background: '#FEF0EB', borderRadius: '6px', padding: '6px 4px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#E8470F' }}>{fmt(totalCharges, ag.currency)}</div>
+                  <div style={{ fontSize: '10px', color: '#E8470F', fontWeight: '600', textTransform: 'uppercase' }}>{t('costs_total_charges_col')}</div>
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: pct > 5 ? '#dc2626' : pct > 3 ? '#d97706' : '#15803d' }}>
-                    {pct != null ? `${pct}%` : '—'}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('col_pct_to_po')}</div>
+                <div style={{ textAlign: 'center', background: pct != null ? (pct > 5 ? '#fef2f2' : pct > 3 ? '#fefce8' : '#f0fdf4') : '#f8fafc', borderRadius: '6px', padding: '6px 4px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: pct != null ? pctColor : '#94a3b8' }}>{pct != null ? `${pct}%` : '—'}</div>
+                  <div style={{ fontSize: '10px', color: pct != null ? pctColor : '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>{t('col_pct_to_po')}</div>
                 </div>
               </div>
             </div>
-            {/* Jobs table */}
-            {allJobs.length > 0 && (
-              <div className="table-wrap" style={{ padding: '0 8px 8px' }}>
-                <table className="data-table" style={{ fontSize: '12px' }}>
-                  <thead>
-                    <tr>
-                      {[t('col_job_ref'), t('col_po_no'), t('col_item'), t('col_insp_date'), t('col_result'), t('col_charges'), t('col_pct_to_po')].map(h => (
-                        <th key={h} style={{ fontSize: '11px' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allJobs.map((j, idx) => {
-                      const sm = JOB_RESULT_LABEL[j.status] || { key: null, color: '#94a3b8', bg: '#f1f5f9' }
-                      const jobPct = j.poValue > 0 ? ((parseFloat(j.totalCost) / parseFloat(j.poValue)) * 100).toFixed(2) : null
-                      return (
-                        <tr key={j.job_id || idx}>
-                          <td style={{ fontWeight: '700', color: '#E8470F' }}>{j.job_ref || j.job_id?.slice(0, 8) || '—'}</td>
-                          <td>{j.po_no || '—'}</td>
-                          <td style={{ color: '#64748b' }}>{j.item_name || '—'}</td>
-                          <td style={{ color: '#64748b' }}>{j.inspection_date ? new Date(j.inspection_date).toLocaleDateString() : '—'}</td>
-                          <td>
-                            <span style={{ background: sm.bg, color: sm.color, padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>
-                              {sm.key ? t(sm.key) : j.status}
-                            </span>
-                          </td>
-                          <td style={{ fontWeight: '600', color: '#0f172a' }}>{fmt(j.totalCost, j.currency)}</td>
-                          <td style={{ fontWeight: '700', color: jobPct > 5 ? '#dc2626' : jobPct > 3 ? '#d97706' : '#15803d' }}>
-                            {jobPct != null ? `${jobPct}%` : '—'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
