@@ -65,6 +65,7 @@ router.get('/', async (req, res) => {
         i.category,
         i.sub_category,
         s.name AS supplier_name,
+        s.country AS supplier_country,
         a.name AS agency_name,
         p.quantity,
         p.unit_price,

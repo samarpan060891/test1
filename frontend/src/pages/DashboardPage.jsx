@@ -181,6 +181,66 @@ function AgencyBreakdown({ advices, t }) {
   )
 }
 
+function CountryBreakdown({ jobs, t }) {
+  const byCountry = {}
+  jobs.forEach(j => {
+    const country = j.supplier_country || '—'
+    if (!byCountry[country]) byCountry[country] = { country, total: 0, approved: 0, rejected: 0, pending: 0 }
+    byCountry[country].total++
+    if (j.status === 'qa_approved') byCountry[country].approved++
+    else if (j.status === 'qa_rejected') byCountry[country].rejected++
+    else byCountry[country].pending++
+  })
+  const rows = Object.values(byCountry).sort((a, b) => b.total - a.total)
+  if (rows.length === 0) return null
+
+  return (
+    <div className="card" style={{ marginTop: '16px' }}>
+      <div className="card-header">
+        <h2 className="section-title">{t('dashboard_country_breakdown')}</h2>
+        <span style={{ fontSize: '12px', color: '#94a3b8' }}>{rows.length} {t('col_country').toLowerCase()}s</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', padding: '16px 24px 20px' }}>
+        {rows.map(r => {
+          const passRate = r.total > 0 ? ((r.approved / r.total) * 100).toFixed(0) : null
+          const rateColor = passRate >= 80 ? '#15803d' : passRate >= 50 ? '#d97706' : '#dc2626'
+          return (
+            <div key={r.country} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
+              <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🌍</span>
+                {r.country}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ textAlign: 'center', background: '#fff', borderRadius: '6px', padding: '8px 4px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{r.total}</div>
+                  <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>{t('country_total_jobs')}</div>
+                </div>
+                <div style={{ textAlign: 'center', background: '#fff', borderRadius: '6px', padding: '8px 4px' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '800', color: rateColor }}>{passRate != null ? `${passRate}%` : '—'}</div>
+                  <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>{t('country_pass_rate')}</div>
+                </div>
+                <div style={{ textAlign: 'center', background: '#f0fdf4', borderRadius: '6px', padding: '6px 4px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: '#15803d' }}>{r.approved}</div>
+                  <div style={{ fontSize: '10px', color: '#15803d', fontWeight: '600', textTransform: 'uppercase' }}>{t('country_approved')}</div>
+                </div>
+                <div style={{ textAlign: 'center', background: '#fef2f2', borderRadius: '6px', padding: '6px 4px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: '#dc2626' }}>{r.rejected}</div>
+                  <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: '600', textTransform: 'uppercase' }}>{t('country_rejected')}</div>
+                </div>
+              </div>
+              {r.pending > 0 && (
+                <div style={{ marginTop: '8px', textAlign: 'center', background: '#fefce8', borderRadius: '6px', padding: '5px 4px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#92400e' }}>{r.pending} {t('country_pending')}</span>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
@@ -519,6 +579,11 @@ export default function DashboardPage() {
         {/* Agency Inspection Breakdown */}
         {!loading && advices.length > 0 && (
           <AgencyBreakdown advices={advices} t={t} />
+        )}
+
+        {/* Country-Wise Breakdown */}
+        {!loading && jobs.length > 0 && (
+          <CountryBreakdown jobs={jobs} t={t} />
         )}
       </div>
     </div>
