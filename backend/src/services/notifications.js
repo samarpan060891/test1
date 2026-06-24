@@ -56,6 +56,8 @@ function buildEmailForEvent(eventType, extraMessage) {
         itemName: data.item_name || '—',
         supplierName: data.supplier_name || '—',
         reviewerName: data.reviewer_name,
+        jobId: data.job_id,
+        remarks: data.remarks,
       });
     case 'QA_REJECTED':
       return emailQARejected({
@@ -65,6 +67,7 @@ function buildEmailForEvent(eventType, extraMessage) {
         supplierName: data.supplier_name || '—',
         reviewerName: data.reviewer_name,
         remarks: data.remarks,
+        jobId: data.job_id,
       });
     case 'CHARGES_SUBMITTED':
       return emailChargesSubmitted({

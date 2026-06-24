@@ -439,8 +439,23 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
 
     // Notify agency + supplier + buying
     const eventType = outcome === 'approved' ? 'QA_APPROVED' : 'QA_REJECTED';
-    const msgKey = outcome === 'approved' ? 'QA_APPROVED_EXTERNAL' : 'QA_REJECTED_EXTERNAL';
-    const msg = JSON.stringify({ key: msgKey, po_no: job.po_no, remarks: remarks || '' });
+    const jobDetail2 = await db.query(
+      `SELECT j.job_ref, i.name AS item_name, s.name AS supplier_name
+       FROM qc_inspection.inspection_job j
+       JOIN qc_inspection.item_master i ON i.item_code = j.item_code
+       JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+       WHERE j.job_id = $1`, [job.job_id]
+    );
+    const jd2 = jobDetail2.rows[0] || {};
+    const msg = JSON.stringify({
+      job_ref: jd2.job_ref || null,
+      job_id: job.job_id,
+      po_no: job.po_no,
+      item_name: jd2.item_name,
+      supplier_name: jd2.supplier_name,
+      reviewer_name: req.user.name || req.user.email,
+      remarks: remarks || '',
+    });
 
     const agencyEmails = await db.query('SELECT contact_emails FROM qc_inspection.quality_agency_master WHERE agency_code = $1', [job.agency_code]);
     const supplierEmail = await db.query('SELECT contact_email FROM qc_inspection.supplier_master WHERE supplier_code = $1', [job.supplier_code]);

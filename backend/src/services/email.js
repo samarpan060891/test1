@@ -177,7 +177,8 @@ function emailSubmittedForQA({ jobRef, poNo, itemName, supplierName, agencyName,
   };
 }
 
-function emailQAApproved({ jobRef, poNo, itemName, supplierName, reviewerName }) {
+function emailQAApproved({ jobRef, poNo, itemName, supplierName, reviewerName, jobId, remarks }) {
+  const jobUrl = jobId ? `${APP_URL}/jobs/${jobId}` : APP_URL;
   return {
     subject: `✅ Inspection Approved — ${jobRef}`,
     html: layout('Inspection Approved by QA', `
@@ -191,12 +192,17 @@ function emailQAApproved({ jobRef, poNo, itemName, supplierName, reviewerName })
         ['Supplier', supplierName],
         ['Reviewed By', reviewerName || '—'],
       ])}
-      ${ctaButton('View Job →', `${APP_URL}`)}
+      ${remarks ? `<div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#15803d;">QA Remarks:</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${remarks}</p>
+      </div>` : ''}
+      ${ctaButton('View Job →', jobUrl)}
     `),
   };
 }
 
-function emailQARejected({ jobRef, poNo, itemName, supplierName, reviewerName, remarks }) {
+function emailQARejected({ jobRef, poNo, itemName, supplierName, reviewerName, remarks, jobId }) {
+  const jobUrl = jobId ? `${APP_URL}/jobs/${jobId}` : APP_URL;
   return {
     subject: `❌ Inspection Rejected — ${jobRef}`,
     html: layout('Inspection Rejected by QA', `
@@ -214,7 +220,7 @@ function emailQARejected({ jobRef, poNo, itemName, supplierName, reviewerName, r
         <p style="margin:0;font-size:13px;font-weight:700;color:#991b1b;">QA Remarks:</p>
         <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${remarks}</p>
       </div>` : ''}
-      ${ctaButton('View Job →', `${APP_URL}`)}
+      ${ctaButton('View Job →', jobUrl)}
     `),
   };
 }
