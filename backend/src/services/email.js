@@ -122,10 +122,42 @@ function emailJobMapped({ jobRef, poNo, itemName, supplierName, agencyName, insp
   };
 }
 
-function emailSubmittedForQA({ jobRef, poNo, itemName, supplierName, agencyName, inspectionDate, jobId }) {
+function emailSubmittedForQA({ jobRef, poNo, itemName, supplierName, agencyName, inspectionDate, jobId, failedCheckpoints }) {
   const jobUrl = jobId ? `${APP_URL}/jobs/${jobId}` : APP_URL;
+
+  const failedSection = failedCheckpoints && failedCheckpoints.length > 0
+    ? `<div style="margin:20px 0;">
+        <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#991b1b;">
+          ⚠️ ${failedCheckpoints.length} Failed Checkpoint${failedCheckpoints.length > 1 ? 's' : ''}
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #fca5a5;border-radius:8px;overflow:hidden;">
+          <tr style="background:#fef2f2;">
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">Section</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">Checkpoint</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">Criticality</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">Remark</th>
+          </tr>
+          ${failedCheckpoints.map(cp => `
+          <tr style="border-bottom:1px solid #fee2e2;">
+            <td style="padding:9px 12px;font-size:12px;color:#374151;font-weight:600;">${cp.section || '—'}</td>
+            <td style="padding:9px 12px;font-size:12px;color:#374151;">${cp.checkpoint_text || '—'}</td>
+            <td style="padding:9px 12px;">
+              <span style="background:${cp.criticality === 'critical' ? '#fee2e2' : cp.criticality === 'major' ? '#fef3c7' : '#dbeafe'};
+                           color:${cp.criticality === 'critical' ? '#dc2626' : cp.criticality === 'major' ? '#d97706' : '#1d4ed8'};
+                           padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;text-transform:uppercase;">
+                ${cp.criticality}
+              </span>
+            </td>
+            <td style="padding:9px 12px;font-size:12px;color:#6b7280;font-style:italic;">${cp.remark || '—'}</td>
+          </tr>`).join('')}
+        </table>
+      </div>`
+    : `<p style="color:#059669;font-size:13px;margin:16px 0;">✅ All checkpoints passed.</p>`;
+
   return {
-    subject: `Checklist Submitted for QA Review — ${jobRef}`,
+    subject: failedCheckpoints && failedCheckpoints.length > 0
+      ? `⚠️ Checklist Submitted with ${failedCheckpoints.length} Failure${failedCheckpoints.length > 1 ? 's' : ''} — ${jobRef}`
+      : `Checklist Submitted for QA Review — ${jobRef}`,
     html: layout('Inspection Checklist Submitted', `
       <p style="color:#475569;font-size:14px;margin:0 0 16px;">An inspection checklist has been submitted and is <strong>pending your QA review</strong>.</p>
       ${jobInfoTable([
@@ -136,6 +168,7 @@ function emailSubmittedForQA({ jobRef, poNo, itemName, supplierName, agencyName,
         ['Agency', agencyName || '—'],
         ['Inspection Date', inspectionDate ? new Date(inspectionDate).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'],
       ])}
+      ${failedSection}
       ${ctaButton('Review Checklist →', jobUrl)}
       <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:8px;">
         The full inspection report with photos can be downloaded from the job page after logging in.

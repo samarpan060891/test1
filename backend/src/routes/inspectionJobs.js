@@ -361,6 +361,15 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
        WHERE j.job_id = $1`, [job.job_id]
     );
     const jd = jobDetail.rows[0] || {};
+
+    const failedResult = await db.query(
+      `SELECT ci.section, ci.checkpoint_text, ci.criticality, r.remark
+       FROM qc_inspection.inspection_response r
+       JOIN qc_inspection.checklist_item ci ON ci.item_id = r.checklist_item_id
+       WHERE r.job_id = $1 AND r.result = 'fail'
+       ORDER BY ci.sort_order`, [job.job_id]
+    );
+
     const msg = JSON.stringify({
       job_ref: jd.job_ref || null,
       job_id: job.job_id,
@@ -369,6 +378,7 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
       supplier_name: jd.supplier_name,
       agency_name: jd.agency_name || null,
       inspection_date: jd.inspection_date,
+      failed_checkpoints: failedResult.rows,
     });
     const qaUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa'");
     const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying'");
