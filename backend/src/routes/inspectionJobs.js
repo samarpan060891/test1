@@ -352,7 +352,24 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
     await client.query('COMMIT');
 
     // Notify QA + buying
-    const msg = JSON.stringify({ key: 'SUBMITTED_FOR_QA_INTERNAL', po_no: job.po_no });
+    const jobDetail = await db.query(
+      `SELECT j.job_ref, j.inspection_date, i.name AS item_name, s.name AS supplier_name, a.name AS agency_name
+       FROM qc_inspection.inspection_job j
+       JOIN qc_inspection.item_master i ON i.item_code = j.item_code
+       JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+       LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+       WHERE j.job_id = $1`, [job.job_id]
+    );
+    const jd = jobDetail.rows[0] || {};
+    const msg = JSON.stringify({
+      job_ref: jd.job_ref || null,
+      job_id: job.job_id,
+      po_no: job.po_no,
+      item_name: jd.item_name,
+      supplier_name: jd.supplier_name,
+      agency_name: jd.agency_name || null,
+      inspection_date: jd.inspection_date,
+    });
     const qaUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa'");
     const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying'");
     sendNotification(job.job_id, 'SUBMITTED_FOR_QA', 'qa', qaUsers.rows.map(u => u.email), msg);

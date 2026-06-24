@@ -122,7 +122,8 @@ function emailJobMapped({ jobRef, poNo, itemName, supplierName, agencyName, insp
   };
 }
 
-function emailSubmittedForQA({ jobRef, poNo, itemName, supplierName, agencyName, inspectionDate }) {
+function emailSubmittedForQA({ jobRef, poNo, itemName, supplierName, agencyName, inspectionDate, jobId }) {
+  const jobUrl = jobId ? `${APP_URL}/jobs/${jobId}` : APP_URL;
   return {
     subject: `Checklist Submitted for QA Review — ${jobRef}`,
     html: layout('Inspection Checklist Submitted', `
@@ -135,7 +136,10 @@ function emailSubmittedForQA({ jobRef, poNo, itemName, supplierName, agencyName,
         ['Agency', agencyName || '—'],
         ['Inspection Date', inspectionDate ? new Date(inspectionDate).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'],
       ])}
-      ${ctaButton('Review Checklist →', `${APP_URL}`)}
+      ${ctaButton('Review Checklist →', jobUrl)}
+      <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:8px;">
+        The full inspection report with photos can be downloaded from the job page after logging in.
+      </p>
     `),
   };
 }

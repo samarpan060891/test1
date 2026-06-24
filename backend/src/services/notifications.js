@@ -46,6 +46,7 @@ function buildEmailForEvent(eventType, extraMessage) {
         supplierName: data.supplier_name || '—',
         agencyName: data.agency_name,
         inspectionDate: data.inspection_date,
+        jobId: data.job_id,
       });
     case 'QA_APPROVED':
       return emailQAApproved({
