@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import LanguageSwitcher from './LanguageSwitcher.jsx'
 import BrandLogo from './BrandLogo.jsx'
+import NotificationBell from './NotificationBell.jsx'
 
 const roleMeta = {
   qa:            { label: 'QA',       bg: '#4f46e5', color: '#fff' },
@@ -109,6 +110,7 @@ export default function Navbar() {
             </span>
           </>
         )}
+        <NotificationBell />
         <div style={{ opacity: 0.85 }}><LanguageSwitcher /></div>
         <Link
           to="/change-password"

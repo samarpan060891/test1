@@ -4,7 +4,6 @@ import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { getJobs } from '../api/inspectionJobs.js'
-import { getNotifications } from '../api/notifications.js'
 import { getAdvices } from '../api/inspectionCosts.js'
 import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
 import client from '../api/client.js'
@@ -287,7 +286,6 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
   const [jobs, setJobs] = useState([])
-  const [notifications, setNotifications] = useState([])
   const [advices, setAdvices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -296,11 +294,9 @@ export default function DashboardPage() {
     if (!silent) setLoading(true)
     return Promise.all([
       getJobs().catch(() => ({ data: [] })),
-      getNotifications().catch(() => ({ data: [] })),
       getAdvices().catch(() => ({ data: [] })),
-    ]).then(([jobsRes, notifRes, adviceRes]) => {
+    ]).then(([jobsRes, adviceRes]) => {
       setJobs(Array.isArray(jobsRes.data) ? jobsRes.data : jobsRes.data?.jobs || [])
-      setNotifications(Array.isArray(notifRes.data) ? notifRes.data : notifRes.data?.notifications || [])
       setAdvices(Array.isArray(adviceRes.data) ? adviceRes.data : [])
     }).catch(() => {
       if (!silent) setError('Failed to load dashboard data.')
@@ -480,9 +476,9 @@ export default function DashboardPage() {
         )}
 
         {/* Main layout */}
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div>
           {/* Jobs table */}
-          <div className="card" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <div className="card">
             <div className="card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h2 className="section-title">{t('dashboard_inspection_jobs')}</h2>
@@ -570,62 +566,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Notifications */}
-          <div className="card" style={{ width: '280px', flexShrink: 0, overflow: 'hidden' }}>
-            <div className="card-header">
-              <h2 className="section-title">{t('dashboard_notifications')}</h2>
-              {notifications.length > 0 && (
-                <span style={{
-                  background: '#E8470F', color: '#fff',
-                  fontSize: '11px', fontWeight: '700',
-                  padding: '2px 8px', borderRadius: '9999px',
-                }}>
-                  {notifications.length}
-                </span>
-              )}
-            </div>
-            <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
-              {notifications.length === 0 ? (
-                <div className="empty-state" style={{ padding: '36px 20px' }}>
-                  <div style={{ fontSize: '32px' }}>🔔</div>
-                  <p>{t('dashboard_no_notifications')}</p>
-                </div>
-              ) : (
-                notifications.map((n, idx) => {
-                  const displayMsg = (() => {
-                    // Try JSON message key (new structured format)
-                    try {
-                      const parsed = JSON.parse(n.message)
-                      if (parsed?.key) {
-                        const tmpl = t(`notif_${parsed.key}`)
-                        if (tmpl && tmpl !== `notif_${parsed.key}`) {
-                          return tmpl.replace(/\{(\w+)\}/g, (_, k) => parsed[k] ?? `{${k}}`)
-                        }
-                      }
-                    } catch {}
-                    // Fall back: translate by event_type for standard events
-                    if (n.event_type === 'REMARK_POSTED' && n.message) {
-                      const base = t('notif_REMARK_POSTED')
-                      const quoteMatch = n.message.match(/"(.+)"/)
-                      return quoteMatch ? `${base}: "${quoteMatch[1]}"` : base
-                    }
-                    const eventKey = n.event_type ? `notif_${n.event_type}` : null
-                    const translated = eventKey ? t(eventKey) : null
-                    if (translated && translated !== eventKey) return translated
-                    return n.message || n.body || n.event_type || ''
-                  })()
-                  return (
-                    <div key={n.id || idx} className={`notif-item ${!n.read ? 'unread' : ''}`}>
-                      <p className="notif-text">{displayMsg}</p>
-                      <p className="notif-time">
-                        {new Date(n.sent_at || n.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
         </div>
 
       </div>

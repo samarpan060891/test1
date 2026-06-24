@@ -99,4 +99,21 @@ router.post('/trigger', async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/notifications/:id
+ * Dismiss (delete) a single notification after reading.
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    await db.query(
+      'DELETE FROM qc_inspection.notification_event WHERE notification_id = $1',
+      [req.params.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Delete notification error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
