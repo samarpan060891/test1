@@ -127,12 +127,12 @@ async function runMigrations() {
 
   // 011a: deduplicate checklist items (keep only one row per template+sort_order)
   await safeQuery(`
-    DELETE FROM qc_inspection.checklist_item
-    WHERE item_id NOT IN (
-      SELECT MIN(item_id)
-      FROM qc_inspection.checklist_item
-      GROUP BY template_id, sort_order
-    )
+    DELETE FROM qc_inspection.checklist_item a
+    USING qc_inspection.checklist_item b
+    WHERE a.template_id = b.template_id
+      AND a.sort_order = b.sort_order
+      AND a.checkpoint_text = b.checkpoint_text
+      AND a.ctid > b.ctid
   `, 'deduplicate checklist items');
 
   // 011: checklist templates for new item categories
