@@ -249,9 +249,9 @@ export default function MapInspectionPage() {
                 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                     <div><span style={{ fontWeight: '600' }}>{t('job_item_code')}:</span> {selectedPO.meta.item_name}</div>
-                    <div><span style={{ fontWeight: '600' }}>{t('map_category') || 'Category'}:</span> {selectedPO.meta.category} / {selectedPO.meta.sub_category}</div>
+                    <div><span style={{ fontWeight: '600' }}>Category:</span> {selectedPO.meta.category} / {selectedPO.meta.sub_category}</div>
                     <div><span style={{ fontWeight: '600' }}>{t('job_supplier')}:</span> {selectedPO.meta.supplier_name}</div>
-                    <div><span style={{ fontWeight: '600' }}>{t('map_quantity') || 'Quantity'}:</span> {selectedPO.meta.quantity}</div>
+                    <div><span style={{ fontWeight: '600' }}>Qty:</span> {selectedPO.meta.quantity}</div>
                   </div>
                 </div>
               )}
