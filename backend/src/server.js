@@ -125,6 +125,75 @@ async function runMigrations() {
     'notification_event dismissed_by col'
   );
 
+  // 011: checklist templates for new item categories
+  await safeQuery(`
+    INSERT INTO qc_inspection.checklist_template (template_id, category, sub_category, name, version, status) VALUES
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Furniture',  'Living Room', 'Living Room Furniture Inspection v1', '1.0', 'active'),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Household',  'Décor',       'Décor Items Inspection v1',           '1.0', 'active'),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Furniture',  'Outdoor',     'Outdoor Furniture Inspection v1',     '1.0', 'active'),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Household',  'Bathroom',    'Bathroom Accessories Inspection v1',  '1.0', 'active')
+    ON CONFLICT (template_id) DO NOTHING
+  `, 'new checklist templates for Living Room, Decor, Outdoor, Bathroom');
+
+  await safeQuery(`
+    INSERT INTO qc_inspection.checklist_item (template_id, section, checkpoint_text, criticality, sort_order) VALUES
+      -- Living Room Furniture (Rattan Coffee Table, Velvet Accent Chair, Woven Storage Ottoman)
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Structure',   'Frame/base is sturdy with no wobble or flex under load',             'critical', 1),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Structure',   'All joints, fixings and welds are tight and correctly assembled',    'critical', 2),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Structure',   'Dimensions (L x W x H) match approved specification',               'major',    3),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Material',    'Material type and finish matches approved sample (rattan/fabric/seagrass)', 'critical', 4),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Material',    'Weave/upholstery is even with no loose strands or gaps',             'major',    5),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Material',    'Colour and texture match approved reference',                        'major',    6),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Finishing',   'No visible scratches, marks or damage on any surface',               'major',    7),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Finishing',   'Protective feet/pads fitted on all legs or base contacts',           'minor',    8),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Finishing',   'Hinged lids (if any) open and close smoothly without sticking',      'major',    9),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Finishing',   'Care and country of origin labels correctly attached',               'major',   10),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Packaging',   'All surfaces protected adequately for transit',                      'major',   11),
+      ('aaaaaaaa-0001-0001-0001-000000000010', 'Packaging',   'Correct barcode/SKU on packaging matches PO specification',          'minor',   12),
+
+      -- Décor Items (Ceramic Vase Set)
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Visual',      'Colour, glaze and finish match approved sample on all pieces',       'critical', 1),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Visual',      'No chips, cracks, crazing or glaze defects on any surface',          'critical', 2),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Visual',      'No visible mould lines, bubbles or firing marks',                    'major',    3),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Dimensions',  'Heights and diameters of each piece within tolerance (±3 mm)',       'major',    4),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Dimensions',  'Set contains correct number of pieces per specification',            'critical', 5),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Construction','Base is flat and stable — item does not rock on flat surface',        'major',    6),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Construction','Interior is smooth with no sharp ceramic edges',                     'major',    7),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Finishing',   'Country of origin label correctly affixed (not obscuring design)',   'minor',    8),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Packaging',   'Each piece individually wrapped to prevent contact damage',          'critical', 9),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Packaging',   'Outer carton is rigid with adequate void fill to prevent movement',  'major',   10),
+      ('aaaaaaaa-0001-0001-0001-000000000011', 'Packaging',   'Fragile marking present on all outer cartons',                       'minor',   11),
+
+      -- Outdoor Furniture (Outdoor Garden Chair)
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Structure',   'Frame is rigid and stable with no wobble under full load',           'critical', 1),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Structure',   'All welds, bolts and rivets are secure and correctly finished',      'critical', 2),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Structure',   'Dimensions (seat height, width, depth) match specification',         'major',    3),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Material',    'Powder coating is even with no bare patches, bubbling or peeling',   'critical', 4),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Material',    'Colour matches approved sample',                                     'major',    5),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Material',    'Steel/aluminium gauge meets specification for outdoor use',          'critical', 6),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Durability',  'No rust, corrosion or oxidation visible on any surface',             'critical', 7),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Durability',  'All joints show no signs of stress cracking or deformation',         'major',    8),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Stackability','Chair stacks correctly and stably to minimum 6 units',               'major',    9),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Finishing',   'No sharp edges or burrs on any cut or welded surface',               'critical',10),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Finishing',   'Protective end caps/feet fitted on all leg bases',                   'minor',   11),
+      ('aaaaaaaa-0001-0001-0001-000000000012', 'Packaging',   'Corners and frame protected to prevent transit scratches',           'major',   12),
+
+      -- Bathroom Accessories (Bathroom Accessory Set 5pcs)
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Visual',      'Colour and finish (matte black) match approved sample on all pieces','critical', 1),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Visual',      'No scratches, chips, pitting or coating defects on any piece',       'critical', 2),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Visual',      'Finish is consistent across all 5 pieces in the set',               'major',    3),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Construction','Set contains all 5 correct pieces per specification',                'critical', 4),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Construction','Soap dispenser pump operates smoothly and dispenses correctly',      'critical', 5),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Construction','All pieces are stable on flat surface with no rocking',              'major',    6),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Construction','Tumbler/toothbrush holder has smooth interior with no sharp edges',  'major',    7),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Material',    'Material is rust-resistant and suitable for bathroom environment',   'critical', 8),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Material',    'No toxic or restricted substances used in coating or material',      'critical', 9),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Finishing',   'Country of origin and care labels correctly attached',              'minor',   10),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Packaging',   'Each piece individually protected to prevent scratching in transit', 'major',   11),
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Packaging',   'Correct barcode/SKU on packaging matches PO specification',          'minor',   12)
+    ON CONFLICT DO NOTHING
+  `, 'checklist items for Living Room, Decor, Outdoor, Bathroom templates');
+
   // 011: new items and POs for testing
   await safeQuery(`
     INSERT INTO qc_inspection.item_master (item_code, name, category, sub_category, description) VALUES
