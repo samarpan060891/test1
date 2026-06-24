@@ -7,6 +7,7 @@ import {
   createTemplate,
   activateTemplate,
   addItem,
+  updateItem,
   deleteItem
 } from '../api/checklistTemplates.js'
 
@@ -18,12 +19,15 @@ const statusColors = {
 
 const criticalityOptions = ['critical', 'major', 'minor']
 
-function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
+function TemplateCard({ template, onActivate, onAddItem, onDeleteItem, onUpdateItem }) {
   const { t } = useLanguage()
   const [expanded, setExpanded] = useState(false)
   const [showAddItem, setShowAddItem] = useState(false)
   const [activating, setActivating] = useState(false)
   const [loadedItems, setLoadedItems] = useState(null)
+  const [editingItemId, setEditingItemId] = useState(null)
+  const [editValues, setEditValues] = useState({})
+  const [savingItemId, setSavingItemId] = useState(null)
 
   const [newItem, setNewItem] = useState({
     section: '',
@@ -201,49 +205,80 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                 <tbody>
                   {[...items].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map((item, idx) => {
                     const itemId = item.item_id || item.checklist_item_id || item.id
+                    const isEditing = editingItemId === itemId
+                    const isSaving = savingItemId === itemId
+
+                    const cellInput = { padding: '4px 8px', border: '1px solid #93c5fd', borderRadius: '4px', fontSize: '13px', outline: 'none', width: '100%', boxSizing: 'border-box' }
+
+                    const handleSave = async () => {
+                      setSavingItemId(itemId)
+                      try {
+                        await onUpdateItem(templateId, itemId, editValues)
+                        const res = await getTemplate(templateId)
+                        setLoadedItems(res.data?.items || [])
+                        setEditingItemId(null)
+                      } finally {
+                        setSavingItemId(null)
+                      }
+                    }
+
                     return (
-                      <tr key={itemId || idx} style={{ borderBottom: '1px solid #f3f4f6' }}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                        onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
+                      <tr key={itemId || idx} style={{ borderBottom: '1px solid #f3f4f6', backgroundColor: isEditing ? '#f0f9ff' : '' }}
+                        onMouseEnter={e => { if (!isEditing) e.currentTarget.style.backgroundColor = '#f9fafb' }}
+                        onMouseLeave={e => { if (!isEditing) e.currentTarget.style.backgroundColor = '' }}
                       >
                         <td style={{ padding: '10px 12px', color: '#374151', fontWeight: '500' }}>
-                          {item.section || '—'}
+                          {isEditing
+                            ? <input style={cellInput} value={editValues.section ?? ''} onChange={e => setEditValues(p => ({ ...p, section: e.target.value }))} />
+                            : item.section || '—'}
                         </td>
                         <td style={{ padding: '10px 12px', color: '#374151', maxWidth: '300px' }}>
-                          {item.checkpoint_text || item.text}
+                          {isEditing
+                            ? <input style={cellInput} value={editValues.checkpoint_text ?? ''} onChange={e => setEditValues(p => ({ ...p, checkpoint_text: e.target.value }))} />
+                            : item.checkpoint_text || item.text}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          <span style={{
-                            backgroundColor: item.criticality === 'critical' ? '#fee2e2' : item.criticality === 'major' ? '#fef3c7' : '#dbeafe',
-                            color: item.criticality === 'critical' ? '#dc2626' : item.criticality === 'major' ? '#d97706' : '#1d4ed8',
-                            padding: '2px 8px',
-                            borderRadius: '9999px',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            textTransform: 'uppercase'
-                          }}>
-                            {item.criticality}
-                          </span>
+                          {isEditing
+                            ? <select style={{ ...cellInput, width: 'auto' }} value={editValues.criticality ?? 'minor'} onChange={e => setEditValues(p => ({ ...p, criticality: e.target.value }))}>
+                                {criticalityOptions.map(o => <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>)}
+                              </select>
+                            : <span style={{
+                                backgroundColor: item.criticality === 'critical' ? '#fee2e2' : item.criticality === 'major' ? '#fef3c7' : '#dbeafe',
+                                color: item.criticality === 'critical' ? '#dc2626' : item.criticality === 'major' ? '#d97706' : '#1d4ed8',
+                                padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase'
+                              }}>{item.criticality}</span>}
                         </td>
                         <td style={{ padding: '10px 12px', color: '#6b7280' }}>
-                          {item.sort_order ?? '—'}
+                          {isEditing
+                            ? <input type="number" style={{ ...cellInput, width: '64px' }} value={editValues.sort_order ?? ''} onChange={e => setEditValues(p => ({ ...p, sort_order: e.target.value ? parseInt(e.target.value) : '' }))} />
+                            : item.sort_order ?? '—'}
                         </td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <button
-                            onClick={async () => { await onDeleteItem(templateId, itemId); const res = await getTemplate(templateId); setLoadedItems(res.data?.items || []) }}
-                            style={{
-                              backgroundColor: '#fef2f2',
-                              color: '#dc2626',
-                              border: '1px solid #fca5a5',
-                              padding: '4px 10px',
-                              borderRadius: '5px',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {t('common_delete')}
-                          </button>
+                        <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                          {isEditing ? (
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button onClick={handleSave} disabled={isSaving} style={{ backgroundColor: isSaving ? '#86efac' : '#059669', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                                {isSaving ? 'Saving…' : 'Save'}
+                              </button>
+                              <button onClick={() => setEditingItemId(null)} style={{ backgroundColor: '#fff', color: '#374151', border: '1px solid #d1d5db', padding: '4px 10px', borderRadius: '5px', fontSize: '12px', cursor: 'pointer' }}>
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                onClick={() => { setEditingItemId(itemId); setEditValues({ section: item.section, checkpoint_text: item.checkpoint_text || item.text, criticality: item.criticality, sort_order: item.sort_order }) }}
+                                style={{ backgroundColor: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={async () => { await onDeleteItem(templateId, itemId); const res = await getTemplate(templateId); setLoadedItems(res.data?.items || []) }}
+                                style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', padding: '4px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                              >
+                                {t('common_delete')}
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )
@@ -453,6 +488,11 @@ export default function ChecklistTemplatesPage() {
     fetchTemplates()
   }
 
+  const handleUpdateItem = async (templateId, itemId, data) => {
+    await updateItem(templateId, itemId, data)
+    fetchTemplates()
+  }
+
   const handleDeleteItem = async (templateId, itemId) => {
     if (!window.confirm('Delete this checklist item?')) return
     try {
@@ -515,6 +555,7 @@ export default function ChecklistTemplatesPage() {
             template={t}
             onActivate={handleActivate}
             onAddItem={handleAddItem}
+            onUpdateItem={handleUpdateItem}
             onDeleteItem={handleDeleteItem}
           />
         ))}

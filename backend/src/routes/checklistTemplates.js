@@ -250,6 +250,31 @@ router.post('/:id/items', authorize('qa'), async (req, res) => {
 });
 
 /**
+ * PUT /api/checklist-templates/:id/items/:itemId
+ * QA only. Update a checklist item.
+ */
+router.put('/:id/items/:itemId', authorize('qa'), async (req, res) => {
+  const { section, checkpoint_text, criticality, sort_order } = req.body;
+  try {
+    const result = await db.query(
+      `UPDATE qc_inspection.checklist_item
+       SET section = COALESCE($1, section),
+           checkpoint_text = COALESCE($2, checkpoint_text),
+           criticality = COALESCE($3, criticality),
+           sort_order = COALESCE($4, sort_order)
+       WHERE item_id = $5 AND template_id = $6
+       RETURNING *`,
+      [section || null, checkpoint_text || null, criticality || null, sort_order ?? null, req.params.itemId, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Checklist item not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Update item error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * DELETE /api/checklist-templates/:id/items/:itemId
  * QA only. Remove a checklist item.
  */
