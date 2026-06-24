@@ -149,7 +149,7 @@ export default function POLogPage() {
             <p className="page-subtitle">{t('po_log_subtitle') || 'View and post log entries for purchase orders and inspection jobs.'}</p>
           </div>
           <button onClick={openSlider} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            📋 {t('polog_view_checklist')}
+            {t('polog_view_checklist')}
           </button>
         </div>
 
@@ -311,7 +311,7 @@ export default function POLogPage() {
         {/* Slider header */}
         <div style={{ padding: '14px 20px', background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <div style={{ fontWeight: '700', fontSize: '15px', color: '#fff' }}>📋 {t('polog_checklist_title')}</div>
+            <div style={{ fontWeight: '700', fontSize: '15px', color: '#fff' }}>{t('polog_checklist_title')}</div>
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>{checklistRows.length} {t('polog_responses')}</div>
           </div>
           <button onClick={closeSlider} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, transition: 'background 0.15s' }}
