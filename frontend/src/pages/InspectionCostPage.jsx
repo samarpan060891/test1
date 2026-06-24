@@ -33,120 +33,6 @@ function fmt(num, currency = 'USD') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(num)
 }
 
-const JOB_STATUS_LABEL = {
-  qa_approved: { key: 'result_pass', color: '#15803d', bg: '#f0fdf4' },
-  qa_rejected: { key: 'result_fail', color: '#991b1b', bg: '#fef2f2' },
-  submitted_pending_qa: { key: 'status_pending_qa', color: '#92400e', bg: '#fefce8' },
-  mapped_awaiting_inspection: { key: 'status_awaiting_inspection', color: '#1d4ed8', bg: '#eff6ff' },
-}
-
-function AgencyBreakdown({ advices, t }) {
-  const byAgency = {}
-  advices.forEach(a => {
-    if (!byAgency[a.agency_code]) {
-      byAgency[a.agency_code] = {
-        agency_name: a.agency_name,
-        agency_code: a.agency_code,
-        currency: a.currency,
-        advices: [],
-      }
-    }
-    byAgency[a.agency_code].advices.push(a)
-  })
-
-  const agencies = Object.values(byAgency)
-
-  return (
-    <div className="card mb-6" style={{ overflow: 'hidden' }}>
-      <div className="card-header">
-        <h2 className="section-title">{t('costs_agency_breakdown')}</h2>
-      </div>
-      {agencies.map(ag => {
-        const allJobs = ag.advices.flatMap(a => (a.jobs || []).map(j => ({ ...j, adviceStatus: a.status, totalCost: a.total_cost, poValue: a.po_value, currency: a.currency })))
-        const totalJobs = allJobs.length
-        const finished = allJobs.filter(j => j.status === 'qa_approved' || j.status === 'qa_rejected').length
-        const finalStatuses = ['paid', 'pending_imports', 'pending_accounts', 'approved']
-        const totalCharges = ag.advices.filter(a => finalStatuses.includes(a.status)).reduce((s, a) => s + parseFloat(a.total_cost || 0), 0)
-        const totalPoValue = ag.advices.filter(a => finalStatuses.includes(a.status)).reduce((s, a) => s + parseFloat(a.po_value || 0), 0)
-        const pct = totalPoValue > 0 ? ((totalCharges / totalPoValue) * 100).toFixed(2) : null
-
-        return (
-          <div key={ag.agency_code} style={{ borderBottom: '1px solid #f1f5f9' }}>
-            {/* Agency header row */}
-            <div style={{ padding: '14px 24px', background: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#FEF0EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: '#E8470F' }}>
-                  {ag.agency_name?.charAt(0)}
-                </div>
-                <div>
-                  <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>{ag.agency_name}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{ag.agency_code}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>{totalJobs}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('costs_allocated')}</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: '#15803d' }}>{finished}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('costs_finished')}</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: '#E8470F' }}>{fmt(totalCharges, ag.currency)}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('costs_total_charges_col')}</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: pct > 5 ? '#dc2626' : pct > 3 ? '#d97706' : '#15803d' }}>
-                    {pct != null ? `${pct}%` : '—'}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t('col_pct_to_po')}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Jobs table for this agency */}
-            {allJobs.length > 0 && (
-              <div className="table-wrap" style={{ padding: '0 8px 8px' }}>
-                <table className="data-table" style={{ fontSize: '12px' }}>
-                  <thead>
-                    <tr>
-                      {[t('col_job_ref'), t('col_po_no'), t('col_item'), t('col_insp_date'), t('col_result'), t('col_charges'), t('col_pct_to_po')].map(h => <th key={h} style={{ fontSize: '11px' }}>{h}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allJobs.map((j, idx) => {
-                      const sm = JOB_STATUS_LABEL[j.status] || { key: null, color: '#94a3b8', bg: '#f1f5f9' }
-                      const jobPct = j.poValue > 0 ? ((parseFloat(j.totalCost) / parseFloat(j.poValue)) * 100).toFixed(2) : null
-                      return (
-                        <tr key={j.job_id || idx}>
-                          <td style={{ fontWeight: '700', color: '#E8470F' }}>{j.job_ref || j.job_id?.slice(0, 8) || '—'}</td>
-                          <td>{j.po_no || '—'}</td>
-                          <td style={{ color: '#64748b' }}>{j.item_name || '—'}</td>
-                          <td style={{ color: '#64748b' }}>{j.inspection_date ? new Date(j.inspection_date).toLocaleDateString() : '—'}</td>
-                          <td>
-                            <span style={{ background: sm.bg, color: sm.color, padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>
-                              {sm.key ? t(sm.key) : j.status}
-                            </span>
-                          </td>
-                          <td style={{ fontWeight: '600', color: '#0f172a' }}>{fmt(j.totalCost, j.currency)}</td>
-                          <td style={{ fontWeight: '700', color: jobPct > 5 ? '#dc2626' : jobPct > 3 ? '#d97706' : '#15803d' }}>
-                            {jobPct != null ? `${jobPct}%` : '—'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 const inputSt = { width: '100%', padding: '8px 12px', border: '1.5px solid #e2e8f0', borderRadius: '7px', fontSize: '13px', boxSizing: 'border-box', background: '#fff', fontFamily: 'inherit', outline: 'none' }
 const labelSt = { display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em' }
 
@@ -643,10 +529,6 @@ export default function InspectionCostPage() {
           </div>
         )})()}
 
-        {/* Agency Breakdown — QA / Buying / Admin */}
-        {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && !loading && advices.length > 0 && (
-          <AgencyBreakdown advices={advices} t={t} />
-        )}
 
         {/* Standard Contracts toggle */}
         {(role === 'qa' || role === 'buying' || role === 'imports' || role === 'accounts' || role === 'admin') && (
