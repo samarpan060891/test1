@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import {
   getTemplates,
+  getTemplate,
   createTemplate,
   activateTemplate,
   addItem,
@@ -22,6 +23,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
   const [expanded, setExpanded] = useState(false)
   const [showAddItem, setShowAddItem] = useState(false)
   const [activating, setActivating] = useState(false)
+  const [loadedItems, setLoadedItems] = useState(null)
 
   const [newItem, setNewItem] = useState({
     section: '',
@@ -33,7 +35,20 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
   const [addItemError, setAddItemError] = useState('')
 
   const templateId = template.template_id || template.checklist_template_id || template.id
-  const items = template.items || template.checklist_items || []
+  const items = loadedItems ?? template.items ?? template.checklist_items ?? []
+
+  const handleToggleExpand = async () => {
+    const next = !expanded
+    setExpanded(next)
+    if (next && loadedItems === null) {
+      try {
+        const res = await getTemplate(templateId)
+        setLoadedItems(res.data?.items || [])
+      } catch {
+        setLoadedItems([])
+      }
+    }
+  }
 
   const handleActivate = async () => {
     setActivating(true)
@@ -61,6 +76,9 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
       })
       setNewItem({ section: '', checkpoint_text: '', criticality: 'minor', sort_order: '' })
       setShowAddItem(false)
+      // Refresh items after adding
+      const res = await getTemplate(templateId)
+      setLoadedItems(res.data?.items || [])
     } catch (err) {
       setAddItemError(err?.response?.data?.message || 'Failed to add item.')
     } finally {
@@ -143,7 +161,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
             </button>
           )}
           <button
-            onClick={() => setExpanded(!expanded)}
+            onClick={handleToggleExpand}
             style={{
               backgroundColor: '#fff',
               color: '#374151',
@@ -216,7 +234,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                         </td>
                         <td style={{ padding: '10px 12px' }}>
                           <button
-                            onClick={() => onDeleteItem(templateId, itemId)}
+                            onClick={async () => { await onDeleteItem(templateId, itemId); const res = await getTemplate(templateId); setLoadedItems(res.data?.items || []) }}
                             style={{
                               backgroundColor: '#fef2f2',
                               color: '#dc2626',
@@ -255,7 +273,7 @@ function TemplateCard({ template, onActivate, onAddItem, onDeleteItem }) {
                 width: '100%'
               }}
             >
-              + {t('tmpl_add_item')}
+              {t('tmpl_add_item')}
             </button>
           ) : (
             <div style={{
