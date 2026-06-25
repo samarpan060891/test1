@@ -116,7 +116,7 @@ export default function InspectionSummaryCard({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <div style={{ fontSize: '12px', fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Inspection Summary
+            {'Inspection Summary'}
           </div>
           {ready && (
             <div style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.35)', marginTop: '3px' }}>
