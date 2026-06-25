@@ -36,7 +36,7 @@ export function ColumnFilterDropdown({ colKey, data, value, onChange, label, val
     const dropH = Math.min(visible.length * 34 + 110, 340)
     const spaceBelow = window.innerHeight - rect.bottom
     const top = spaceBelow > dropH ? rect.bottom + 4 : rect.top - dropH - 4
-    const left = Math.min(rect.left, window.innerWidth - 240)
+    const left = Math.min(rect.left, window.innerWidth - 265)
     setPos({ top, left })
   }
 
@@ -133,7 +133,7 @@ export function ColumnFilterDropdown({ colKey, data, value, onChange, label, val
             border: '1px solid #e2e8f0',
             borderRadius: '10px',
             boxShadow: '0 8px 28px rgba(0,0,0,0.16)',
-            width: '240px',
+            width: '260px',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -182,7 +182,7 @@ export function ColumnFilterDropdown({ colKey, data, value, onChange, label, val
           </label>
 
           {/* Value list */}
-          <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+          <div style={{ maxHeight: '280px', overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
             {visible.length === 0 ? (
               <div style={{ padding: '14px', fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
                 No matching values
