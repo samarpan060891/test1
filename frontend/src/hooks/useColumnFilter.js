@@ -1,13 +1,9 @@
 import { useState, useMemo } from 'react'
 
 /**
- * useColumnFilter — lightweight per-column client-side filter
+ * useColumnFilter — per-column multi-select client-side filter (Excel-style)
  *
- * columns: array of { key, label, type? }
- *   key   — the field name on each data row (or null for action-only columns)
- *   type  — 'text' (default) | 'select' (renders a dropdown of unique values)
- *
- * returns { filters, setFilter, filtered, FilterRow }
+ * filters[key] = string[]  — rows where col value is IN the array (empty = show all)
  */
 export function useColumnFilter(data, columns) {
   const [filters, setFilters] = useState({})
@@ -17,20 +13,20 @@ export function useColumnFilter(data, columns) {
 
   const clearFilters = () => setFilters({})
 
-  const hasActive = Object.values(filters).some(v => v && v !== '')
+  const hasActive = Object.values(filters).some(v => Array.isArray(v) && v.length > 0)
 
   const filtered = useMemo(() => {
     if (!hasActive) return data
     return data.filter(row =>
       columns.every(col => {
         if (!col.key) return true
-        const fv = filters[col.key]
-        if (!fv) return true
-        const cell = String(row[col.key] ?? '').toLowerCase()
-        return cell.includes(fv.toLowerCase())
+        const selected = filters[col.key]
+        if (!selected || selected.length === 0) return true
+        const cell = String(row[col.key] ?? '')
+        return selected.includes(cell)
       })
     )
-  }, [data, filters])
+  }, [data, filters, hasActive])
 
   return { filters, setFilter, clearFilters, filtered, hasActive }
 }
