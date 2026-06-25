@@ -222,16 +222,38 @@ function CountryFlag({ name }) {
   )
 }
 
-function CountryBreakdown({ jobs, t }) {
+function CountryBreakdown({ jobs, advices, t }) {
   const byCountry = {}
+
+  // Build job_id → country map
+  const jobCountryMap = {}
+  jobs.forEach(j => { jobCountryMap[j.job_id] = j.supplier_country || '—' })
+
+  // Aggregate job-level metrics per country
   jobs.forEach(j => {
     const country = j.supplier_country || '—'
-    if (!byCountry[country]) byCountry[country] = { country, total: 0, approved: 0, rejected: 0, pending: 0 }
-    byCountry[country].total++
-    if (j.status === 'qa_approved') byCountry[country].approved++
-    else if (j.status === 'qa_rejected') byCountry[country].rejected++
-    else byCountry[country].pending++
+    if (!byCountry[country]) byCountry[country] = { country, total: 0, approved: 0, rejected: 0, pending: 0, totalCharges: 0, totalPO: 0, inspected: 0 }
+    const c = byCountry[country]
+    c.total++
+    if (j.status === 'qa_approved') c.approved++
+    else if (j.status === 'qa_rejected') c.rejected++
+    else c.pending++
+    if (j.status !== 'mapped_awaiting_inspection') c.inspected++
+    if (j.po_value) c.totalPO += parseFloat(j.po_value)
   })
+
+  // Attribute advice charges to countries (split equally across jobs in advice)
+  const approvedStatuses = ['paid', 'pending_imports', 'pending_accounts', 'approved']
+  advices.filter(a => approvedStatuses.includes(a.status)).forEach(a => {
+    const adviceJobs = (a.jobs || []).filter(aj => jobCountryMap[aj.job_id])
+    if (adviceJobs.length === 0) return
+    const share = parseFloat(a.total_cost || 0) / adviceJobs.length
+    adviceJobs.forEach(aj => {
+      const country = jobCountryMap[aj.job_id]
+      if (byCountry[country]) byCountry[country].totalCharges += share
+    })
+  })
+
   const rows = Object.values(byCountry).sort((a, b) => b.total - a.total)
   if (rows.length === 0) return null
 
@@ -241,10 +263,14 @@ function CountryBreakdown({ jobs, t }) {
         <h2 className="section-title">{t('dashboard_country_breakdown')}</h2>
         <span style={{ fontSize: '12px', color: '#94a3b8' }}>{rows.length} {t('col_country').toLowerCase()}s</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', padding: '16px 24px 20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px', padding: '16px 24px 20px' }}>
         {rows.map(r => {
-          const passRate = r.total > 0 ? ((r.approved / r.total) * 100).toFixed(0) : null
-          const rateColor = passRate >= 80 ? '#15803d' : passRate >= 50 ? '#d97706' : '#dc2626'
+          const passRate   = r.total > 0 ? ((r.approved / r.total) * 100).toFixed(0) : null
+          const coverage   = r.total > 0 ? ((r.inspected / r.total) * 100).toFixed(0) : null
+          const pctToPO    = r.totalPO > 0 ? ((r.totalCharges / r.totalPO) * 100).toFixed(2) : null
+          const rateColor  = passRate  >= 80 ? '#15803d' : passRate  >= 50 ? '#d97706' : '#dc2626'
+          const covColor   = coverage  >= 80 ? '#15803d' : coverage  >= 50 ? '#d97706' : '#dc2626'
+          const pctColor   = pctToPO != null ? (pctToPO > 5 ? '#dc2626' : pctToPO > 3 ? '#d97706' : '#15803d') : '#94a3b8'
           return (
             <div key={r.country} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
               <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -252,21 +278,25 @@ function CountryBreakdown({ jobs, t }) {
                 {r.country}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                {/* Total Jobs */}
                 <div style={{ textAlign: 'center', background: '#fff', borderRadius: '6px', padding: '8px 4px' }}>
                   <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{r.total}</div>
                   <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>{t('country_total_jobs')}</div>
                 </div>
+                {/* Pass Rate */}
                 <div style={{ textAlign: 'center', background: '#fff', borderRadius: '6px', padding: '8px 4px' }}>
                   <div style={{ fontSize: '20px', fontWeight: '800', color: rateColor }}>{passRate != null ? `${passRate}%` : '—'}</div>
                   <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>{t('country_pass_rate')}</div>
                 </div>
-                <div style={{ textAlign: 'center', background: '#f0fdf4', borderRadius: '6px', padding: '6px 4px' }}>
-                  <div style={{ fontSize: '16px', fontWeight: '800', color: '#15803d' }}>{r.approved}</div>
-                  <div style={{ fontSize: '10px', color: '#15803d', fontWeight: '600', textTransform: 'uppercase' }}>{t('country_approved')}</div>
+                {/* Inspection Coverage */}
+                <div style={{ textAlign: 'center', background: coverage >= 80 ? '#f0fdf4' : coverage >= 50 ? '#fefce8' : '#fef2f2', borderRadius: '6px', padding: '6px 4px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: covColor }}>{coverage != null ? `${coverage}%` : '—'}</div>
+                  <div style={{ fontSize: '10px', color: covColor, fontWeight: '600', textTransform: 'uppercase' }}>Coverage</div>
                 </div>
-                <div style={{ textAlign: 'center', background: '#fef2f2', borderRadius: '6px', padding: '6px 4px' }}>
-                  <div style={{ fontSize: '16px', fontWeight: '800', color: '#dc2626' }}>{r.rejected}</div>
-                  <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: '600', textTransform: 'uppercase' }}>{t('country_rejected')}</div>
+                {/* % to PO */}
+                <div style={{ textAlign: 'center', background: pctToPO > 5 ? '#fef2f2' : pctToPO > 3 ? '#fefce8' : '#f0fdf4', borderRadius: '6px', padding: '6px 4px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: pctColor }}>{pctToPO != null ? `${pctToPO}%` : '—'}</div>
+                  <div style={{ fontSize: '10px', color: pctColor, fontWeight: '600', textTransform: 'uppercase' }}>% to PO</div>
                 </div>
               </div>
               {r.pending > 0 && (
@@ -488,7 +518,7 @@ export default function DashboardPage() {
 
         {/* Country-Wise Breakdown */}
         {!loading && jobs.length > 0 && (
-          <CountryBreakdown jobs={jobs} t={t} />
+          <CountryBreakdown jobs={jobs} advices={advices} t={t} />
         )}
 
         {/* Agency Inspection Breakdown */}
