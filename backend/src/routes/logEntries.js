@@ -128,11 +128,13 @@ router.post('/', async (req, res) => {
       // Get all stakeholder contacts + job details
       const jobInfo = await db.query(
         `SELECT j.job_ref, j.po_no, j.agency_code, j.supplier_code,
-                a.contact_emails AS agency_emails,
+                i.name AS item_name, s.name AS supplier_name,
+                a.name AS agency_name, a.contact_emails AS agency_emails,
                 s.contact_email AS supplier_email
          FROM qc_inspection.inspection_job j
+         JOIN qc_inspection.item_master i ON i.item_code = j.item_code
+         JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
          LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
-         LEFT JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
          WHERE j.job_id = $1`, [job_id]
       );
       const ji = jobInfo.rows[0] || {};
@@ -143,6 +145,9 @@ router.post('/', async (req, res) => {
         job_ref: ji.job_ref || null,
         job_id,
         po_no: ji.po_no || resolvedPoNo,
+        item_name: ji.item_name,
+        supplier_name: ji.supplier_name,
+        agency_name: ji.agency_name || null,
         remark: message.trim(),
         posted_by: req.user.name || req.user.email,
         role: posterLabel,

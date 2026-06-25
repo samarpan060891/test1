@@ -103,10 +103,20 @@ const APP_URL = process.env.APP_URL || 'https://your-app.up.railway.app';
 
 // ─── Specific email templates ────────────────────────────────────────────────
 
+function inspectionSubject(poNo, supplierName, itemName, agencyName, suffix) {
+  const parts = [poNo, supplierName, itemName].filter(Boolean);
+  const agency = agencyName && agencyName !== 'Self Inspection' ? ` - ${agencyName}` : '';
+  return `${parts.join(' | ')} | Inspection Report${agency}${suffix ? ` | ${suffix}` : ''}`;
+}
+
+function chargesSubject(agencyName, adviceRef, suffix) {
+  return `${agencyName || 'Agency'} | ${adviceRef} | Inspection Charges${suffix ? ` | ${suffix}` : ''}`;
+}
+
 function emailJobMapped({ jobRef, poNo, itemName, supplierName, agencyName, inspectionDate, stage, jobId }) {
   const jobUrl = jobId ? `${APP_URL}/jobs/${jobId}` : APP_URL;
   return {
-    subject: `New Inspection Job Mapped — ${jobRef}`,
+    subject: inspectionSubject(poNo, supplierName, itemName, agencyName, 'New Job Mapped'),
     html: layout('New Inspection Job Assigned', `
       <p style="color:#475569;font-size:14px;margin:0 0 16px;">A new inspection job has been mapped and assigned. Please review the details below.</p>
       ${jobInfoTable([
@@ -155,10 +165,11 @@ function emailSubmittedForQA({ jobRef, poNo, itemName, supplierName, agencyName,
       </div>`
     : `<p style="color:#059669;font-size:13px;margin:16px 0;">✅ All checkpoints passed.</p>`;
 
+  const failSuffix = failedCheckpoints && failedCheckpoints.length > 0
+    ? `Submitted - ${failedCheckpoints.length} Failure${failedCheckpoints.length > 1 ? 's' : ''}`
+    : 'Submitted for QA Review';
   return {
-    subject: failedCheckpoints && failedCheckpoints.length > 0
-      ? `⚠️ Checklist Submitted with ${failedCheckpoints.length} Failure${failedCheckpoints.length > 1 ? 's' : ''} — ${jobRef}`
-      : `Checklist Submitted for QA Review — ${jobRef}`,
+    subject: inspectionSubject(poNo, supplierName, itemName, agencyName, failSuffix),
     html: layout('Inspection Checklist Submitted', `
       <p style="color:#475569;font-size:14px;margin:0 0 16px;">An inspection checklist has been submitted and is <strong>pending your QA review</strong>.</p>
       ${jobInfoTable([
@@ -178,10 +189,10 @@ function emailSubmittedForQA({ jobRef, poNo, itemName, supplierName, agencyName,
   };
 }
 
-function emailQAApproved({ jobRef, poNo, itemName, supplierName, reviewerName, jobId, remarks }) {
+function emailQAApproved({ jobRef, poNo, itemName, supplierName, agencyName, reviewerName, jobId, remarks }) {
   const jobUrl = jobId ? `${APP_URL}/jobs/${jobId}` : APP_URL;
   return {
-    subject: `✅ Inspection Approved — ${jobRef}`,
+    subject: inspectionSubject(poNo, supplierName, itemName, agencyName, 'Approved'),
     html: layout('Inspection Approved by QA', `
       <p style="color:#475569;font-size:14px;margin:0 0 16px;">
         The inspection has been ${badge('APPROVED', '#15803d', '#f0fdf4')} by QA.
@@ -202,10 +213,10 @@ function emailQAApproved({ jobRef, poNo, itemName, supplierName, reviewerName, j
   };
 }
 
-function emailQARejected({ jobRef, poNo, itemName, supplierName, reviewerName, remarks, jobId }) {
+function emailQARejected({ jobRef, poNo, itemName, supplierName, agencyName, reviewerName, remarks, jobId }) {
   const jobUrl = jobId ? `${APP_URL}/jobs/${jobId}` : APP_URL;
   return {
-    subject: `❌ Inspection Rejected — ${jobRef}`,
+    subject: inspectionSubject(poNo, supplierName, itemName, agencyName, 'Rejected'),
     html: layout('Inspection Rejected by QA', `
       <p style="color:#475569;font-size:14px;margin:0 0 16px;">
         The inspection has been ${badge('REJECTED', '#991b1b', '#fef2f2')} by QA. Please review the remarks and take necessary action.
@@ -228,7 +239,7 @@ function emailQARejected({ jobRef, poNo, itemName, supplierName, reviewerName, r
 
 function emailChargesSubmitted({ adviceRef, agencyName, totalCost, currency, jobCount, submittedBy }) {
   return {
-    subject: `Inspection Charges Submitted — ${adviceRef}`,
+    subject: chargesSubject(agencyName, adviceRef, 'Submitted'),
     html: layout('Inspection Charges Advice Submitted', `
       <p style="color:#475569;font-size:14px;margin:0 0 16px;">A new inspection charges advice has been submitted and is pending QA approval.</p>
       ${jobInfoTable([
@@ -245,7 +256,7 @@ function emailChargesSubmitted({ adviceRef, agencyName, totalCost, currency, job
 
 function emailChargesApproved({ adviceRef, agencyName, totalCost, currency, approvedBy, nextStep, notes }) {
   return {
-    subject: `Charges Approved — ${adviceRef}`,
+    subject: chargesSubject(agencyName, adviceRef, 'Approved'),
     html: layout('Inspection Charges Approved', `
       <p style="color:#475569;font-size:14px;margin:0 0 16px;">
         Inspection charges advice has been ${badge('APPROVED', '#15803d', '#f0fdf4')}.
@@ -268,7 +279,7 @@ function emailChargesApproved({ adviceRef, agencyName, totalCost, currency, appr
 
 function emailChargesRejected({ adviceRef, agencyName, totalCost, currency, rejectedBy, reason }) {
   return {
-    subject: `❌ Charges Rejected — ${adviceRef}`,
+    subject: chargesSubject(agencyName, adviceRef, 'Rejected'),
     html: layout('Inspection Charges Rejected', `
       <p style="color:#475569;font-size:14px;margin:0 0 16px;">
         Inspection charges advice has been ${badge('REJECTED', '#991b1b', '#fef2f2')}.
@@ -288,10 +299,10 @@ function emailChargesRejected({ adviceRef, agencyName, totalCost, currency, reje
   };
 }
 
-function emailRemarkPosted({ jobRef, poNo, remarkText, postedBy, postedByRole, jobId }) {
+function emailRemarkPosted({ jobRef, poNo, itemName, supplierName, agencyName, remarkText, postedBy, postedByRole, jobId }) {
   const jobUrl = jobId ? `${APP_URL}/jobs/${jobId}` : APP_URL;
   return {
-    subject: `New Remark on Job ${jobRef}`,
+    subject: inspectionSubject(poNo, supplierName, itemName, agencyName, 'New Remark'),
     html: layout('New Remark Posted', `
       <p style="color:#475569;font-size:14px;margin:0 0 16px;">A new remark has been posted on inspection job <strong>${jobRef}</strong>.</p>
       ${jobInfoTable([
