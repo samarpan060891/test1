@@ -222,6 +222,11 @@ function CountryFlag({ name }) {
   )
 }
 
+const PENDING_JOB_LABELS = {
+  mapped_awaiting_inspection: { label: 'Awaiting Inspection', color: '#1d4ed8', bg: '#eff6ff', dot: '#3b82f6' },
+  submitted_pending_qa:       { label: 'Pending QA Review',   color: '#92400e', bg: '#fefce8', dot: '#d97706' },
+}
+
 function CountryBreakdown({ jobs, advices, t }) {
   const byCountry = {}
 
@@ -232,12 +237,14 @@ function CountryBreakdown({ jobs, advices, t }) {
   // Aggregate job-level metrics per country
   jobs.forEach(j => {
     const country = j.supplier_country || '—'
-    if (!byCountry[country]) byCountry[country] = { country, total: 0, approved: 0, rejected: 0, pending: 0, totalCharges: 0, totalPO: 0, inspected: 0 }
+    if (!byCountry[country]) byCountry[country] = { country, total: 0, approved: 0, rejected: 0, pendingByStatus: {}, totalCharges: 0, totalPO: 0, inspected: 0 }
     const c = byCountry[country]
     c.total++
     if (j.status === 'qa_approved') c.approved++
     else if (j.status === 'qa_rejected') c.rejected++
-    else c.pending++
+    else {
+      c.pendingByStatus[j.status] = (c.pendingByStatus[j.status] || 0) + 1
+    }
     if (j.status !== 'mapped_awaiting_inspection') c.inspected++
     if (j.po_value) c.totalPO += parseFloat(j.po_value)
   })
@@ -299,9 +306,20 @@ function CountryBreakdown({ jobs, advices, t }) {
                   <div style={{ fontSize: '10px', color: pctColor, fontWeight: '600', textTransform: 'uppercase' }}>% to PO</div>
                 </div>
               </div>
-              {r.pending > 0 && (
-                <div style={{ marginTop: '8px', textAlign: 'center', background: '#fefce8', borderRadius: '6px', padding: '5px 4px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#92400e' }}>{r.pending} {t('country_pending')}</span>
+              {Object.keys(r.pendingByStatus).length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px' }}>
+                  {Object.entries(r.pendingByStatus).map(([status, count]) => {
+                    const m = PENDING_JOB_LABELS[status] || { label: status, color: '#475569', bg: '#f1f5f9', dot: '#94a3b8' }
+                    return (
+                      <div key={status} style={{ display: 'flex', alignItems: 'center', gap: '7px', background: m.bg, borderRadius: '6px', padding: '6px 10px' }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: m.dot, flexShrink: 0, display: 'inline-block' }} />
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: m.color, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {m.label}
+                        </span>
+                        <span style={{ fontSize: '11px', fontWeight: '800', color: m.color, flexShrink: 0 }}>{count}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
