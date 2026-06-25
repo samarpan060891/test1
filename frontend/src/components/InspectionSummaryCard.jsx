@@ -284,6 +284,6 @@ export function resolveActivePeriod(presets, selectedId, customFrom, customTo) {
     const to   = customTo   ? new Date(customTo + 'T23:59:59') : null
     return (from && to && from <= to) ? { from, to } : null
   }
-  const p = PRESETS.find(x => x.id === selectedId)
+  const p = presets.find(x => x.id === selectedId)
   return p ? { from: p.start, to: p.end } : null
 }
