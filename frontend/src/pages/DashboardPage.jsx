@@ -396,7 +396,7 @@ export default function DashboardPage() {
       <div className="page-content">
         {/* Inspection Charges Summary — topmost, matching InspectionCostPage */}
         {!loading && advices.length > 0 && (
-          <InspectionSummaryCard advices={advices} showLink />
+          <InspectionSummaryCard advices={advices} jobs={jobs} showLink />
         )}
 
         {/* Page header */}
