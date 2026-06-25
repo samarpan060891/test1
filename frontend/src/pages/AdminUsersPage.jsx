@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import Navbar from '../components/Navbar.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
-import { getUsers, createUser, updateUser, deleteUser, resetPassword } from '../api/admin.js'
+import { getUsers, createUser, updateUser, deleteUser, resetPassword, getAgencies, getSuppliers } from '../api/admin.js'
 import { useColumnFilter } from '../hooks/useColumnFilter.js'
 import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
 import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
@@ -13,6 +13,8 @@ const emptyForm = { name: '', email: '', password: '', role: 'agency_user', agen
 export default function AdminUsersPage() {
   const { t } = useLanguage()
   const [users, setUsers] = useState([])
+  const [agencies, setAgencies] = useState([])
+  const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editUser, setEditUser] = useState(null)
@@ -30,6 +32,8 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     load()
+    getAgencies().then(r => setAgencies(Array.isArray(r.data) ? r.data : [])).catch(() => {})
+    getSuppliers().then(r => setSuppliers(Array.isArray(r.data) ? r.data : [])).catch(() => {})
     const interval = setInterval(load, 60000)
     return () => clearInterval(interval)
   }, [])
@@ -175,13 +179,23 @@ export default function AdminUsersPage() {
               {form.role === 'agency_user' && (
                 <div className="field" style={{ marginBottom: 0 }}>
                   <label>{t('admin_users_agency_code')} *</label>
-                  <input value={form.agency_code} onChange={e => setForm(p => ({ ...p, agency_code: e.target.value }))} placeholder={t('admin_users_agency_placeholder')} className="input" />
+                  <select value={form.agency_code} onChange={e => setForm(p => ({ ...p, agency_code: e.target.value }))} className="input" required>
+                    <option value="">— Select Agency —</option>
+                    {agencies.map(a => (
+                      <option key={a.agency_code} value={a.agency_code}>{a.name} ({a.agency_code})</option>
+                    ))}
+                  </select>
                 </div>
               )}
               {form.role === 'supplier_user' && (
                 <div className="field" style={{ marginBottom: 0 }}>
                   <label>{t('admin_users_supplier_code')} *</label>
-                  <input value={form.supplier_code} onChange={e => setForm(p => ({ ...p, supplier_code: e.target.value }))} placeholder={t('admin_users_supplier_placeholder')} className="input" />
+                  <select value={form.supplier_code} onChange={e => setForm(p => ({ ...p, supplier_code: e.target.value }))} className="input" required>
+                    <option value="">— Select Supplier —</option>
+                    {suppliers.map(s => (
+                      <option key={s.supplier_code} value={s.supplier_code}>{s.name} ({s.supplier_code})</option>
+                    ))}
+                  </select>
                 </div>
               )}
               <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
