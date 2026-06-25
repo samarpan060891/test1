@@ -76,6 +76,24 @@ const JOB_RESULT_LABEL = {
   mapped_awaiting_inspection: { key: 'status_awaiting_inspection', color: '#1d4ed8', bg: '#eff6ff' },
 }
 
+function fmtPeriodLabel(period) {
+  if (!period) return 'All time'
+  const opts = { day: 'numeric', month: 'short', year: 'numeric' }
+  return `${period.from.toLocaleDateString('en-GB', opts)} – ${period.to.toLocaleDateString('en-GB', opts)}`
+}
+
+function PeriodBadge({ period }) {
+  return (
+    <span style={{
+      fontSize: '11px', fontWeight: '600', color: '#E8470F',
+      background: '#FEF0EB', padding: '2px 10px', borderRadius: '20px',
+      whiteSpace: 'nowrap',
+    }}>
+      {fmtPeriodLabel(period)}
+    </span>
+  )
+}
+
 function AgencyBreakdown({ advices, jobs, period, t }) {
   const filteredAdvices = period ? advices.filter(a => { const d = new Date(a.created_at); return d >= period.from && d <= period.to }) : advices
   const filteredJobs    = period ? jobs.filter(j => { const d = new Date(j.mapped_at || j.created_at); return d >= period.from && d <= period.to }) : jobs
@@ -104,7 +122,10 @@ function AgencyBreakdown({ advices, jobs, period, t }) {
   return (
     <div className="card" style={{ marginTop: '16px' }}>
       <div className="card-header">
-        <h2 className="section-title">{t('costs_agency_breakdown')}</h2>
+        <div>
+          <h2 className="section-title">{t('costs_agency_breakdown')}</h2>
+          <PeriodBadge period={period} />
+        </div>
         <span style={{ fontSize: '12px', color: '#94a3b8' }}>{agencies.length} agencies</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px', padding: '16px 24px 20px' }}>
@@ -273,7 +294,10 @@ function CountryBreakdown({ jobs, advices, period, t }) {
   return (
     <div className="card" style={{ marginTop: '16px' }}>
       <div className="card-header">
-        <h2 className="section-title">{t('dashboard_country_breakdown')}</h2>
+        <div>
+          <h2 className="section-title">{t('dashboard_country_breakdown')}</h2>
+          <PeriodBadge period={period} />
+        </div>
         <span style={{ fontSize: '12px', color: '#94a3b8' }}>{rows.length} {t('col_country').toLowerCase()}s</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px', padding: '16px 24px 20px' }}>
