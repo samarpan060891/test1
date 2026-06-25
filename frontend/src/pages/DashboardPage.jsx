@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { getJobs } from '../api/inspectionJobs.js'
 import { getAdvices } from '../api/inspectionCosts.js'
-import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
+import InspectionSummaryCard, { buildPresets, resolveActivePeriod } from '../components/InspectionSummaryCard.jsx'
 import client from '../api/client.js'
 import { useColumnFilter } from '../hooks/useColumnFilter.js'
 import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
@@ -76,9 +76,12 @@ const JOB_RESULT_LABEL = {
   mapped_awaiting_inspection: { key: 'status_awaiting_inspection', color: '#1d4ed8', bg: '#eff6ff' },
 }
 
-function AgencyBreakdown({ advices, t }) {
+function AgencyBreakdown({ advices, jobs, period, t }) {
+  const filteredAdvices = period ? advices.filter(a => { const d = new Date(a.created_at); return d >= period.from && d <= period.to }) : advices
+  const filteredJobs    = period ? jobs.filter(j => { const d = new Date(j.mapped_at || j.created_at); return d >= period.from && d <= period.to }) : jobs
+
   const byAgency = {}
-  advices.forEach(a => {
+  filteredAdvices.forEach(a => {
     if (!byAgency[a.agency_code]) {
       byAgency[a.agency_code] = { agency_name: a.agency_name, agency_code: a.agency_code, currency: a.currency, advices: [] }
     }
@@ -227,15 +230,18 @@ const PENDING_JOB_LABELS = {
   submitted_pending_qa:       { label: 'Pending QA Review',   color: '#92400e', bg: '#fefce8', dot: '#d97706' },
 }
 
-function CountryBreakdown({ jobs, advices, t }) {
+function CountryBreakdown({ jobs, advices, period, t }) {
+  const filteredJobs    = period ? jobs.filter(j => { const d = new Date(j.mapped_at || j.created_at); return d >= period.from && d <= period.to }) : jobs
+  const filteredAdvices = period ? advices.filter(a => { const d = new Date(a.created_at); return d >= period.from && d <= period.to }) : advices
+
   const byCountry = {}
 
-  // Build job_id → country map
+  // Build job_id → country map (full jobs, not filtered — needed for advice attribution)
   const jobCountryMap = {}
   jobs.forEach(j => { jobCountryMap[j.job_id] = j.supplier_country || '—' })
 
   // Aggregate job-level metrics per country
-  jobs.forEach(j => {
+  filteredJobs.forEach(j => {
     const country = j.supplier_country || '—'
     if (!byCountry[country]) byCountry[country] = { country, total: 0, approved: 0, rejected: 0, pendingByStatus: {}, totalCharges: 0, totalPO: 0, inspected: 0 }
     const c = byCountry[country]
@@ -251,7 +257,7 @@ function CountryBreakdown({ jobs, advices, t }) {
 
   // Attribute advice charges to countries (split equally across jobs in advice)
   const approvedStatuses = ['paid', 'pending_imports', 'pending_accounts', 'approved']
-  advices.filter(a => approvedStatuses.includes(a.status)).forEach(a => {
+  filteredAdvices.filter(a => approvedStatuses.includes(a.status)).forEach(a => {
     const adviceJobs = (a.jobs || []).filter(aj => jobCountryMap[aj.job_id])
     if (adviceJobs.length === 0) return
     const share = parseFloat(a.total_cost || 0) / adviceJobs.length
@@ -337,6 +343,13 @@ export default function DashboardPage() {
   const [advices, setAdvices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  // Period state — shared across summary card + breakdown cards
+  const PRESETS = buildPresets()
+  const [selectedPreset, setSelectedPreset] = useState('ytd')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo,   setCustomTo]   = useState('')
+  const activePeriod = resolveActivePeriod(PRESETS, selectedPreset, customFrom, customTo)
 
   const fetchData = (silent = false) => {
     if (!silent) setLoading(true)
@@ -444,7 +457,13 @@ export default function DashboardPage() {
       <div className="page-content">
         {/* Inspection Charges Summary — topmost, matching InspectionCostPage */}
         {!loading && advices.length > 0 && (
-          <InspectionSummaryCard advices={advices} jobs={jobs} showLink />
+          <InspectionSummaryCard
+            advices={advices} jobs={jobs} showLink
+            presets={PRESETS}
+            selectedId={selectedPreset}   onSelectId={setSelectedPreset}
+            customFrom={customFrom}       onCustomFrom={setCustomFrom}
+            customTo={customTo}           onCustomTo={setCustomTo}
+          />
         )}
 
         {/* Page header */}
@@ -536,12 +555,12 @@ export default function DashboardPage() {
 
         {/* Country-Wise Breakdown */}
         {!loading && jobs.length > 0 && (
-          <CountryBreakdown jobs={jobs} advices={advices} t={t} />
+          <CountryBreakdown jobs={jobs} advices={advices} period={activePeriod} t={t} />
         )}
 
         {/* Agency Inspection Breakdown */}
         {!loading && advices.length > 0 && (
-          <AgencyBreakdown advices={advices} t={t} />
+          <AgencyBreakdown advices={advices} jobs={jobs} period={activePeriod} t={t} />
         )}
 
         {/* Main layout */}

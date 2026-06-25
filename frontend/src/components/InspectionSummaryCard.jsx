@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { Link } from 'react-router-dom'
 
 function fmt(num, currency = 'USD') {
@@ -13,40 +13,11 @@ function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// Jan 1 – Dec 31 financial year
-function currentFY() {
-  const y = new Date().getFullYear()
-  return { start: new Date(y, 0, 1), end: new Date(y, 11, 31, 23, 59, 59), year: y }
-}
-
 // Shift a range back by exactly 1 year
 function priorYearRange(start, end) {
   const s = new Date(start); s.setFullYear(s.getFullYear() - 1)
   const e = new Date(end);   e.setFullYear(e.getFullYear() - 1)
   return { start: s, end: e }
-}
-
-// Build preset period options relative to today
-function buildPresets() {
-  const today = new Date()
-  const y = today.getFullYear()
-
-  const fyStart = new Date(y, 0, 1)
-  const fyEnd   = new Date(y, 11, 31, 23, 59, 59)
-
-  const quarters = [
-    { label: 'Q1', start: new Date(y, 0, 1),  end: new Date(y, 2, 31, 23, 59, 59) },
-    { label: 'Q2', start: new Date(y, 3, 1),  end: new Date(y, 5, 30, 23, 59, 59) },
-    { label: 'Q3', start: new Date(y, 6, 1),  end: new Date(y, 8, 30, 23, 59, 59) },
-    { label: 'Q4', start: new Date(y, 9, 1),  end: new Date(y, 11, 31, 23, 59, 59) },
-  ]
-
-  return [
-    { id: 'ytd',  label: 'FY to Date', start: fyStart, end: today },
-    { id: 'fy',   label: 'Full FY',    start: fyStart, end: fyEnd },
-    ...quarters.map(q => ({ id: q.label.toLowerCase(), label: q.label, start: q.start, end: q.end })),
-    { id: 'custom', label: 'Custom', start: null, end: null },
-  ]
 }
 
 function inRange(dateStr, from, to) {
@@ -105,18 +76,25 @@ function Tile({ label, curVal, prevVal, curSub, prevSub, delta }) {
   )
 }
 
-export default function InspectionSummaryCard({ advices = [], jobs = [], showLink = false }) {
-  const presets = buildPresets()
-  const [selectedId, setSelectedId] = useState('ytd')
-  const [customFrom, setCustomFrom] = useState('')
-  const [customTo,   setCustomTo]   = useState('')
-  const [showCustom, setShowCustom] = useState(false)
-
-  const preset = presets.find(p => p.id === selectedId) || presets[0]
-
+/**
+ * Props (period state lifted to parent — DashboardPage):
+ *   advices, jobs, showLink
+ *   selectedId, onSelectId
+ *   customFrom, onCustomFrom
+ *   customTo,   onCustomTo
+ */
+export default function InspectionSummaryCard({
+  advices = [], jobs = [], showLink = false,
+  selectedId, onSelectId,
+  customFrom, onCustomFrom,
+  customTo,   onCustomTo,
+  presets,
+}) {
   const isCustom = selectedId === 'custom'
-  const curFrom  = isCustom ? (customFrom ? new Date(customFrom) : null) : preset.start
-  const curTo    = isCustom ? (customTo   ? new Date(customTo + 'T23:59:59') : null) : preset.end
+  const preset   = presets.find(p => p.id === selectedId) || presets[0]
+
+  const curFrom = isCustom ? (customFrom ? new Date(customFrom) : null) : preset.start
+  const curTo   = isCustom ? (customTo   ? new Date(customTo + 'T23:59:59') : null) : preset.end
 
   const ready = curFrom && curTo && curFrom <= curTo
   const prior = ready ? priorYearRange(curFrom, curTo) : null
@@ -134,7 +112,7 @@ export default function InspectionSummaryCard({ advices = [], jobs = [], showLin
       color: '#fff',
       marginBottom: '12px',
     }}>
-      {/* Header row */}
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <div style={{ fontSize: '12px', fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -159,7 +137,7 @@ export default function InspectionSummaryCard({ advices = [], jobs = [], showLin
         {presets.map(p => (
           <button
             key={p.id}
-            onClick={() => { setSelectedId(p.id); if (p.id === 'custom') setShowCustom(true) }}
+            onClick={() => onSelectId(p.id)}
             style={{
               padding: '4px 12px',
               borderRadius: '20px',
@@ -185,7 +163,7 @@ export default function InspectionSummaryCard({ advices = [], jobs = [], showLin
             <input
               type="date"
               value={customFrom}
-              onChange={e => setCustomFrom(e.target.value)}
+              onChange={e => onCustomFrom(e.target.value)}
               style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.07)', color: '#fff', fontSize: '12px', fontFamily: 'inherit' }}
             />
           </div>
@@ -194,7 +172,7 @@ export default function InspectionSummaryCard({ advices = [], jobs = [], showLin
             <input
               type="date"
               value={customTo}
-              onChange={e => setCustomTo(e.target.value)}
+              onChange={e => onCustomTo(e.target.value)}
               style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.07)', color: '#fff', fontSize: '12px', fontFamily: 'inherit' }}
             />
           </div>
@@ -254,4 +232,31 @@ export default function InspectionSummaryCard({ advices = [], jobs = [], showLin
       )}
     </div>
   )
+}
+
+// Export period utilities so DashboardPage can use them
+export function buildPresets() {
+  const today = new Date()
+  const y = today.getFullYear()
+  const fyStart = new Date(y, 0, 1)
+  const fyEnd   = new Date(y, 11, 31, 23, 59, 59)
+  return [
+    { id: 'ytd',  label: 'FY to Date', start: fyStart, end: today },
+    { id: 'fy',   label: 'Full FY',    start: fyStart, end: fyEnd },
+    { id: 'q1',   label: 'Q1', start: new Date(y, 0, 1),  end: new Date(y, 2, 31, 23, 59, 59) },
+    { id: 'q2',   label: 'Q2', start: new Date(y, 3, 1),  end: new Date(y, 5, 30, 23, 59, 59) },
+    { id: 'q3',   label: 'Q3', start: new Date(y, 6, 1),  end: new Date(y, 8, 30, 23, 59, 59) },
+    { id: 'q4',   label: 'Q4', start: new Date(y, 9, 1),  end: new Date(y, 11, 31, 23, 59, 59) },
+    { id: 'custom', label: 'Custom', start: null, end: null },
+  ]
+}
+
+export function resolveActivePeriod(presets, selectedId, customFrom, customTo) {
+  if (selectedId === 'custom') {
+    const from = customFrom ? new Date(customFrom) : null
+    const to   = customTo   ? new Date(customTo + 'T23:59:59') : null
+    return (from && to && from <= to) ? { from, to } : null
+  }
+  const p = presets.find(x => x.id === selectedId)
+  return p ? { from: p.start, to: p.end } : null
 }
