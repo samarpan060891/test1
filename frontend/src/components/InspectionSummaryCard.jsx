@@ -134,25 +134,27 @@ export default function InspectionSummaryCard({
 
       {/* Period selector */}
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '18px', alignItems: 'center' }}>
-        {presets.map(p => (
-          <button
-            key={p.id}
-            onClick={() => onSelectId(p.id)}
-            style={{
-              padding: '4px 12px',
-              borderRadius: '20px',
-              border: 'none',
-              fontSize: '11px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              background: selectedId === p.id ? '#E8470F' : 'rgba(255,255,255,0.1)',
-              color: selectedId === p.id ? '#fff' : 'rgba(255,255,255,0.55)',
-              transition: 'all 0.15s',
-            }}
-          >
-            {p.id === 'ytd' ? `FY ${y} to Date` : p.id === 'fy' ? `Full FY ${y}` : p.label}
-          </button>
+        {presets.filter(p => p.group === 'current').map(p => (
+          <button key={p.id} onClick={() => onSelectId(p.id)} style={{
+            padding: '4px 12px', borderRadius: '20px', border: 'none', fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+            background: selectedId === p.id ? '#E8470F' : 'rgba(255,255,255,0.1)',
+            color: selectedId === p.id ? '#fff' : 'rgba(255,255,255,0.55)', transition: 'all 0.15s',
+          }}>{p.label}</button>
         ))}
+        <span style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.15)', margin: '0 2px', flexShrink: 0 }} />
+        {presets.filter(p => p.group === 'prior').map(p => (
+          <button key={p.id} onClick={() => onSelectId(p.id)} style={{
+            padding: '4px 12px', borderRadius: '20px', border: 'none', fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+            background: selectedId === p.id ? '#7e22ce' : 'rgba(255,255,255,0.08)',
+            color: selectedId === p.id ? '#fff' : 'rgba(255,255,255,0.4)', transition: 'all 0.15s',
+          }}>{p.label}</button>
+        ))}
+        <span style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.15)', margin: '0 2px', flexShrink: 0 }} />
+        <button onClick={() => onSelectId('custom')} style={{
+          padding: '4px 12px', borderRadius: '20px', border: 'none', fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+          background: selectedId === 'custom' ? '#0f766e' : 'rgba(255,255,255,0.08)',
+          color: selectedId === 'custom' ? '#fff' : 'rgba(255,255,255,0.4)', transition: 'all 0.15s',
+        }}>Custom</button>
       </div>
 
       {/* Custom date picker */}
@@ -238,16 +240,28 @@ export default function InspectionSummaryCard({
 export function buildPresets() {
   const today = new Date()
   const y = today.getFullYear()
+  const py = y - 1  // prior year
+
   const fyStart = new Date(y, 0, 1)
   const fyEnd   = new Date(y, 11, 31, 23, 59, 59)
+
+  // Prior year like-for-like: same elapsed days as current YTD but in prior year
+  const pyLFLEnd = new Date(today); pyLFLEnd.setFullYear(py)
+
   return [
-    { id: 'ytd',  label: 'FY to Date', start: fyStart, end: today },
-    { id: 'fy',   label: 'Full FY',    start: fyStart, end: fyEnd },
-    { id: 'q1',   label: 'Q1', start: new Date(y, 0, 1),  end: new Date(y, 2, 31, 23, 59, 59) },
-    { id: 'q2',   label: 'Q2', start: new Date(y, 3, 1),  end: new Date(y, 5, 30, 23, 59, 59) },
-    { id: 'q3',   label: 'Q3', start: new Date(y, 6, 1),  end: new Date(y, 8, 30, 23, 59, 59) },
-    { id: 'q4',   label: 'Q4', start: new Date(y, 9, 1),  end: new Date(y, 11, 31, 23, 59, 59) },
-    { id: 'custom', label: 'Custom', start: null, end: null },
+    { id: 'ytd',    label: 'FY to Date',     start: fyStart,                         end: today,                              group: 'current' },
+    { id: 'fy',     label: `Full FY ${y}`,   start: fyStart,                         end: fyEnd,                              group: 'current' },
+    { id: 'q1',     label: 'Q1',             start: new Date(y, 0, 1),               end: new Date(y, 2, 31, 23, 59, 59),     group: 'current' },
+    { id: 'q2',     label: 'Q2',             start: new Date(y, 3, 1),               end: new Date(y, 5, 30, 23, 59, 59),     group: 'current' },
+    { id: 'q3',     label: 'Q3',             start: new Date(y, 6, 1),               end: new Date(y, 8, 30, 23, 59, 59),     group: 'current' },
+    { id: 'q4',     label: 'Q4',             start: new Date(y, 9, 1),               end: new Date(y, 11, 31, 23, 59, 59),    group: 'current' },
+    { id: 'py_lfl', label: `Prior Year LFL`, start: new Date(py, 0, 1),              end: pyLFLEnd,                           group: 'prior' },
+    { id: 'py',     label: `Full FY ${py}`,  start: new Date(py, 0, 1),              end: new Date(py, 11, 31, 23, 59, 59),   group: 'prior' },
+    { id: 'py_q1',  label: `${py} Q1`,       start: new Date(py, 0, 1),              end: new Date(py, 2, 31, 23, 59, 59),    group: 'prior' },
+    { id: 'py_q2',  label: `${py} Q2`,       start: new Date(py, 3, 1),              end: new Date(py, 5, 30, 23, 59, 59),    group: 'prior' },
+    { id: 'py_q3',  label: `${py} Q3`,       start: new Date(py, 6, 1),              end: new Date(py, 8, 30, 23, 59, 59),    group: 'prior' },
+    { id: 'py_q4',  label: `${py} Q4`,       start: new Date(py, 9, 1),              end: new Date(py, 11, 31, 23, 59, 59),   group: 'prior' },
+    { id: 'custom', label: 'Custom',         start: null,                            end: null,                               group: 'custom' },
   ]
 }
 
