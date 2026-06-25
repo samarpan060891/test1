@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 function fmt(num, currency = 'USD') {
@@ -85,13 +85,26 @@ function Tile({ label, curVal, prevVal, curSub, prevSub, delta }) {
  */
 export default function InspectionSummaryCard({
   advices = [], jobs = [], showLink = false,
-  selectedId, onSelectId,
-  customFrom, onCustomFrom,
-  customTo,   onCustomTo,
-  presets,
+  selectedId: selectedIdProp, onSelectId: onSelectIdProp,
+  customFrom: customFromProp, onCustomFrom: onCustomFromProp,
+  customTo: customToProp,     onCustomTo: onCustomToProp,
+  presets: presetsProp,
 }) {
+  // Allow the card to be self-contained when period props are not passed from parent
+  const [internalId,   setInternalId]   = useState('ytd')
+  const [internalFrom, setInternalFrom] = useState('')
+  const [internalTo,   setInternalTo]   = useState('')
+
+  const controlled  = !!onSelectIdProp
+  const PRESETS     = presetsProp || buildPresets()
+  const selectedId  = controlled ? selectedIdProp  : internalId
+  const onSelectId  = controlled ? onSelectIdProp  : setInternalId
+  const customFrom  = controlled ? customFromProp  : internalFrom
+  const onCustomFrom= controlled ? onCustomFromProp: setInternalFrom
+  const customTo    = controlled ? customToProp    : internalTo
+  const onCustomTo  = controlled ? onCustomToProp  : setInternalTo
   const isCustom = selectedId === 'custom'
-  const preset   = presets.find(p => p.id === selectedId) || presets[0]
+  const preset   = PRESETS.find(p => p.id === selectedId) || PRESETS[0]
 
   const curFrom = isCustom ? (customFrom ? new Date(customFrom) : null) : preset.start
   const curTo   = isCustom ? (customTo   ? new Date(customTo + 'T23:59:59') : null) : preset.end
@@ -134,7 +147,7 @@ export default function InspectionSummaryCard({
 
       {/* Period selector */}
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '18px', alignItems: 'center' }}>
-        {presets.filter(p => p.group === 'current').map(p => (
+        {PRESETS.filter(p => p.group === 'current').map(p => (
           <button key={p.id} onClick={() => onSelectId(p.id)} style={{
             padding: '4px 12px', borderRadius: '20px', border: 'none', fontSize: '11px', fontWeight: '700', cursor: 'pointer',
             background: selectedId === p.id ? '#E8470F' : 'rgba(255,255,255,0.1)',
@@ -142,7 +155,7 @@ export default function InspectionSummaryCard({
           }}>{p.label}</button>
         ))}
         <span style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.15)', margin: '0 2px', flexShrink: 0 }} />
-        {presets.filter(p => p.group === 'prior').map(p => (
+        {PRESETS.filter(p => p.group === 'prior').map(p => (
           <button key={p.id} onClick={() => onSelectId(p.id)} style={{
             padding: '4px 12px', borderRadius: '20px', border: 'none', fontSize: '11px', fontWeight: '700', cursor: 'pointer',
             background: selectedId === p.id ? '#7e22ce' : 'rgba(255,255,255,0.08)',
@@ -271,6 +284,6 @@ export function resolveActivePeriod(presets, selectedId, customFrom, customTo) {
     const to   = customTo   ? new Date(customTo + 'T23:59:59') : null
     return (from && to && from <= to) ? { from, to } : null
   }
-  const p = presets.find(x => x.id === selectedId)
+  const p = PRESETS.find(x => x.id === selectedId)
   return p ? { from: p.start, to: p.end } : null
 }
