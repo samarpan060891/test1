@@ -26,7 +26,7 @@ export function ColumnFilterDropdown({ colKey, data, value, onChange, label }) {
       const spaceBelow = window.innerHeight - rect.bottom
       const top = spaceBelow > dropH ? rect.bottom + 4 : rect.top - dropH - 4
       const left = Math.min(rect.left, window.innerWidth - 220)
-      setPos({ top: top + window.scrollY, left: left + window.scrollX })
+      setPos({ top, left })
     }
     setOpen(p => !p)
   }
