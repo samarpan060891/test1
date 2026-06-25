@@ -348,9 +348,9 @@ export default function DashboardPage() {
     { key: 'job_ref',        label: t('col_job_ref') },
     { key: 'inspection_stage', label: t('col_stage'),           valueLabel: STAGE_LABELS },
     { key: 'po_no',          label: t('col_po_no') },
-    { key: 'item_code',      label: t('col_item') },
-    { key: 'supplier_code',  label: t('col_supplier') },
-    { key: 'agency_code',    label: t('col_agency') },
+    { key: 'item_name',      label: t('col_item') },
+    { key: 'supplier_name',  label: t('col_supplier') },
+    { key: 'agency_name',    label: t('col_agency') },
     { key: 'status',         label: t('col_activity_status'),   valueLabel: STATUS_LABELS },
     { key: 'payment_status', label: t('col_payment_status'),    valueLabel: PAYMENT_LABELS },
     { key: 'inspection_date',label: t('col_date') },
@@ -564,9 +564,9 @@ export default function DashboardPage() {
                         </td>
                         <td><StageBadge stage={job.inspection_stage} t={t} /></td>
                         <td style={{ fontWeight: '600', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.po_no || '—'}</td>
-                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.item_code || '—'}</td>
-                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.supplier_code || '—'}</td>
-                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.agency_code || '—'}</td>
+                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.item_name || job.item_code || '—'}</td>
+                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.supplier_name || job.supplier_code || '—'}</td>
+                        <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.agency_name || '—'}</td>
                         <td><StatusBadge status={job.status} t={t} /></td>
                         <td><PaymentBadge status={job.payment_status} t={t} /></td>
                         <td style={{ color: '#94a3b8' }}>
