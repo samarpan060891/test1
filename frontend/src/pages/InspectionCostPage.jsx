@@ -435,7 +435,7 @@ export default function InspectionCostPage() {
                             <ColumnFilterDropdown
                               colKey={c.key}
                               data={cardFiltered}
-                              value={advFilters[c.key] || ''}
+                              value={advFilters[c.key] || []}
                               onChange={v => setAdvFilters(p => ({ ...p, [c.key]: v }))}
                               label={c.label}
                             />

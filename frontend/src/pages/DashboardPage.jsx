@@ -323,15 +323,36 @@ export default function DashboardPage() {
 
   const toggleFilter = (key) => setActiveFilter(p => p === key ? null : key)
 
+  const STATUS_LABELS = {
+    mapped_awaiting_inspection: 'Awaiting Inspection',
+    submitted_pending_qa:       'Pending QA Review',
+    qa_approved:                'Approved',
+    qa_rejected:                'Rejected',
+  }
+  const PAYMENT_LABELS = {
+    pending_qa:       'Pending QA',
+    pending_buying:   'Pending Buying',
+    pending_imports:  'Pending Imports',
+    pending_accounts: 'Pending Accounts',
+    paid:             'Paid',
+    rejected:         'Rejected',
+  }
+  const STAGE_LABELS = {
+    pre_production: 'Pre-Production',
+    inline:         'Inline',
+    final:          'Final',
+    loading:        'Loading',
+  }
+
   const JOB_COLS = [
     { key: 'job_ref',        label: t('col_job_ref') },
-    { key: 'inspection_stage', label: t('col_stage') },
+    { key: 'inspection_stage', label: t('col_stage'),           valueLabel: STAGE_LABELS },
     { key: 'po_no',          label: t('col_po_no') },
     { key: 'item_code',      label: t('col_item') },
     { key: 'supplier_code',  label: t('col_supplier') },
     { key: 'agency_code',    label: t('col_agency') },
-    { key: 'status',         label: t('col_activity_status') },
-    { key: 'payment_status', label: t('col_payment_status') },
+    { key: 'status',         label: t('col_activity_status'),   valueLabel: STATUS_LABELS },
+    { key: 'payment_status', label: t('col_payment_status'),    valueLabel: PAYMENT_LABELS },
     { key: 'inspection_date',label: t('col_date') },
     { key: null,             label: t('common_actions') },
   ]
@@ -518,9 +539,10 @@ export default function DashboardPage() {
                               <ColumnFilterDropdown
                                 colKey={c.key}
                                 data={cardFilteredJobs}
-                                value={jobFilters[c.key] || ''}
+                                value={jobFilters[c.key] || []}
                                 onChange={v => setJobFilter(c.key, v)}
                                 label={c.label}
+                                valueLabel={c.valueLabel}
                               />
                             )}
                             {!c.key && hasJobFilter && (

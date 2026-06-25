@@ -110,7 +110,7 @@ export default function AdminUsersPage() {
                             <ColumnFilterDropdown
                               colKey={c.key}
                               data={users}
-                              value={userFilters[c.key] || ''}
+                              value={userFilters[c.key] || []}
                               onChange={v => setUserFilter(c.key, v)}
                               label={c.label}
                             />

@@ -289,7 +289,7 @@ export default function AdminMastersPage() {
                             <ColumnFilterDropdown
                               colKey={f.key}
                               data={rows}
-                              value={masterFilters[f.key] || ''}
+                              value={masterFilters[f.key] || []}
                               onChange={v => setMasterFilter(f.key, v)}
                               label={f.label}
                             />

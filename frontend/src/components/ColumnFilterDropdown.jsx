@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 
-export function ColumnFilterDropdown({ colKey, data, value, onChange, label }) {
+export function ColumnFilterDropdown({ colKey, data, value, onChange, label, valueLabel }) {
+  // valueLabel: object { rawValue: 'Display Label' } or function (raw) => string
+  const toLabel = v => {
+    if (!valueLabel) return v
+    if (typeof valueLabel === 'function') return valueLabel(v) || v
+    return valueLabel[v] || v
+  }
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -207,7 +213,7 @@ export function ColumnFilterDropdown({ colKey, data, value, onChange, label }) {
                       onChange={() => toggle(v)}
                       style={{ accentColor: '#E8470F', width: '14px', height: '14px', flexShrink: 0 }}
                     />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={v}>{v}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={toLabel(v)}>{toLabel(v)}</span>
                   </label>
                 )
               })
