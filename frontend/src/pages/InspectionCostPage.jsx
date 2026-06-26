@@ -9,6 +9,7 @@ import { useLanguage } from '../context/LanguageContext.jsx'
 import * as XLSX from 'xlsx'
 import { getAdvices, createAdvice, approveAdvice, rejectAdvice, getContracts, createContract, uploadInvoice, getInvoiceUrl } from '../api/inspectionCosts.js'
 import { getJobs } from '../api/inspectionJobs.js'
+import { getAgencies } from '../api/admin.js'
 import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
 
 const STATUS_META = {
@@ -106,9 +107,9 @@ export default function InspectionCostPage() {
 
   const loadContracts = async () => {
     try {
-      const [cr, ar] = await Promise.all([getContracts(), import('../api/admin.js').then(m => m.getAgencies())])
+      const [cr, ar] = await Promise.all([getContracts(), getAgencies()])
       setAllContracts(cr.data || [])
-      setAllAgencies(ar.data || [])
+      setAllAgencies(Array.isArray(ar.data) ? ar.data : [])
     } catch {}
   }
 
