@@ -162,14 +162,14 @@ router.get('/masters/agencies', async (req, res) => {
 });
 
 router.post('/masters/agencies/single', async (req, res) => {
-  const { agency_code, name, contact_name, country } = req.body;
+  const { agency_code, name, contact_name, contact_emails, country } = req.body;
   if (!agency_code || !name) return res.status(400).json({ error: 'agency_code and name are required' });
   try {
     const r = await db.query(
-      `INSERT INTO qc_inspection.quality_agency_master (agency_code, name, contact_name, country)
-       VALUES ($1,$2,$3,$4) ON CONFLICT (agency_code) DO UPDATE
-       SET name=$2, contact_name=$3, country=$4 RETURNING *`,
-      [agency_code, name, contact_name || null, country || null]
+      `INSERT INTO qc_inspection.quality_agency_master (agency_code, name, contact_name, contact_emails, country)
+       VALUES ($1,$2,$3,$4,$5) ON CONFLICT (agency_code) DO UPDATE
+       SET name=$2, contact_name=$3, contact_emails=$4, country=$5 RETURNING *`,
+      [agency_code, name, contact_name || null, contact_emails || null, country || null]
     );
     res.status(201).json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -181,6 +181,7 @@ router.post('/masters/agencies/bulk', async (req, res) => {
       agency_code: r.agency_code || r['Agency Code'] || r['agency_code'],
       name: r.name || r['Name'] || r['Agency Name'],
       contact_name: r.contact_name || r['Contact Name'] || null,
+      contact_emails: r.contact_emails || r['Contact Email(s)'] || r['Contact Emails'] || null,
       country: r.country || r['Country'] || null,
     })).filter(r => r.agency_code && r.name);
     const result = await bulkUpsert('qc_inspection.quality_agency_master', rows, 'agency_code');

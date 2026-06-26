@@ -24,6 +24,7 @@ const AGENCY_FIELDS = [
   { key: 'agency_code', label: 'Agency Code', placeholder: 'AGC-001', required: true },
   { key: 'name', label: 'Agency Name', placeholder: 'InterQC Inspections', required: true },
   { key: 'contact_name', label: 'Contact Name', placeholder: 'Jane Doe', required: false },
+  { key: 'contact_emails', label: 'Contact Email(s)', placeholder: 'jane@agency.com, ops@agency.com', required: false },
   { key: 'country', label: 'Country', placeholder: 'India', required: false },
 ]
 
