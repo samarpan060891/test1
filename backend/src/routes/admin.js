@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
 const db = require('../db');
 const { authenticate, authorize } = require('../middleware/auth');
+const { sendEmail, emailDocUploadRequired } = require('../services/email');
 
 const router = express.Router();
 router.use(authenticate);
@@ -289,7 +290,45 @@ router.post('/masters/po/single', async (req, res) => {
         [po_no, li.item_code, li.quantity || 1, li.unit_price || 0, li.line_no || (i + 1)]
       );
     }
-    res.status(201).json({ ...r.rows[0], line_items: items });
+    const createdPO = r.rows[0];
+
+    // Fire background email to supplier listing all required document types
+    (async () => {
+      try {
+        const supplierR = await db.query(
+          'SELECT name, contact_email FROM qc_inspection.supplier_master WHERE supplier_code=$1',
+          [supplier_code]
+        );
+        const supplierInfo = supplierR.rows[0];
+        if (supplierInfo && supplierInfo.contact_email) {
+          const itemCodes = items.map(i => i.item_code).filter(Boolean);
+          let itemNames = itemCodes;
+          if (itemCodes.length > 0) {
+            const itemR = await db.query(
+              `SELECT name FROM qc_inspection.item_master WHERE item_code = ANY($1)`,
+              [itemCodes]
+            );
+            itemNames = itemR.rows.map(r => r.name);
+          }
+          const ALL_DOC_TYPES = [
+            'product_image','bill_of_materials','msds','swatch_details','test_reports',
+            'cb_reports','line_drawings','assembly_instruction_manual','user_care_manual',
+            'barcode','carton_artwork_shipping_mark','hs_code','metrological_data',
+          ];
+          const { subject, html } = emailDocUploadRequired({
+            supplierName: supplierInfo.name || supplier_code,
+            poNo: po_no,
+            itemNames: itemNames.length ? itemNames : itemCodes,
+            docTypes: ALL_DOC_TYPES,
+          });
+          await sendEmail({ to: supplierInfo.contact_email, subject, html });
+        }
+      } catch (e) {
+        console.error('PO creation doc email error:', e.message);
+      }
+    })();
+
+    res.status(201).json({ ...createdPO, line_items: items });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

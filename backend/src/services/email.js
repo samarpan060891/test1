@@ -319,6 +319,105 @@ function emailRemarkPosted({ jobRef, poNo, itemName, supplierName, agencyName, r
   };
 }
 
+// ─── Document Control email templates ───────────────────────────────────────
+
+const DOC_TYPE_LABELS = {
+  product_image: 'Product Image',
+  bill_of_materials: 'Bill of Materials',
+  msds: 'Materials Safety Data Sheet',
+  swatch_details: 'Swatch Details',
+  test_reports: 'Test Reports',
+  cb_reports: 'CB Reports',
+  line_drawings: 'Line Drawings',
+  assembly_instruction_manual: 'Assembly Instruction Manual',
+  user_care_manual: 'User Care Manual',
+  barcode: 'Barcode',
+  carton_artwork_shipping_mark: 'Carton Artwork & Shipping Mark',
+  hs_code: 'HS Code',
+  metrological_data: 'Metrological Data (L×B×H & Net Weight)',
+};
+
+function emailDocUploadRequired({ supplierName, poNo, itemNames, docTypes }) {
+  const itemList = Array.isArray(itemNames) ? itemNames : [itemNames];
+  const docList = Array.isArray(docTypes) ? docTypes : Object.keys(DOC_TYPE_LABELS);
+  return {
+    subject: `Document Upload Required — PO ${poNo} | ${supplierName}`,
+    html: layout('Document Upload Required', `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">
+        A new Purchase Order has been raised and requires you to upload the following documents for each item.
+        Please log in to the supplier portal to upload the required documents.
+      </p>
+      ${jobInfoTable([
+        ['PO Number', `<strong style="color:#E8470F;">${poNo}</strong>`],
+        ['Supplier', supplierName],
+        ['Items', itemList.join(', ')],
+      ])}
+      <div style="margin:20px 0;">
+        <p style="font-size:13px;font-weight:700;color:#0f172a;margin:0 0 10px;">Required Documents:</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+          ${docList.map((dt, i) => `
+          <tr style="background:${i % 2 === 0 ? '#f8fafc' : '#fff'};">
+            <td style="padding:9px 14px;font-size:12px;color:#374151;border-bottom:1px solid #e2e8f0;">
+              ${i + 1}. ${DOC_TYPE_LABELS[dt] || dt}
+            </td>
+          </tr>`).join('')}
+        </table>
+      </div>
+      ${ctaButton('Upload Documents →', APP_URL + '/documents')}
+    `),
+  };
+}
+
+function emailDocUploaded({ supplierName, itemName, docType, uploadedBy }) {
+  const label = DOC_TYPE_LABELS[docType] || docType;
+  return {
+    subject: `Document Uploaded — ${label} | ${itemName} | ${supplierName}`,
+    html: layout('Document Uploaded — Pending Review', `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">
+        A document has been uploaded and is ${badge('PENDING REVIEW', '#92400e', '#fef3c7')}.
+        Please review and approve or reject the document.
+      </p>
+      ${jobInfoTable([
+        ['Document Type', `<strong>${label}</strong>`],
+        ['Item', itemName],
+        ['Supplier', supplierName],
+        ['Uploaded By', uploadedBy || '—'],
+      ])}
+      ${ctaButton('Review Document →', APP_URL + '/documents')}
+    `),
+  };
+}
+
+function emailDocReviewed({ supplierName, itemName, docType, action, remarks, reviewerName }) {
+  const label = DOC_TYPE_LABELS[docType] || docType;
+  const approved = action === 'approve';
+  const statusBadge = approved
+    ? badge('APPROVED', '#15803d', '#f0fdf4')
+    : badge('REJECTED', '#991b1b', '#fef2f2');
+  const remarksBlock = remarks
+    ? `<div style="background:${approved ? '#f0fdf4' : '#fef2f2'};border-left:4px solid ${approved ? '#16a34a' : '#dc2626'};padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:${approved ? '#15803d' : '#991b1b'};">Remarks:</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${remarks}</p>
+      </div>`
+    : '';
+  return {
+    subject: `Document ${approved ? 'Approved' : 'Rejected'} — ${label} | ${itemName} | ${supplierName}`,
+    html: layout(`Document ${approved ? 'Approved' : 'Rejected'}`, `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">
+        Your document has been ${statusBadge}.
+      </p>
+      ${jobInfoTable([
+        ['Document Type', `<strong>${label}</strong>`],
+        ['Item', itemName],
+        ['Supplier', supplierName],
+        ['Reviewed By', reviewerName || '—'],
+      ])}
+      ${remarksBlock}
+      ${ctaButton('View Documents →', APP_URL + '/documents')}
+    `),
+  };
+}
+
 module.exports = {
   sendEmail,
   emailJobMapped,
@@ -329,4 +428,7 @@ module.exports = {
   emailChargesApproved,
   emailChargesRejected,
   emailRemarkPosted,
+  emailDocUploadRequired,
+  emailDocUploaded,
+  emailDocReviewed,
 };

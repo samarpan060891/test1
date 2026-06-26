@@ -464,6 +464,31 @@ async function runMigrations() {
       )
   `, 'delete apparel checklist templates');
 
+  // 016: Document Control — item_documents table
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.item_documents (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      item_code TEXT NOT NULL REFERENCES qc_inspection.item_master(item_code) ON DELETE CASCADE,
+      supplier_code TEXT NOT NULL REFERENCES qc_inspection.supplier_master(supplier_code),
+      doc_type TEXT NOT NULL CHECK (doc_type IN ('product_image','bill_of_materials','msds','swatch_details','test_reports','cb_reports','line_drawings','assembly_instruction_manual','user_care_manual','barcode','carton_artwork_shipping_mark','hs_code','metrological_data')),
+      file_name TEXT,
+      file_data BYTEA,
+      file_type TEXT,
+      file_size INT,
+      uploaded_by UUID REFERENCES qc_inspection.team_stakeholder(user_id),
+      uploaded_at TIMESTAMPTZ,
+      status TEXT NOT NULL DEFAULT 'pending_upload' CHECK (status IN ('pending_upload','pending_approval','qa_approved','approved','rejected')),
+      qa_reviewed_by UUID REFERENCES qc_inspection.team_stakeholder(user_id),
+      qa_reviewed_at TIMESTAMPTZ,
+      qa_remarks TEXT,
+      buying_reviewed_by UUID REFERENCES qc_inspection.team_stakeholder(user_id),
+      buying_reviewed_at TIMESTAMPTZ,
+      buying_remarks TEXT,
+      version INT NOT NULL DEFAULT 1,
+      UNIQUE(item_code, supplier_code, doc_type)
+    )
+  `, 'item_documents table');
+
   console.log('✅ Migrations applied');
 }
 
