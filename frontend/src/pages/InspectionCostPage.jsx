@@ -334,7 +334,7 @@ export default function InspectionCostPage() {
           </div>
           {role === 'agency_user' && (
             <button onClick={() => openCreate()} className="btn btn-primary">
-              + {t('costs_new_advice')}
+              {t('costs_new_advice')}
             </button>
           )}
         </div>
