@@ -67,9 +67,23 @@ export default function AdminMastersPage() {
   const [bulkMsg, setBulkMsg] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)
   const fileRef = useRef()
+  const [editingCode, setEditingCode] = useState(null)
   const [masterFilters, setMasterFilters] = useState({})
   const setMasterFilter = (key, value) => setMasterFilters(prev => ({ ...prev, [key]: value }))
   const clearMasterFilters = () => setMasterFilters({})
+
+  const handleEditRow = (row) => {
+    setForm(Object.fromEntries(cfg.fields.map(f => [f.key, row[f.key] ?? ''])))
+    setEditingCode(row[cfg.codeKey])
+    setFormMsg('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancelEdit = () => {
+    setForm(emptyForm(cfg.fields))
+    setEditingCode(null)
+    setFormMsg('')
+  }
 
   const cfg = CONFIG[activeTab]
 
@@ -83,6 +97,7 @@ export default function AdminMastersPage() {
     setFormMsg('')
     setBulkMsg('')
     setMasterFilters({})
+    setEditingCode(null)
     load()
     const interval = setInterval(load, 60000)
     return () => clearInterval(interval)
@@ -95,6 +110,7 @@ export default function AdminMastersPage() {
       await cfg.saveSingle(form)
       setFormMsg('Saved successfully!')
       setForm(emptyForm(cfg.fields))
+      setEditingCode(null)
       load()
     } catch (err) {
       setFormMsg(err?.response?.data?.error || 'Failed to save')
@@ -179,7 +195,9 @@ export default function AdminMastersPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Single Entry */}
             <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-              <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: '700', color: '#111827' }}>{t('admin_single_entry') || 'Add / Update Single Entry'}</h3>
+              <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: '700', color: '#111827' }}>
+                {editingCode ? `Editing: ${editingCode}` : (t('admin_single_entry') || 'Add / Update Single Entry')}
+              </h3>
               <form onSubmit={handleSingle}>
                 {cfg.fields.map(f => (
                   <div key={f.key} style={{ marginBottom: '12px' }}>
@@ -199,12 +217,22 @@ export default function AdminMastersPage() {
                 {formMsg && (
                   <p style={{ margin: '0 0 10px', fontSize: '13px', color: formMsg.includes('success') ? '#059669' : '#dc2626' }}>{formMsg}</p>
                 )}
-                <button type="submit" disabled={saving} style={{
-                  width: '100%', backgroundColor: saving ? '#93c5fd' : '#1C1208', color: '#fff',
-                  border: 'none', padding: '9px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer'
-                }}>
-                  {saving ? t('common_saving') : t('admin_save')}
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="submit" disabled={saving} style={{
+                    flex: 1, backgroundColor: saving ? '#93c5fd' : '#1C1208', color: '#fff',
+                    border: 'none', padding: '9px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer'
+                  }}>
+                    {saving ? t('common_saving') : t('admin_save')}
+                  </button>
+                  {editingCode && (
+                    <button type="button" onClick={handleCancelEdit} style={{
+                      flex: 1, backgroundColor: '#f1f5f9', color: '#374151',
+                      border: '1px solid #d1d5db', padding: '9px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: 'pointer'
+                    }}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </form>
             </div>
 
@@ -296,16 +324,29 @@ export default function AdminMastersPage() {
                           </span>
                         </th>
                       ))}
+                      <th style={{ padding: '10px 14px', borderBottom: '1px solid #e5e7eb' }} />
                     </tr>
                   </thead>
                   <tbody>
                     {filteredRows.map((row, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: editingCode === row[cfg.codeKey] ? '#fffbeb' : 'transparent' }}>
                         {cfg.fields.map(f => (
                           <td key={f.key} style={{ padding: '10px 14px', color: '#374151', whiteSpace: 'nowrap' }}>
                             {row[f.key] ?? '—'}
                           </td>
                         ))}
+                        <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                          <button
+                            onClick={() => handleEditRow(row)}
+                            style={{
+                              padding: '4px 12px', fontSize: '12px', fontWeight: '600',
+                              background: '#f0f9ff', color: '#0369a1',
+                              border: '1px solid #bae6fd', borderRadius: '6px', cursor: 'pointer'
+                            }}
+                          >
+                            Edit
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
