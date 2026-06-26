@@ -130,7 +130,7 @@ router.get('/', async (req, res) => {
       LEFT JOIN qc_inspection.ica_jobs ij ON ij.advice_id = a.advice_id
       LEFT JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
       LEFT JOIN qc_inspection.item_master im ON im.item_code = j.item_code
-      LEFT JOIN qc_inspection.agency_contract ac ON ac.contract_id = j.contract_id
+      LEFT JOIN qc_inspection.agency_contract ac ON ac.contract_id = j.contract_id`;
 
     const params = [];
     if (role === 'agency_user') {
