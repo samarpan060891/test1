@@ -67,7 +67,22 @@ function SupplierUploadView({ groups, onRefresh }) {
   }
 
   const handleSubmitAll = async () => {
-    if (!group || Object.keys(stagedFiles).length === 0) return
+    if (!group) return
+    // Validate: every doc must be attached or N/A
+    const unresolved = DOC_TYPES.filter(({ key }) => {
+      const status = docsMap[key]?.status || 'pending_upload'
+      const isResolved = status !== 'pending_upload' && status !== 'rejected'
+      const isStaged = !!stagedFiles[key]
+      return !isResolved && !isStaged
+    })
+    if (unresolved.length > 0) {
+      setSubmitMsg(`Please attach or mark N/A: ${unresolved.map(d => d.label).join(', ')}`)
+      return
+    }
+    if (Object.keys(stagedFiles).length === 0) {
+      setSubmitMsg('No new files to submit.')
+      return
+    }
     setSubmitting(true); setSubmitMsg('')
     let ok = 0, fail = 0
     for (const [docType, file] of Object.entries(stagedFiles)) {
@@ -406,8 +421,17 @@ function ReviewerView({ groups, role, onRefresh }) {
             group.docs.forEach(d => { docsMap[d.doc_type] = d })
             const fullyApproved = group.docs.filter(d => d.status === 'approved').length
             const qaApproved = group.docs.filter(d => d.status === 'qa_approved').length
-            const approved = fullyApproved + qaApproved
             const pct = Math.round((fullyApproved / DOC_TYPES.length) * 100)
+            // Chips: only uploaded docs needing action (not N/A, not already approved)
+            const actionDocs = DOC_TYPES.filter(({ key }) => {
+              const s = docsMap[key]?.status
+              return s && s !== 'not_applicable' && s !== 'qa_approved' && s !== 'approved'
+            })
+            // Summary: qa_approved + approved
+            const resolvedDocs = DOC_TYPES.filter(({ key }) => {
+              const s = docsMap[key]?.status
+              return s === 'qa_approved' || s === 'approved'
+            })
 
             return (
               <div key={`${group.item_code}-${group.supplier_code}`} style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
@@ -419,32 +443,74 @@ function ReviewerView({ groups, role, onRefresh }) {
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', color: '#94a3b8' }}>{group.supplier_name}</span>
                     <span style={{ fontSize: '12px', fontWeight: '700', color: fullyApproved === DOC_TYPES.length ? '#4ade80' : '#fbbf24' }}>
-                      {fullyApproved}/{DOC_TYPES.length} approved{qaApproved > 0 ? ` · ${qaApproved} QA✓` : ''}
+                      {fullyApproved}/{DOC_TYPES.length} approved{qaApproved > 0 ? ` · ${qaApproved} pending buying` : ''}
                     </span>
                   </div>
                 </div>
                 <div style={{ height: '3px', background: '#e5e7eb' }}>
                   <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? '#22c55e' : '#f59e0b' }} />
                 </div>
-                <div style={{ padding: '14px 18px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '7px' }}>
-                  {DOC_TYPES.map(({ key, label }) => {
-                    const doc = docsMap[key]
-                    const status = doc?.status || 'pending_upload'
-                    const meta = STATUS_META[status]
-                    const isActive = panel?.group?.item_code === group.item_code && panel?.group?.supplier_code === group.supplier_code && panel?.docTypeKey === key
-                    return (
-                      <button key={key} onClick={() => openPanel(group, key)} style={{
-                        display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 11px',
-                        borderRadius: '7px', cursor: 'pointer', textAlign: 'left',
-                        border: isActive ? '2px solid #1C1208' : `1px solid ${meta.border}`,
-                        background: isActive ? '#fef9f0' : meta.bg,
-                      }}>
-                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: '12px', fontWeight: '500', color: '#374151', lineHeight: 1.3 }}>{label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
+                {/* Action chips — only docs needing review */}
+                {actionDocs.length > 0 ? (
+                  <div style={{ padding: '14px 18px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '7px' }}>
+                    {actionDocs.map(({ key, label }) => {
+                      const doc = docsMap[key]
+                      const status = doc?.status || 'pending_upload'
+                      const meta = STATUS_META[status]
+                      const isActive = panel?.group?.item_code === group.item_code && panel?.group?.supplier_code === group.supplier_code && panel?.docTypeKey === key
+                      return (
+                        <button key={key} onClick={() => openPanel(group, key)} style={{
+                          display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 11px',
+                          borderRadius: '7px', cursor: 'pointer', textAlign: 'left',
+                          border: isActive ? '2px solid #1C1208' : `1px solid ${meta.border}`,
+                          background: isActive ? '#fef9f0' : meta.bg,
+                        }}>
+                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: '12px', fontWeight: '500', color: '#374151', lineHeight: 1.3 }}>{label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px 18px', fontSize: '13px', color: '#64748b' }}>No documents pending review.</div>
+                )}
+
+                {/* Summary table — qa_approved + approved */}
+                {resolvedDocs.length > 0 && (
+                  <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 18px 14px', paddingTop: '12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Approved Documents</div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc' }}>
+                          <th style={{ padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: '600', borderBottom: '1px solid #e5e7eb' }}>Document</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: '600', borderBottom: '1px solid #e5e7eb' }}>Status</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: '600', borderBottom: '1px solid #e5e7eb' }}>File</th>
+                          <th style={{ padding: '6px 10px', borderBottom: '1px solid #e5e7eb' }} />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {resolvedDocs.map(({ key, label }) => {
+                          const doc = docsMap[key]
+                          const meta = STATUS_META[doc.status]
+                          return (
+                            <tr key={key} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '7px 10px', color: '#374151', fontWeight: '500' }}>{label}</td>
+                              <td style={{ padding: '7px 10px' }}>
+                                <span style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>{meta.label}</span>
+                              </td>
+                              <td style={{ padding: '7px 10px', color: '#64748b' }}>{doc.file_name || '—'}</td>
+                              <td style={{ padding: '7px 10px', textAlign: 'right' }}>
+                                {doc.id && doc.file_name && (
+                                  <button onClick={() => openPanel(group, key)} style={{ padding: '3px 10px', background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '5px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>View</button>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )
           })}
