@@ -355,6 +355,77 @@ function SupplierUploadView({ groups, onRefresh }) {
       {/* Spacer so content isn't hidden behind sticky bar */}
       {group && <div style={{ height: '72px' }} />}
 
+      {/* All items summary table */}
+      <div style={{ marginTop: '32px' }}>
+        <div style={{ background: '#fff', borderRadius: '10px 10px 0 0', border: '1px solid #e5e7eb', borderBottom: 'none', padding: '12px 20px' }}>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>All Items Summary</span>
+        </div>
+        <div style={{ background: '#fff', borderRadius: '0 0 10px 10px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                <th style={{ padding: '10px 16px', textAlign: 'left', color: '#64748b', fontWeight: '600' }}>ITEM</th>
+                <th style={{ padding: '10px 16px', textAlign: 'center', color: '#64748b', fontWeight: '600' }}>SUBMITTED</th>
+                <th style={{ padding: '10px 16px', textAlign: 'center', color: '#d97706', fontWeight: '600' }}>PENDING QA</th>
+                <th style={{ padding: '10px 16px', textAlign: 'center', color: '#0284c7', fontWeight: '600' }}>PENDING BUYING</th>
+                <th style={{ padding: '10px 16px', textAlign: 'center', color: '#15803d', fontWeight: '600' }}>APPROVED</th>
+                <th style={{ padding: '10px 16px', textAlign: 'center', color: '#dc2626', fontWeight: '600' }}>REJECTED</th>
+                <th style={{ padding: '10px 16px', textAlign: 'center', color: '#64748b', fontWeight: '600' }}>STATUS</th>
+                <th style={{ padding: '10px 16px', textAlign: 'right', color: '#64748b', fontWeight: '600' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map(g => {
+                const gKey = `${g.item_code}::${g.supplier_code}`
+                const pendingApproval = g.docs.filter(d => d.status === 'pending_approval').length
+                const pendingBuying   = g.docs.filter(d => d.status === 'qa_approved').length
+                const approved        = g.docs.filter(d => d.status === 'approved').length
+                const rejected        = g.docs.filter(d => d.status === 'rejected').length
+                const submitted       = g.docs.filter(d => d.status && d.status !== 'pending_upload').length
+                const gStatus         = getGroupStatus(g)
+                const statusMeta = {
+                  actionNeeded:  { label: 'Action Needed',   bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' },
+                  pendingQA:     { label: 'Pending QA',      bg: '#fefce8', color: '#92400e', border: '#fde68a' },
+                  pendingBuying: { label: 'Pending Buying',  bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                  complete:      { label: 'Complete',        bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
+                  rejected:      { label: 'Rejected',        bg: '#fef2f2', color: '#991b1b', border: '#fca5a5' },
+                }[gStatus] || { label: 'Pending', bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1' }
+                return (
+                  <tr key={gKey} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '11px 16px' }}>
+                      <div style={{ fontWeight: '600', color: '#1e293b' }}>{g.item_name}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>{g.item_code}</div>
+                    </td>
+                    <td style={{ padding: '11px 16px', textAlign: 'center', color: '#374151', fontWeight: '600' }}>{submitted}/{DOC_TYPES.length}</td>
+                    <td style={{ padding: '11px 16px', textAlign: 'center' }}>
+                      {pendingApproval > 0 ? <span style={{ background: '#fef9c3', color: '#92400e', border: '1px solid #fde68a', padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '12px' }}>{pendingApproval}</span> : <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '11px 16px', textAlign: 'center' }}>
+                      {pendingBuying > 0 ? <span style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '12px' }}>{pendingBuying}</span> : <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '11px 16px', textAlign: 'center' }}>
+                      {approved > 0 ? <span style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '12px' }}>{approved}</span> : <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '11px 16px', textAlign: 'center' }}>
+                      {rejected > 0 ? <span style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '12px' }}>{rejected}</span> : <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '11px 16px', textAlign: 'center' }}>
+                      <span style={{ background: statusMeta.bg, color: statusMeta.color, border: `1px solid ${statusMeta.border}`, padding: '3px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>{statusMeta.label}</span>
+                    </td>
+                    <td style={{ padding: '11px 16px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => { setSelectedKey(gKey); setStagedFiles({}); setSubmitMsg(''); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                        style={{ padding: '5px 14px', background: selectedKey === gKey ? '#1C1208' : '#f1f5f9', color: selectedKey === gKey ? '#fff' : '#374151', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                      >{selectedKey === gKey ? 'Selected' : 'Manage'}</button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Toast notification */}
       {toast && (
         <div style={{
