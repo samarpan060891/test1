@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { getUsers, createUser, updateUser, deleteUser, resetPassword, getAgencies, getSuppliers } from '../api/admin.js'
 import { useColumnFilter } from '../hooks/useColumnFilter.js'
+import { PasswordInput } from '../components/PasswordInput.jsx'
 import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
 import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
 
@@ -206,7 +207,7 @@ export default function AdminUsersPage() {
               {!editUser && (
                 <div className="field" style={{ marginBottom: 0 }}>
                   <label>{t('admin_users_new_password')} *</label>
-                  <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} className="input" />
+                  <PasswordInput value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} className="input" />
                 </div>
               )}
               <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
@@ -225,7 +226,7 @@ export default function AdminUsersPage() {
             <p className="modal-subtitle">{resetModal.name} ({resetModal.email})</p>
             <div className="field">
               <label>{t('admin_users_new_password')}</label>
-              <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder={t('admin_users_min_chars')} className="input" />
+              <PasswordInput value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder={t('admin_users_min_chars')} className="input" />
             </div>
             {resetMsg && <div className={`alert mb-4 ${resetMsg.includes('success') ? 'alert-success' : 'alert-error'}`}>{resetMsg}</div>}
             <div style={{ display: 'flex', gap: '10px' }}>

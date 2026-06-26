@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar.jsx'
 import { changePassword } from '../api/auth.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
+import { PasswordInput } from '../components/PasswordInput.jsx'
 
 export default function ChangePasswordPage() {
   const { t } = useLanguage()
@@ -66,8 +67,7 @@ export default function ChangePasswordPage() {
             ].map(({ key, label }) => (
               <div key={key} className="field" style={{ marginBottom: 0 }}>
                 <label>{label} *</label>
-                <input
-                  type="password"
+                <PasswordInput
                   value={form[key]}
                   onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
                   required
