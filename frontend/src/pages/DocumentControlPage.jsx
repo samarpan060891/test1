@@ -22,7 +22,7 @@ const DOC_TYPES = [
 const STATUS_META = {
   pending_upload:   { label: 'Pending Upload',   bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1' },
   pending_approval: { label: 'Pending Approval', bg: '#fefce8', color: '#92400e', border: '#fde68a' },
-  qa_approved:      { label: 'QA Approved',       bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  qa_approved:      { label: 'Pending with Buying', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
   approved:         { label: 'Approved',           bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
   rejected:         { label: 'Rejected',           bg: '#fef2f2', color: '#991b1b', border: '#fca5a5' },
   not_applicable:   { label: 'Not Applicable',    bg: '#f5f5f5', color: '#9ca3af', border: '#e5e7eb' },
@@ -34,6 +34,7 @@ function SupplierUploadView({ groups, onRefresh }) {
   const [stagedFiles, setStagedFiles] = useState({}) // doc_type → File
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState('')
+  const [toast, setToast] = useState('')
   const [panel, setPanel] = useState(null)
   const [fileUrl, setFileUrl] = useState(null)
   const [fileType, setFileType] = useState(null)
@@ -81,9 +82,12 @@ function SupplierUploadView({ groups, onRefresh }) {
       } catch { fail++ }
     }
     setStagedFiles({})
-    setSubmitMsg(fail === 0
+    const msg = fail === 0
       ? `${ok} document${ok > 1 ? 's' : ''} submitted successfully and sent for approval.`
-      : `${ok} uploaded, ${fail} failed.`)
+      : `${ok} uploaded, ${fail} failed.`
+    setSubmitMsg(msg)
+    setToast(msg)
+    setTimeout(() => setToast(''), 5000)
     setSubmitting(false)
     onRefresh()
   }
@@ -268,6 +272,19 @@ function SupplierUploadView({ groups, onRefresh }) {
 
       {/* Spacer so content isn't hidden behind sticky bar */}
       {pendingCount > 0 && <div style={{ height: '72px' }} />}
+
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 60, background: toast.includes('failed') ? '#dc2626' : '#15803d',
+          color: '#fff', padding: '14px 28px', borderRadius: '10px',
+          fontSize: '14px', fontWeight: '600', boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+          whiteSpace: 'nowrap',
+        }}>
+          {toast.includes('failed') ? '⚠️' : '✅'} {toast}
+        </div>
+      )}
 
       {/* View panel */}
       {panel && (
