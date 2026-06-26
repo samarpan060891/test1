@@ -156,8 +156,8 @@ router.post('/', async (req, res) => {
       // Notify everyone EXCEPT the poster
       if (posterRole !== 'qa') sendNotification(job_id, 'REMARK_POSTED', 'qa', qaUsers.rows.map(u => u.email), notifMsg);
       if (posterRole !== 'buying') sendNotification(job_id, 'REMARK_POSTED', 'buying', buyingUsers.rows.map(u => u.email), notifMsg);
-      if (posterRole !== 'agency_user') sendNotification(job_id, 'REMARK_POSTED', 'agency_user', ji.agency_emails || [], notifMsg);
-      if (posterRole !== 'supplier_user') sendNotification(job_id, 'REMARK_POSTED', 'supplier_user', ji.supplier_email ? [ji.supplier_email] : [], notifMsg);
+      if (posterRole !== 'agency_user') sendNotification(job_id, 'REMARK_POSTED', 'agency_user', ji.agency_emails || [], notifMsg, null, ji.agency_code);
+      if (posterRole !== 'supplier_user') sendNotification(job_id, 'REMARK_POSTED', 'supplier_user', ji.supplier_email ? [ji.supplier_email] : [], notifMsg, null, null, ji.supplier_code);
     }
 
     res.status(201).json(result.rows[0]);

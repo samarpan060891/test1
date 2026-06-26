@@ -34,6 +34,12 @@ router.get('/', async (req, res) => {
       conditions.push(`n.agency_code = $${params.length}`);
     }
 
+    // For supplier users, only show notifications for their own supplier
+    if (req.user.role === 'supplier_user' && req.user.supplier_code) {
+      params.push(req.user.supplier_code);
+      conditions.push(`n.supplier_code = $${params.length}`);
+    }
+
     if (job_id) {
       params.push(job_id);
       conditions.push(`n.job_id = $${params.length}`);
