@@ -7,7 +7,8 @@ import {
   getSuppliers, saveSingleSupplier, bulkSuppliers,
   getAgencies, saveSingleAgency, bulkAgencies,
   getItems, saveSingleItem, bulkItems,
-  getPOs, saveSinglePO, bulkPOs
+  getPOs, saveSinglePO, bulkPOs,
+  getBuyers
 } from '../api/admin.js'
 
 const TABS = ['Suppliers', 'Agencies', 'Items', 'POs']
@@ -44,6 +45,7 @@ const PO_FIELDS = [
   { key: 'unit_price', label: 'Unit Price (USD)', placeholder: '18.50', required: false, type: 'number' },
   { key: 'order_date', label: 'Order Date', placeholder: '', required: false, type: 'date' },
   { key: 'status', label: 'Status', placeholder: 'open', required: false },
+  { key: 'buyer_id', label: 'Assigned Buyer', placeholder: '', required: false, type: 'buyer_select' },
 ]
 
 const CONFIG = {
@@ -72,6 +74,9 @@ export default function AdminMastersPage() {
   const [masterFilters, setMasterFilters] = useState({})
   const setMasterFilter = (key, value) => setMasterFilters(prev => ({ ...prev, [key]: value }))
   const clearMasterFilters = () => setMasterFilters({})
+  const [buyers, setBuyers] = useState([])
+
+  useEffect(() => { getBuyers().then(r => setBuyers(r.data || [])).catch(() => {}) }, [])
 
   const handleEditRow = (row) => {
     setForm(Object.fromEntries(cfg.fields.map(f => [f.key, Array.isArray(row[f.key]) ? row[f.key].join(', ') : (row[f.key] ?? '')])))
@@ -205,14 +210,25 @@ export default function AdminMastersPage() {
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '3px' }}>
                       {f.label}{f.required ? ' *' : ''}
                     </label>
-                    <input
-                      type={f.type || 'text'}
-                      value={form[f.key] || ''}
-                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                      placeholder={f.placeholder}
-                      required={f.required}
-                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}
-                    />
+                    {f.type === 'buyer_select' ? (
+                      <select
+                        value={form[f.key] || ''}
+                        onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                        style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box', background: '#fff' }}
+                      >
+                        <option value=''>— No buyer assigned —</option>
+                        {buyers.map(b => <option key={b.user_id} value={b.user_id}>{b.name} ({b.email})</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        type={f.type || 'text'}
+                        value={form[f.key] || ''}
+                        onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                        placeholder={f.placeholder}
+                        required={f.required}
+                        style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}
+                      />
+                    )}
                   </div>
                 ))}
                 {formMsg && (
@@ -333,7 +349,9 @@ export default function AdminMastersPage() {
                       <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: editingCode === row[cfg.codeKey] ? '#fffbeb' : 'transparent' }}>
                         {cfg.fields.map(f => (
                           <td key={f.key} style={{ padding: '10px 14px', color: '#374151', whiteSpace: 'nowrap' }}>
-                            {Array.isArray(row[f.key]) ? (row[f.key].join(', ') || '—') : (row[f.key] ?? '—')}
+                            {f.type === 'buyer_select'
+                              ? (row.buyer_name || '—')
+                              : Array.isArray(row[f.key]) ? (row[f.key].join(', ') || '—') : (row[f.key] ?? '—')}
                           </td>
                         ))}
                         <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>

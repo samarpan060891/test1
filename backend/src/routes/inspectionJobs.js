@@ -92,8 +92,11 @@ router.get('/', async (req, res) => {
     const params = [];
     const conditions = [];
 
-    if (['qa', 'buying', 'admin'].includes(req.user.role)) {
+    if (['qa', 'admin'].includes(req.user.role)) {
       // see all
+    } else if (req.user.role === 'buying') {
+      params.push(req.user.user_id);
+      conditions.push(`p.buyer_id = $${params.length}`);
     } else if (req.user.role === 'agency_user') {
       params.push(req.user.agency_code);
       conditions.push(`j.agency_code = $${params.length}`);
@@ -262,12 +265,18 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
     // Notify all connected stakeholders
     const firstJobId = createdJobs[0].job_id;
+    // Look up the assigned buyer for this PO
+    const buyerResult = await db.query(
+      `SELECT b.user_id AS buyer_id, b.email AS buyer_email
+       FROM qc_inspection.po_master p
+       JOIN qc_inspection.team_stakeholder b ON b.user_id = p.buyer_id
+       WHERE p.po_no = $1`, [po_no]
+    );
+    const poBuyer = buyerResult.rows[0] || null;
+
     const stakeMap = {};
     if (inspection_type === 'agency') stakeMap['agency_user'] = agencyResult.rows[0].contact_emails || [];
     stakeMap['supplier_user'] = [po.contact_email];
-    // Also notify buying team (they map jobs too, they should see when their colleagues map)
-    const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying'");
-    stakeMap['buying'] = buyingUsers.rows.map(u => u.email);
 
     const stagesSummary = stages.length > 1
       ? `${stages.length} stages (${stages.map(s => s.replace('_', ' ')).join(', ')})`
@@ -286,6 +295,10 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
       const roleAgencyCode = role === 'agency_user' ? agency_code : null;
       const roleSupplierCode = role === 'supplier_user' ? po.supplier_code : null;
       sendNotification(firstJobId, 'JOB_MAPPED', role, emails, msg, null, roleAgencyCode, roleSupplierCode);
+    }
+    // Notify the assigned buyer specifically
+    if (poBuyer) {
+      sendNotification(firstJobId, 'JOB_MAPPED', 'buying', [poBuyer.buyer_email], msg, null, null, null, poBuyer.buyer_id);
     }
 
     res.status(201).json(stages.length === 1 ? createdJobs[0] : { jobs: createdJobs, count: createdJobs.length });

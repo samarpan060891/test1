@@ -96,6 +96,21 @@ async function runMigrations() {
   await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS contract_id UUID REFERENCES qc_inspection.agency_contract(contract_id)`, 'job contract_id');
   await safeQuery(`ALTER TABLE qc_inspection.notification_event ADD COLUMN IF NOT EXISTS agency_code TEXT`, 'notification agency_code');
   await safeQuery(`ALTER TABLE qc_inspection.notification_event ADD COLUMN IF NOT EXISTS supplier_code TEXT`, 'notification supplier_code');
+  await safeQuery(`ALTER TABLE qc_inspection.notification_event ADD COLUMN IF NOT EXISTS buyer_id UUID`, 'notification buyer_id');
+  await safeQuery(`ALTER TABLE qc_inspection.po_master ADD COLUMN IF NOT EXISTS buyer_id UUID REFERENCES qc_inspection.team_stakeholder(user_id)`, 'po buyer_id');
+
+  // Assign buyers randomly to POs that have none
+  await safeQuery(`
+    UPDATE qc_inspection.po_master p
+    SET buyer_id = (
+      SELECT user_id FROM qc_inspection.team_stakeholder
+      WHERE role = 'buying'
+      ORDER BY md5(p.po_no || user_id::text)
+      LIMIT 1
+    )
+    WHERE p.buyer_id IS NULL
+      AND EXISTS (SELECT 1 FROM qc_inspection.team_stakeholder WHERE role = 'buying')
+  `, 'seed buyer_id on POs');
 
 
   await safeQuery(`UPDATE qc_inspection.inspection_charges_advice SET status = 'pending_imports' WHERE status = 'approved'`, 'migrate approved→pending_imports');

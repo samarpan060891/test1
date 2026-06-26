@@ -163,7 +163,7 @@ function buildReadableMessage(eventType, extraMessage) {
   }
 }
 
-async function sendNotification(jobId, eventType, recipientRole, recipientEmails = [], extraMessage = null, adviceId = null, agencyCode = null, supplierCode = null) {
+async function sendNotification(jobId, eventType, recipientRole, recipientEmails = [], extraMessage = null, adviceId = null, agencyCode = null, supplierCode = null, buyerId = null) {
   const message = buildReadableMessage(eventType, extraMessage);
 
   console.log(`\n📧 [NOTIFICATION] ${eventType} → ${recipientRole}`);
@@ -173,9 +173,9 @@ async function sendNotification(jobId, eventType, recipientRole, recipientEmails
   try {
     await db.query(
       `INSERT INTO qc_inspection.notification_event
-         (job_id, event_type, recipient_role, recipient_email, channel, message, advice_id, agency_code, supplier_code)
-       VALUES ($1, $2, $3, $4, 'in_app', $5, $6, $7, $8)`,
-      [jobId || null, eventType, recipientRole, recipientEmails.filter(Boolean).join(',') || null, message, adviceId || null, agencyCode || null, supplierCode || null]
+         (job_id, event_type, recipient_role, recipient_email, channel, message, advice_id, agency_code, supplier_code, buyer_id)
+       VALUES ($1, $2, $3, $4, 'in_app', $5, $6, $7, $8, $9)`,
+      [jobId || null, eventType, recipientRole, recipientEmails.filter(Boolean).join(',') || null, message, adviceId || null, agencyCode || null, supplierCode || null, buyerId || null]
     );
   } catch {
     try {

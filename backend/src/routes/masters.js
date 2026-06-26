@@ -94,4 +94,16 @@ router.get('/suppliers', authenticate, async (req, res) => {
   }
 })
 
+// GET /api/masters/buyers — list of buying-role users for PO assignment
+router.get('/buyers', authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT user_id, name, email FROM qc_inspection.team_stakeholder WHERE role = 'buying' ORDER BY name`
+    )
+    res.json(result.rows)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch buyers' })
+  }
+})
+
 module.exports = router

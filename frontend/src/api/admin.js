@@ -23,3 +23,5 @@ export const bulkItems = (rows) => client.post('/admin/masters/items/bulk', { ro
 export const getPOs = () => client.get('/admin/masters/po')
 export const saveSinglePO = (data) => client.post('/admin/masters/po/single', data)
 export const bulkPOs = (rows) => client.post('/admin/masters/po/bulk', { rows })
+
+export const getBuyers = () => client.get('/masters/buyers')

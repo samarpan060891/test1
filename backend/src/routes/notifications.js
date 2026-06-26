@@ -40,6 +40,12 @@ router.get('/', async (req, res) => {
       conditions.push(`n.supplier_code = $${params.length}`);
     }
 
+    // For buying users, only show notifications tagged to them as the buyer
+    if (req.user.role === 'buying' && req.user.user_id) {
+      params.push(req.user.user_id);
+      conditions.push(`n.buyer_id = $${params.length}`);
+    }
+
     if (job_id) {
       params.push(job_id);
       conditions.push(`n.job_id = $${params.length}`);

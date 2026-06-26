@@ -227,22 +227,38 @@ router.post('/masters/items/bulk', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── BUYERS LIST (public to authenticated users) ───────────────────────────────
+
+router.get('/buyers', async (req, res) => {
+  try {
+    const r = await db.query(
+      `SELECT user_id, name, email FROM qc_inspection.team_stakeholder WHERE role = 'buying' ORDER BY name`
+    );
+    res.json(r.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── PO MASTER ─────────────────────────────────────────────────────────────────
 
 router.get('/masters/po', async (req, res) => {
-  const r = await db.query('SELECT * FROM qc_inspection.po_master ORDER BY po_no');
+  const r = await db.query(`
+    SELECT p.*, b.name AS buyer_name, b.email AS buyer_email
+    FROM qc_inspection.po_master p
+    LEFT JOIN qc_inspection.team_stakeholder b ON b.user_id = p.buyer_id
+    ORDER BY p.po_no
+  `);
   res.json(r.rows);
 });
 
 router.post('/masters/po/single', async (req, res) => {
-  const { po_no, supplier_code, item_code, quantity, unit_price, order_date, status } = req.body;
+  const { po_no, supplier_code, item_code, quantity, unit_price, order_date, status, buyer_id } = req.body;
   if (!po_no || !supplier_code || !item_code) return res.status(400).json({ error: 'po_no, supplier_code and item_code are required' });
   try {
     const r = await db.query(
-      `INSERT INTO qc_inspection.po_master (po_no, supplier_code, item_code, quantity, unit_price, order_date, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (po_no) DO UPDATE
-       SET supplier_code=$2, item_code=$3, quantity=$4, unit_price=$5, order_date=$6, status=$7 RETURNING *`,
-      [po_no, supplier_code, item_code, quantity || null, unit_price || 0, order_date || null, status || 'open']
+      `INSERT INTO qc_inspection.po_master (po_no, supplier_code, item_code, quantity, unit_price, order_date, status, buyer_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (po_no) DO UPDATE
+       SET supplier_code=$2, item_code=$3, quantity=$4, unit_price=$5, order_date=$6, status=$7, buyer_id=$8 RETURNING *`,
+      [po_no, supplier_code, item_code, quantity || null, unit_price || 0, order_date || null, status || 'open', buyer_id || null]
     );
     res.status(201).json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -258,6 +274,7 @@ router.post('/masters/po/bulk', async (req, res) => {
       unit_price: parseFloat(r.unit_price || r['Unit Price']) || 0,
       order_date: r.order_date || r['Order Date'] || null,
       status: r.status || r['Status'] || 'open',
+      buyer_id: r.buyer_id || r['Buyer ID'] || null,
     })).filter(r => r.po_no && r.supplier_code && r.item_code);
     const result = await bulkUpsert('qc_inspection.po_master', rows, 'po_no');
     res.json(result);

@@ -29,6 +29,9 @@ router.get('/', async (req, res) => {
     } else if (req.user.role === 'supplier_user') {
       params.push(req.user.supplier_code);
       conditions.push(`(j.supplier_code = $${params.length} OR l.job_id IS NULL)`);
+    } else if (req.user.role === 'buying') {
+      params.push(req.user.user_id);
+      conditions.push(`(EXISTS (SELECT 1 FROM qc_inspection.po_master pm WHERE pm.po_no = j.po_no AND pm.buyer_id = $${params.length}) OR l.job_id IS NULL)`);
     }
 
     if (job_id) {

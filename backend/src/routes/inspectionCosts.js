@@ -19,18 +19,31 @@ router.use(authenticate);
 
 // Helper: get emails for internal teams
 async function getInternalTeamEmails() {
-  const [qa, buying, imports, accounts] = await Promise.all([
+  const [qa, imports, accounts] = await Promise.all([
     db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa' AND email IS NOT NULL"),
-    db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying' AND email IS NOT NULL"),
     db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'imports' AND email IS NOT NULL"),
     db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'accounts' AND email IS NOT NULL"),
   ]);
   return {
     qaEmails: qa.rows.map(u => u.email),
-    buyingEmails: buying.rows.map(u => u.email),
     importsEmails: imports.rows.map(u => u.email),
     accountsEmails: accounts.rows.map(u => u.email),
   };
+}
+
+// Helper: get the assigned buyer for an advice (via its linked jobs → POs)
+async function getAdviceBuyer(adviceId) {
+  const r = await db.query(
+    `SELECT DISTINCT b.user_id AS buyer_id, b.email AS buyer_email, b.name AS buyer_name
+     FROM qc_inspection.ica_jobs ij
+     JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
+     JOIN qc_inspection.po_master p ON p.po_no = j.po_no
+     JOIN qc_inspection.team_stakeholder b ON b.user_id = p.buyer_id
+     WHERE ij.advice_id = $1 AND b.email IS NOT NULL
+     LIMIT 1`,
+    [adviceId]
+  );
+  return r.rows[0] || null;
 }
 
 // Helper: get agency emails + first linked job_id for an advice
@@ -144,6 +157,14 @@ router.get('/', async (req, res) => {
                WHERE ij2.advice_id = a.advice_id AND j2.supplier_code = $1
              )`;
       params.push(req.user.supplier_code);
+    } else if (role === 'buying') {
+      q += ` WHERE EXISTS (
+               SELECT 1 FROM qc_inspection.ica_jobs ij2
+               JOIN qc_inspection.inspection_job j2 ON j2.job_id = ij2.job_id
+               JOIN qc_inspection.po_master pm ON pm.po_no = j2.po_no
+               WHERE ij2.advice_id = a.advice_id AND pm.buyer_id = $1
+             )`;
+      params.push(req.user.user_id);
     }
     q += ' GROUP BY a.advice_id, ag.name, creator.name, qa_u.name, buy_u.name, imp_u.name, acc_u.name, rej_u.name ORDER BY a.created_at DESC';
     // Note: contract_name uses a correlated subquery so no GROUP BY needed for it
@@ -261,9 +282,10 @@ router.post('/', authorize('agency_user'), upload.single('invoice'), async (req,
       );
     }
 
-    // Notify QA + Buying that a new charges advice has been raised
+    // Notify QA + assigned Buyer that a new charges advice has been raised
     const ctx = await getAdviceContext(advice.advice_id);
-    const { qaEmails, buyingEmails } = await getInternalTeamEmails();
+    const buyer = await getAdviceBuyer(advice.advice_id);
+    const { qaEmails } = await getInternalTeamEmails();
     const agencyName = ctx?.agency_name || req.user.agency_code;
     const jobCount = job_ids.length;
     const msg = JSON.stringify({
@@ -276,7 +298,7 @@ router.post('/', authorize('agency_user'), upload.single('invoice'), async (req,
     });
 
     sendNotification(ctx?.first_job_id || null, 'CHARGES_SUBMITTED', 'qa', qaEmails, msg, ctx?.advice_id || null);
-    sendNotification(ctx?.first_job_id || null, 'CHARGES_SUBMITTED', 'buying', buyingEmails, msg, ctx?.advice_id || null);
+    if (buyer) sendNotification(ctx?.first_job_id || null, 'CHARGES_SUBMITTED', 'buying', [buyer.buyer_email], msg, ctx?.advice_id || null, null, null, buyer.buyer_id);
 
     res.status(201).json(advice);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -295,8 +317,10 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
     if (advice.status === 'paid') return res.status(400).json({ error: 'Advice is already paid' });
 
     const ctx = await getAdviceContext(req.params.id);
-    const { qaEmails, buyingEmails, importsEmails, accountsEmails } = await getInternalTeamEmails();
+    const buyer = await getAdviceBuyer(req.params.id);
+    const { qaEmails, importsEmails, accountsEmails } = await getInternalTeamEmails();
     const agencyEmails = ctx?.agency_emails || [];
+    const buyerEmails = buyer ? [buyer.buyer_email] : [];
     const ref = advice.advice_ref || advice.advice_id.slice(0, 8);
     const approverName = req.user.name || req.user.email;
 
@@ -320,7 +344,7 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
          WHERE advice_id = $3 RETURNING *`,
         [user_id, notes || null, req.params.id]
       );
-      sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'buying', buyingEmails, chargesMsg(), ctx?.advice_id || null);
+      if (buyer) sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'buying', buyerEmails, chargesMsg(), ctx?.advice_id || null, null, null, buyer.buyer_id);
       sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null, advice.agency_code);
 
     } else if (role === 'buying') {
@@ -354,7 +378,7 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
         [user_id, notes || null, req.params.id]
       );
       sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null, advice.agency_code);
-      sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'buying', buyingEmails, chargesMsg(), ctx?.advice_id || null);
+      if (buyer) sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'buying', buyerEmails, chargesMsg(), ctx?.advice_id || null, null, null, buyer.buyer_id);
     }
 
     res.json(update.rows[0]);
@@ -377,8 +401,9 @@ router.put('/:id/reject', authorize('qa', 'buying', 'imports', 'accounts'), asyn
     const advice = r.rows[0];
 
     const ctx = await getAdviceContext(req.params.id);
+    const buyer = await getAdviceBuyer(req.params.id);
     const agencyEmails = ctx?.agency_emails || [];
-    const { qaEmails, buyingEmails, importsEmails, accountsEmails } = await getInternalTeamEmails();
+    const { qaEmails, importsEmails, accountsEmails } = await getInternalTeamEmails();
     const ref = advice.advice_ref || advice.advice_id.slice(0, 8);
     const rejectedByName = req.user.name || req.user.email;
     const rejectMsg = JSON.stringify({
@@ -390,7 +415,7 @@ router.put('/:id/reject', authorize('qa', 'buying', 'imports', 'accounts'), asyn
       reason,
     });
     sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'agency_user', agencyEmails, rejectMsg, ctx?.advice_id || null, advice.agency_code);
-    const allInternal = [...new Set([...qaEmails, ...buyingEmails, ...importsEmails, ...accountsEmails])];
+    const allInternal = [...new Set([...qaEmails, ...(buyer ? [buyer.buyer_email] : []), ...importsEmails, ...accountsEmails])];
     sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'qa', allInternal, rejectMsg, ctx?.advice_id || null);
 
     res.json(advice);
