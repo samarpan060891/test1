@@ -32,6 +32,7 @@ const STATUS_META = {
 function SupplierUploadView({ groups, onRefresh }) {
   const [selectedKey, setSelectedKey] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
+  const [manageOpen, setManageOpen] = useState(false) // right slide panel open
   const [stagedFiles, setStagedFiles] = useState({}) // doc_type → File
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState('')
@@ -41,6 +42,14 @@ function SupplierUploadView({ groups, onRefresh }) {
   const [fileType, setFileType] = useState(null)
   const [panelLoading, setPanelLoading] = useState(false)
   const fileRefs = useRef({})
+
+  const openManage = (gKey) => {
+    setSelectedKey(gKey)
+    setStagedFiles({})
+    setSubmitMsg('')
+    setManageOpen(true)
+  }
+  const closeManage = () => { setManageOpen(false); setSubmitMsg('') }
 
   const getGroupStatus = (g) => {
     const docs = g.docs
@@ -196,7 +205,7 @@ function SupplierUploadView({ groups, onRefresh }) {
         </label>
         <select
           value={selectedKey}
-          onChange={e => { setSelectedKey(e.target.value); setStagedFiles({}); setSubmitMsg('') }}
+          onChange={e => { if (e.target.value) openManage(e.target.value); else setSelectedKey('') }}
           style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', background: '#fff', color: '#111827' }}
         >
           <option value=''>— Choose an item —</option>
@@ -212,148 +221,100 @@ function SupplierUploadView({ groups, onRefresh }) {
         </select>
       </div>
 
-      {/* Document slots */}
-      {group && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>
-              {group.item_name}
-              <span style={{ marginLeft: '8px', fontSize: '13px', color: '#64748b', fontWeight: '400' }}>{group.supplier_name}</span>
-            </h3>
+      {/* Right slide panel for managing a selected item */}
+      {manageOpen && group && (
+        <>
+          <div onClick={closeManage} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 40 }} />
+          <div style={{
+            position: 'fixed', top: 0, right: 0, width: '520px', maxWidth: '100vw',
+            height: '100vh', background: '#f8fafc', boxShadow: '-4px 0 28px rgba(0,0,0,0.15)',
+            zIndex: 50, display: 'flex', flexDirection: 'column',
+          }}>
+            {/* Panel header */}
+            <div style={{ background: '#1C1208', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: '12px', color: '#d4c5a0', marginBottom: '2px' }}>{group.supplier_name}</div>
+                <div style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>{group.item_name}</div>
+                <div style={{ fontSize: '11px', color: '#d4c5a0', marginTop: '2px' }}>{group.item_code}</div>
+              </div>
+              <button onClick={closeManage} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: '13px', fontWeight: '600', padding: '5px 14px', borderRadius: '6px', cursor: 'pointer' }}>✕ Close</button>
             </div>
 
-          {submitMsg && (
-            <div style={{ padding: '10px 16px', marginBottom: '14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600',
-              background: submitMsg.includes('failed') ? '#fef2f2' : '#f0fdf4',
-              color: submitMsg.includes('failed') ? '#dc2626' : '#15803d',
-            }}>{submitMsg}</div>
-          )}
+            {/* Status message */}
+            {submitMsg && (
+              <div style={{ padding: '10px 16px', margin: '12px 16px 0', borderRadius: '8px', fontSize: '13px', fontWeight: '600', flexShrink: 0,
+                background: submitMsg.includes('failed') ? '#fef2f2' : '#f0fdf4',
+                color: submitMsg.includes('failed') ? '#dc2626' : '#15803d',
+              }}>{submitMsg}</div>
+            )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {DOC_TYPES.map(({ key, label }, idx) => {
-              const doc = docsMap[key]
-              const status = doc?.status || 'pending_upload'
-              const meta = STATUS_META[status]
-              const staged = stagedFiles[key]
-              const canUpload = true // supplier can always replace/re-attach any doc
+            {/* Doc list — scrollable */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {DOC_TYPES.map(({ key, label }, idx) => {
+                  const doc = docsMap[key]
+                  const status = doc?.status || 'pending_upload'
+                  const meta = STATUS_META[status]
+                  const staged = stagedFiles[key]
 
-              return (
-                <div key={key} style={{
-                  background: '#fff', borderRadius: '10px', padding: '14px 18px',
-                  border: staged ? '2px solid #1C1208' : '1px solid #e5e7eb',
-                  display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                }}>
-                  {/* Number */}
-                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f1f5f9', color: '#64748b', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{idx + 1}</span>
-
-                  {/* Label */}
-                  <span style={{ flex: 1, fontSize: '14px', fontWeight: '500', color: '#111827', minWidth: '180px' }}>{label}</span>
-
-                  {/* Status badge */}
-                  <span style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, padding: '3px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>
-                    {meta.label}
-                  </span>
-
-                  {/* View existing file */}
-                  {doc?.file_name && (
-                    <button
-                      onClick={() => openViewPanel(doc)}
-                      style={{ padding: '5px 12px', background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                    >
-                      👁 View
-                    </button>
-                  )}
-
-                  {/* Attach / staged file / N/A actions */}
-                  {canUpload && status !== 'not_applicable' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {staged ? (
-                        <>
-                          <span style={{ fontSize: '12px', color: '#1C1208', fontWeight: '600', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            📎 {staged.name}
-                          </span>
-                          <button onClick={() => handleRemoveStaged(key)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '14px', padding: '0' }}>×</button>
-                        </>
-                      ) : (
-                        <>
-                          <input
-                            type="file"
-                            id={`file-${key}`}
-                            ref={el => { fileRefs.current[key] = el }}
-                            style={{ display: 'none' }}
-                            onChange={e => handleSelectFile(key, e.target.files[0])}
-                            accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx,.dwg,.ai,.eps,.zip,.csv"
-                          />
-                          <label htmlFor={`file-${key}`} style={{
-                            padding: '5px 14px', background: '#fafafa', color: '#374151',
-                            border: '1px dashed #d1d5db', borderRadius: '6px', fontSize: '12px',
-                            fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap'
-                          }}>
-                            + Attach
-                          </label>
-                          {(status === 'pending_upload' || status === 'rejected') && (
-                            <button
-                              onClick={() => handleMarkNA(key)}
-                              title="Mark as Not Applicable for this product"
-                              style={{ padding: '5px 10px', background: '#f5f5f5', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                            >N/A</button>
+                  return (
+                    <div key={key} style={{
+                      background: '#fff', borderRadius: '10px', padding: '12px 16px',
+                      border: staged ? '2px solid #1C1208' : '1px solid #e5e7eb',
+                      display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                    }}>
+                      <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#f1f5f9', color: '#64748b', fontSize: '10px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{idx + 1}</span>
+                      <span style={{ flex: 1, fontSize: '13px', fontWeight: '500', color: '#111827', minWidth: '140px' }}>{label}</span>
+                      <span style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                        {meta.label}
+                      </span>
+                      {doc?.file_name && (
+                        <button onClick={() => openViewPanel(doc)} style={{ padding: '4px 10px', background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>👁 View</button>
+                      )}
+                      {status !== 'not_applicable' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          {staged ? (
+                            <>
+                              <span style={{ fontSize: '11px', color: '#1C1208', fontWeight: '600', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📎 {staged.name}</span>
+                              <button onClick={() => handleRemoveStaged(key)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '14px', padding: '0' }}>×</button>
+                            </>
+                          ) : (
+                            <>
+                              <input type="file" id={`file-${key}`} ref={el => { fileRefs.current[key] = el }} style={{ display: 'none' }} onChange={e => handleSelectFile(key, e.target.files[0])} accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx,.dwg,.ai,.eps,.zip,.csv" />
+                              <label htmlFor={`file-${key}`} style={{ padding: '4px 12px', background: '#fafafa', color: '#374151', border: '1px dashed #d1d5db', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Attach</label>
+                              {(status === 'pending_upload' || status === 'rejected') && (
+                                <button onClick={() => handleMarkNA(key)} style={{ padding: '4px 8px', background: '#f5f5f5', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>N/A</button>
+                              )}
+                            </>
                           )}
-                        </>
+                        </div>
+                      )}
+                      {status === 'not_applicable' && (
+                        <button onClick={() => handleMarkNA(key)} style={{ padding: '4px 10px', background: 'none', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '10px', cursor: 'pointer' }}>Undo N/A</button>
                       )}
                     </div>
-                  )}
-                  {/* Undo N/A */}
-                  {status === 'not_applicable' && (
-                    <button
-                      onClick={() => handleMarkNA(key)}
-                      title="Click to undo — mark as needed"
-                      style={{ padding: '4px 10px', background: 'none', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
-                    >Undo N/A</button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+                  )
+                })}
+              </div>
+            </div>
 
-      {/* Sticky submit/re-submit bar — always visible when item is selected */}
-      {group && (
-        <div style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 30,
-          background: '#1C1208', padding: '14px 32px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          boxShadow: '0 -4px 20px rgba(0,0,0,0.2)',
-        }}>
-          <span style={{ color: '#d4c5a0', fontSize: '14px' }}>
-            {pendingCount > 0
-              ? <><strong style={{ color: '#fff' }}>📎 {pendingCount} file{pendingCount > 1 ? 's' : ''}</strong> ready — {group.item_name}</>
-              : <span style={{ color: 'rgba(255,255,255,0.7)' }}>{group.item_name} — attach new files or update N/A marks, then re-submit</span>
-            }
-          </span>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            {submitMsg && (
-              <span style={{ fontSize: '13px', color: submitMsg.includes('failed') ? '#fca5a5' : '#86efac', fontWeight: '600' }}>{submitMsg}</span>
-            )}
-            <button
-              onClick={handleSubmitAll}
-              disabled={submitting}
-              style={{
-                padding: '10px 28px', background: submitting ? '#475569' : '#E8470F',
-                color: '#fff', border: 'none', borderRadius: '8px',
-                fontSize: '14px', fontWeight: '700', cursor: submitting ? 'not-allowed' : 'pointer',
-                letterSpacing: '0.02em',
-              }}
-            >
-              {submitting ? 'Submitting...' : pendingCount > 0 ? 'Submit for Approval' : 'Re-Submit for Approval'}
-            </button>
+            {/* Panel footer — submit button */}
+            <div style={{ background: '#1C1208', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px' }}>
+                {pendingCount > 0 ? <strong style={{ color: '#fff' }}>📎 {pendingCount} file{pendingCount > 1 ? 's' : ''} ready</strong> : 'Attach files or mark N/A'}
+              </span>
+              <button onClick={handleSubmitAll} disabled={submitting} style={{
+                padding: '10px 24px', background: submitting ? '#475569' : '#E8470F',
+                color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+              }}>
+                {submitting ? 'Submitting...' : pendingCount > 0 ? 'Submit for Approval' : group.docs.some(d => d.status !== 'pending_upload') ? 'Re-Submit for Approval' : 'Submit for Approval'}
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
-
-      {/* Spacer so content isn't hidden behind sticky bar */}
-      {group && <div style={{ height: '72px' }} />}
 
       {/* All items summary table */}
       <div style={{ marginTop: '32px' }}>
@@ -414,9 +375,9 @@ function SupplierUploadView({ groups, onRefresh }) {
                     </td>
                     <td style={{ padding: '11px 16px', textAlign: 'right' }}>
                       <button
-                        onClick={() => { setSelectedKey(gKey); setStagedFiles({}); setSubmitMsg(''); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
-                        style={{ padding: '5px 14px', background: selectedKey === gKey ? '#1C1208' : '#f1f5f9', color: selectedKey === gKey ? '#fff' : '#374151', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
-                      >{selectedKey === gKey ? 'Selected' : 'Manage'}</button>
+                        onClick={() => openManage(gKey)}
+                        style={{ padding: '5px 14px', background: '#f1f5f9', color: '#374151', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                      >Manage</button>
                     </td>
                   </tr>
                 )
