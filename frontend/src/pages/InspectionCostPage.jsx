@@ -615,12 +615,28 @@ export default function InspectionCostPage() {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
-                        <label style={labelSt}>{t('costs_rate_value')}</label>
-                        <input type="number" min="0" step="0.01" value={contractForm.rate_value} onChange={e => setContractForm(p => ({ ...p, rate_value: e.target.value }))} required placeholder="e.g. 250" style={inputSt} />
+                        <label style={labelSt}>
+                          {contractForm.rate_type === 'percentage' ? 'Percentage of PO Value (%) *' : t('costs_rate_value')}
+                        </label>
+                        <input
+                          type="number" min="0" step="0.01"
+                          value={contractForm.rate_value}
+                          onChange={e => setContractForm(p => ({ ...p, rate_value: e.target.value }))}
+                          required
+                          placeholder={contractForm.rate_type === 'percentage' ? 'e.g. 3.5 (means 3.5%)' : 'e.g. 250'}
+                          style={inputSt}
+                        />
+                        {contractForm.rate_type === 'percentage' && (
+                          <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#64748b' }}>
+                            Enter the % of the total PO value to charge as inspection fee
+                          </p>
+                        )}
                       </div>
                       <div>
-                        <label style={labelSt}>{t('col_currency')}</label>
-                        <select value={contractForm.currency} onChange={e => setContractForm(p => ({ ...p, currency: e.target.value }))} style={inputSt}>
+                        <label style={{ ...labelSt, color: contractForm.rate_type === 'percentage' ? '#94a3b8' : undefined }}>
+                          {t('col_currency')}{contractForm.rate_type === 'percentage' ? ' (N/A for %)' : ''}
+                        </label>
+                        <select value={contractForm.currency} onChange={e => setContractForm(p => ({ ...p, currency: e.target.value }))} disabled={contractForm.rate_type === 'percentage'} style={{ ...inputSt, opacity: contractForm.rate_type === 'percentage' ? 0.4 : 1, cursor: contractForm.rate_type === 'percentage' ? 'not-allowed' : 'auto' }}>
                           {['USD','AED','INR','EUR','GBP'].map(c => <option key={c}>{c}</option>)}
                         </select>
                       </div>
