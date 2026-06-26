@@ -283,7 +283,8 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
       inspection_date,
     });
     for (const [role, emails] of Object.entries(stakeMap)) {
-      sendNotification(firstJobId, 'JOB_MAPPED', role, emails, msg);
+      const roleAgencyCode = role === 'agency_user' ? agency_code : null;
+      sendNotification(firstJobId, 'JOB_MAPPED', role, emails, msg, null, roleAgencyCode);
     }
 
     res.status(201).json(stages.length === 1 ? createdJobs[0] : { jobs: createdJobs, count: createdJobs.length });
@@ -468,7 +469,7 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
     const supplierEmail = await db.query('SELECT contact_email FROM qc_inspection.supplier_master WHERE supplier_code = $1', [job.supplier_code]);
     const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying'");
 
-    sendNotification(job.job_id, eventType, 'agency_user', agencyEmails.rows[0]?.contact_emails || [], msg);
+    sendNotification(job.job_id, eventType, 'agency_user', agencyEmails.rows[0]?.contact_emails || [], msg, null, job.agency_code);
     sendNotification(job.job_id, eventType, 'supplier_user', [supplierEmail.rows[0]?.contact_email], msg);
     sendNotification(job.job_id, eventType, 'buying', buyingUsers.rows.map(u => u.email), msg);
 
@@ -556,7 +557,7 @@ router.post('/:id/reinspect', authorize('qa', 'buying'), async (req, res) => {
     const supplierEmail = await db.query('SELECT contact_email FROM qc_inspection.supplier_master WHERE supplier_code = $1', [parent.supplier_code]);
     const buyingUsers = await db.query("SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying'");
 
-    if (agency_code) sendNotification(newJob.job_id, 'REINSPECTION_TRIGGERED', 'agency_user', agencyEmails.rows[0]?.contact_emails || [], msg);
+    if (agency_code) sendNotification(newJob.job_id, 'REINSPECTION_TRIGGERED', 'agency_user', agencyEmails.rows[0]?.contact_emails || [], msg, null, agency_code || parent.agency_code);
     sendNotification(newJob.job_id, 'REINSPECTION_TRIGGERED', 'supplier_user', [supplierEmail.rows[0]?.contact_email], msg);
     sendNotification(newJob.job_id, 'REINSPECTION_TRIGGERED', 'buying', buyingUsers.rows.map(u => u.email), msg);
 

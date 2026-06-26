@@ -13,6 +13,13 @@ function buildMessage(n, t) {
         return tmpl.replace(/\{(\w+)\}/g, (_, k) => parsed[k] ?? `{${k}}`)
       }
     }
+    // message is JSON but has no translation key — build a readable fallback
+    if (parsed && typeof parsed === 'object') {
+      const ref = parsed.ref || ''
+      const amt = parsed.amt ? ` — ${parsed.currency || 'USD'} ${parseFloat(parsed.amt).toFixed(2)}` : ''
+      const evtLabel = n.event_type ? n.event_type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : 'Update'
+      return `${evtLabel}${ref ? ` — ${ref}` : ''}${amt}`
+    }
   } catch {}
   if (n.event_type === 'REMARK_POSTED' && n.message) {
     const base = t('notif_REMARK_POSTED')

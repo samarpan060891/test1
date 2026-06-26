@@ -94,6 +94,7 @@ async function runMigrations() {
   await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS invoice_uploaded_at TIMESTAMPTZ`, 'invoice_uploaded_at');
   await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS invoice_uploaded_by UUID REFERENCES qc_inspection.team_stakeholder(user_id)`, 'invoice_uploaded_by');
   await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS contract_id UUID REFERENCES qc_inspection.agency_contract(contract_id)`, 'job contract_id');
+  await safeQuery(`ALTER TABLE qc_inspection.notification_event ADD COLUMN IF NOT EXISTS agency_code TEXT`, 'notification agency_code');
 
 
   await safeQuery(`UPDATE qc_inspection.inspection_charges_advice SET status = 'pending_imports' WHERE status = 'approved'`, 'migrate approved→pending_imports');

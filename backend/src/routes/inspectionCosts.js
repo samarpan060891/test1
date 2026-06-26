@@ -321,7 +321,7 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
         [user_id, notes || null, req.params.id]
       );
       sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'buying', buyingEmails, chargesMsg(), ctx?.advice_id || null);
-      sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null);
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_QA_APPROVED', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null, advice.agency_code);
 
     } else if (role === 'buying') {
       if (advice.status !== 'pending_buying') return res.status(400).json({ error: 'Not pending Buying approval' });
@@ -332,7 +332,7 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
         [user_id, notes || null, req.params.id]
       );
       sendNotification(ctx?.first_job_id || null, 'CHARGES_BUYING_APPROVED', 'imports', importsEmails, chargesMsg(), ctx?.advice_id || null);
-      sendNotification(ctx?.first_job_id || null, 'CHARGES_BUYING_APPROVED', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null);
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_BUYING_APPROVED', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null, advice.agency_code);
 
     } else if (role === 'imports') {
       if (advice.status !== 'pending_imports') return res.status(400).json({ error: 'Not pending Imports approval' });
@@ -343,7 +343,7 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
         [user_id, notes || null, req.params.id]
       );
       sendNotification(ctx?.first_job_id || null, 'CHARGES_IMPORTS_APPROVED', 'accounts', accountsEmails, chargesMsg(), ctx?.advice_id || null);
-      sendNotification(ctx?.first_job_id || null, 'CHARGES_IMPORTS_APPROVED', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null);
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_IMPORTS_APPROVED', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null, advice.agency_code);
 
     } else if (role === 'accounts') {
       if (advice.status !== 'pending_accounts') return res.status(400).json({ error: 'Not pending Accounts payment' });
@@ -353,7 +353,7 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
          WHERE advice_id = $3 RETURNING *`,
         [user_id, notes || null, req.params.id]
       );
-      sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null);
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null, advice.agency_code);
       sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'buying', buyingEmails, chargesMsg(), ctx?.advice_id || null);
     }
 
@@ -389,7 +389,7 @@ router.put('/:id/reject', authorize('qa', 'buying', 'imports', 'accounts'), asyn
       rejected_by: rejectedByName,
       reason,
     });
-    sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'agency_user', agencyEmails, rejectMsg, ctx?.advice_id || null);
+    sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'agency_user', agencyEmails, rejectMsg, ctx?.advice_id || null, advice.agency_code);
     const allInternal = [...new Set([...qaEmails, ...buyingEmails, ...importsEmails, ...accountsEmails])];
     sendNotification(ctx?.first_job_id || null, 'CHARGES_REJECTED', 'qa', allInternal, rejectMsg, ctx?.advice_id || null);
 

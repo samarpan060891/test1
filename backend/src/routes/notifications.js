@@ -28,6 +28,12 @@ router.get('/', async (req, res) => {
       conditions.push(`n.recipient_role = $${params.length}`);
     }
 
+    // For agency users, only show notifications for their own agency
+    if (req.user.role === 'agency_user' && req.user.agency_code) {
+      params.push(req.user.agency_code);
+      conditions.push(`n.agency_code = $${params.length}`);
+    }
+
     if (job_id) {
       params.push(job_id);
       conditions.push(`n.job_id = $${params.length}`);
