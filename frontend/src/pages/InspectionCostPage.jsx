@@ -93,7 +93,10 @@ export default function InspectionCostPage() {
       if (!res.ok) throw new Error('Failed to load invoice')
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
-      setInvoicePanel({ url, name: fileName, type: blob.type })
+      const win = window.open(url, '_blank')
+      // revoke after a short delay so the new tab has time to load
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+      if (!win) alert('Pop-up blocked — please allow pop-ups for this site.')
     } catch (e) {
       alert('Could not load invoice: ' + e.message)
     }
@@ -929,34 +932,7 @@ export default function InspectionCostPage() {
         </div>
       )}
 
-      {/* Invoice viewer — right slide-in panel */}
-      {invoicePanel && (
-        <>
-          <div onClick={closeInvoicePanel} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1100 }} />
-          <div style={{ position: 'fixed', top: 0, right: 0, height: '100vh', width: 'min(680px, 95vw)', background: '#fff', zIndex: 1101, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 24px rgba(0,0,0,0.18)', transition: 'transform 0.25s ease' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
-              <div>
-                <div style={{ fontWeight: '700', fontSize: '15px', color: '#1e293b' }}>📄 Invoice</div>
-                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{invoicePanel.name}</div>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <a href={invoicePanel.url} download={invoicePanel.name}
-                  style={{ fontSize: '12px', color: '#1d4ed8', textDecoration: 'underline', fontWeight: '600' }}>
-                  ⬇ Download
-                </a>
-                <button onClick={closeInvoicePanel} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b', lineHeight: 1 }}>✕</button>
-              </div>
-            </div>
-            <div style={{ flex: 1, overflow: 'hidden', background: '#f8fafc' }}>
-              {invoicePanel.type?.startsWith('image/') ? (
-                <img src={invoicePanel.url} alt="Invoice" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '12px', boxSizing: 'border-box' }} />
-              ) : (
-                <iframe src={invoicePanel.url} title="Invoice" style={{ width: '100%', height: '100%', border: 'none' }} />
-              )}
-            </div>
-          </div>
-        </>
-      )}
+
     </div>
   )
 }
