@@ -153,7 +153,7 @@ export default function AdminMastersPage() {
 
   const downloadData = () => {
     const data = filteredRows.map(row =>
-      Object.fromEntries(cfg.fields.map(f => [f.label, row[f.key] ?? '']))
+      Object.fromEntries(cfg.fields.map(f => [f.label, Array.isArray(row[f.key]) ? row[f.key].join(', ') : (row[f.key] ?? '')]))
     )
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
