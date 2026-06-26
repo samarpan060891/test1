@@ -134,6 +134,9 @@ const translations = {
     map_success_per_stage: 'One job per selected stage:',
     map_view_job: 'View Job',
     map_map_another: 'Map Another',
+    map_no_template_title: 'No Active Checklist Template',
+    map_no_template_body: 'No active checklist template found for',
+    map_no_template_hint: ' Please create and activate one in Checklist Templates before mapping this inspection.',
 
     // Inspection Costs
     costs_title: 'Inspection Charges',
