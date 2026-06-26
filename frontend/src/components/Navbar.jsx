@@ -33,6 +33,7 @@ export default function Navbar() {
     { to: '/checklist-templates', label: t('nav_checklist_templates'), key: 'tmpl', show: role === 'qa' || role === 'admin' },
     { to: '/inspection-costs', label: role === 'supplier_user' ? 'Inspection Charges' : t('nav_inspection_costs'), key: 'costs',
       show: ['qa','buying','imports','accounts','agency_user','admin','supplier_user'].includes(role) },
+    { to: '/documents', label: 'Document Control', key: 'docs', show: true },
     { to: '/admin/users', label: t('nav_users'), key: 'users', show: role === 'admin' },
     { to: '/admin/masters', label: t('nav_masters'), key: 'masters', show: role === 'admin' },
   ].filter(l => l.show)

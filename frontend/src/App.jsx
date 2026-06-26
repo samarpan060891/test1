@@ -15,6 +15,7 @@ import AdminUsersPage from './pages/AdminUsersPage.jsx'
 import AdminMastersPage from './pages/AdminMastersPage.jsx'
 import ChangePasswordPage from './pages/ChangePasswordPage.jsx'
 import InspectionCostPage from './pages/InspectionCostPage.jsx'
+import DocumentControlPage from './pages/DocumentControlPage.jsx'
 
 export default function App() {
   return (
@@ -119,6 +120,15 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['qa', 'buying', 'imports', 'accounts', 'agency_user', 'admin', 'supplier_user']}>
               <InspectionCostPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/documents"
+          element={
+            <ProtectedRoute>
+              <DocumentControlPage />
             </ProtectedRoute>
           }
         />

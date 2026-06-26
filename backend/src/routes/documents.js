@@ -31,7 +31,8 @@ router.get('/', async (req, res) => {
     if (role === 'supplier_user') {
       const r = await db.query(
         `SELECT d.id, d.item_code, im.name AS item_name, d.supplier_code, sm.name AS supplier_name,
-                d.doc_type, d.status, d.file_name, d.uploaded_at
+                d.doc_type, d.status, d.file_name, d.uploaded_at,
+                d.qa_remarks, d.qa_reviewed_at, d.buying_remarks, d.buying_reviewed_at
          FROM qc_inspection.item_documents d
          JOIN qc_inspection.item_master im ON im.item_code = d.item_code
          JOIN qc_inspection.supplier_master sm ON sm.supplier_code = d.supplier_code
@@ -44,7 +45,8 @@ router.get('/', async (req, res) => {
       // Agency sees only approved docs for items they have a job for
       const r = await db.query(
         `SELECT DISTINCT d.id, d.item_code, im.name AS item_name, d.supplier_code, sm.name AS supplier_name,
-                d.doc_type, d.status, d.file_name, d.uploaded_at
+                d.doc_type, d.status, d.file_name, d.uploaded_at,
+                d.qa_remarks, d.qa_reviewed_at, d.buying_remarks, d.buying_reviewed_at
          FROM qc_inspection.item_documents d
          JOIN qc_inspection.item_master im ON im.item_code = d.item_code
          JOIN qc_inspection.supplier_master sm ON sm.supplier_code = d.supplier_code
@@ -63,7 +65,8 @@ router.get('/', async (req, res) => {
     } else if (role === 'buying') {
       const r = await db.query(
         `SELECT d.id, d.item_code, im.name AS item_name, d.supplier_code, sm.name AS supplier_name,
-                d.doc_type, d.status, d.file_name, d.uploaded_at
+                d.doc_type, d.status, d.file_name, d.uploaded_at,
+                d.qa_remarks, d.qa_reviewed_at, d.buying_remarks, d.buying_reviewed_at
          FROM qc_inspection.item_documents d
          JOIN qc_inspection.item_master im ON im.item_code = d.item_code
          JOIN qc_inspection.supplier_master sm ON sm.supplier_code = d.supplier_code
@@ -78,7 +81,8 @@ router.get('/', async (req, res) => {
       // qa, admin, imports, accounts — all
       const r = await db.query(
         `SELECT d.id, d.item_code, im.name AS item_name, d.supplier_code, sm.name AS supplier_name,
-                d.doc_type, d.status, d.file_name, d.uploaded_at
+                d.doc_type, d.status, d.file_name, d.uploaded_at,
+                d.qa_remarks, d.qa_reviewed_at, d.buying_remarks, d.buying_reviewed_at
          FROM qc_inspection.item_documents d
          JOIN qc_inspection.item_master im ON im.item_code = d.item_code
          JOIN qc_inspection.supplier_master sm ON sm.supplier_code = d.supplier_code
@@ -110,6 +114,10 @@ router.get('/', async (req, res) => {
         file_name: row.file_name,
         uploaded_at: row.uploaded_at,
         id: row.id,
+        qa_remarks: row.qa_remarks,
+        buying_remarks: row.buying_remarks,
+        qa_reviewed_at: row.qa_reviewed_at,
+        buying_reviewed_at: row.buying_reviewed_at,
       };
     }
 
