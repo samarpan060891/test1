@@ -29,15 +29,21 @@ router.get('/', async (req, res) => {
   try {
     let rows;
     if (role === 'supplier_user') {
+      // Return ALL items linked to this supplier's POs, with doc records joined in (LEFT JOIN)
       const r = await db.query(
-        `SELECT d.id, d.item_code, im.name AS item_name, d.supplier_code, sm.name AS supplier_name,
+        `SELECT DISTINCT ON (im.item_code, d.doc_type)
+                d.id, im.item_code, im.name AS item_name,
+                sm.supplier_code, sm.name AS supplier_name,
                 d.doc_type, d.status, d.file_name, d.uploaded_at,
                 d.qa_remarks, d.qa_reviewed_at, d.buying_remarks, d.buying_reviewed_at
-         FROM qc_inspection.item_documents d
-         JOIN qc_inspection.item_master im ON im.item_code = d.item_code
-         JOIN qc_inspection.supplier_master sm ON sm.supplier_code = d.supplier_code
-         WHERE d.supplier_code = $1
-         ORDER BY im.name, d.doc_type`,
+         FROM qc_inspection.supplier_master sm
+         JOIN qc_inspection.po_master p ON p.supplier_code = sm.supplier_code
+         LEFT JOIN qc_inspection.po_line_items pl ON pl.po_no = p.po_no
+         JOIN qc_inspection.item_master im ON im.item_code = COALESCE(pl.item_code, p.item_code)
+         LEFT JOIN qc_inspection.item_documents d
+           ON d.item_code = im.item_code AND d.supplier_code = sm.supplier_code
+         WHERE sm.supplier_code = $1
+         ORDER BY im.item_code, d.doc_type, d.uploaded_at DESC NULLS LAST`,
         [supplier_code]
       );
       rows = r.rows;
@@ -54,8 +60,9 @@ router.get('/', async (req, res) => {
            AND EXISTS (
              SELECT 1 FROM qc_inspection.inspection_job ij
              JOIN qc_inspection.po_master p ON p.po_no = ij.po_no
-             WHERE p.item_code = d.item_code
-               AND p.supplier_code = d.supplier_code
+             LEFT JOIN qc_inspection.job_items ji ON ji.job_id = ij.job_id
+             WHERE p.supplier_code = d.supplier_code
+               AND (ji.item_code = d.item_code OR p.item_code = d.item_code)
                AND ij.agency_code = $1
            )
          ORDER BY im.name, d.doc_type`,
@@ -103,22 +110,24 @@ router.get('/', async (req, res) => {
           supplier_name: row.supplier_name,
           docs: {},
         };
-        // Pre-fill with pending_upload stubs for all doc types
         for (const dt of ALL_DOC_TYPES) {
           grouped[key].docs[dt] = { doc_type: dt, status: 'pending_upload', file_name: null, uploaded_at: null, id: null };
         }
       }
-      grouped[key].docs[row.doc_type] = {
-        doc_type: row.doc_type,
-        status: row.status,
-        file_name: row.file_name,
-        uploaded_at: row.uploaded_at,
-        id: row.id,
-        qa_remarks: row.qa_remarks,
-        buying_remarks: row.buying_remarks,
-        qa_reviewed_at: row.qa_reviewed_at,
-        buying_reviewed_at: row.buying_reviewed_at,
-      };
+      // row.doc_type is null when item has no uploads yet — skip doc merge
+      if (row.doc_type) {
+        grouped[key].docs[row.doc_type] = {
+          doc_type: row.doc_type,
+          status: row.status,
+          file_name: row.file_name,
+          uploaded_at: row.uploaded_at,
+          id: row.id,
+          qa_remarks: row.qa_remarks,
+          buying_remarks: row.buying_remarks,
+          qa_reviewed_at: row.qa_reviewed_at,
+          buying_reviewed_at: row.buying_reviewed_at,
+        };
+      }
     }
 
     const result = Object.values(grouped).map(g => ({
