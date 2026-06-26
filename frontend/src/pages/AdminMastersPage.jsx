@@ -74,7 +74,7 @@ export default function AdminMastersPage() {
   const clearMasterFilters = () => setMasterFilters({})
 
   const handleEditRow = (row) => {
-    setForm(Object.fromEntries(cfg.fields.map(f => [f.key, row[f.key] ?? ''])))
+    setForm(Object.fromEntries(cfg.fields.map(f => [f.key, Array.isArray(row[f.key]) ? row[f.key].join(', ') : (row[f.key] ?? '')])))
     setEditingCode(row[cfg.codeKey])
     setFormMsg('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -333,7 +333,7 @@ export default function AdminMastersPage() {
                       <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: editingCode === row[cfg.codeKey] ? '#fffbeb' : 'transparent' }}>
                         {cfg.fields.map(f => (
                           <td key={f.key} style={{ padding: '10px 14px', color: '#374151', whiteSpace: 'nowrap' }}>
-                            {row[f.key] ?? '—'}
+                            {Array.isArray(row[f.key]) ? (row[f.key].join(', ') || '—') : (row[f.key] ?? '—')}
                           </td>
                         ))}
                         <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
