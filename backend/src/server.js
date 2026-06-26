@@ -426,6 +426,44 @@ async function runMigrations() {
     ON CONFLICT (po_no, item_code) DO NOTHING
   `, 'dummy PO line items for multi-item testing');
 
+  // 015: remove all non-Furniture/Household items and their POs — keep only Furniture & Household Accessories
+  const APPAREL_ITEMS = ['ITM-001','ITM-002','ITM-003','ITM-004','ITM-005','ITM-006','ITM-007','ITM-008','ITM-009','ITM-010'];
+  const apparel_placeholders = APPAREL_ITEMS.map((_, i) => `$${i + 1}`).join(',');
+
+  // Remove apparel line items from all POs
+  await safeQuery(`
+    DELETE FROM qc_inspection.po_line_items
+    WHERE item_code IN (${APPAREL_ITEMS.map(c => `'${c}'`).join(',')})
+  `, 'delete apparel po_line_items');
+
+  // Delete POs that have no remaining line items AND no linked inspection jobs
+  await safeQuery(`
+    DELETE FROM qc_inspection.po_master p
+    WHERE p.item_code IN (${APPAREL_ITEMS.map(c => `'${c}'`).join(',')})
+      AND NOT EXISTS (SELECT 1 FROM qc_inspection.po_line_items pl WHERE pl.po_no = p.po_no)
+      AND NOT EXISTS (SELECT 1 FROM qc_inspection.inspection_job ij WHERE ij.po_no = p.po_no)
+  `, 'delete apparel-only po_master rows');
+
+  // Delete apparel item_master rows not referenced by any inspection job
+  await safeQuery(`
+    DELETE FROM qc_inspection.item_master
+    WHERE item_code IN (${APPAREL_ITEMS.map(c => `'${c}'`).join(',')})
+      AND NOT EXISTS (SELECT 1 FROM qc_inspection.inspection_job ij WHERE ij.item_code = item_code)
+      AND NOT EXISTS (SELECT 1 FROM qc_inspection.job_items ji WHERE ji.item_code = item_code)
+  `, 'delete apparel item_master rows');
+
+  // Also delete apparel checklist templates (Apparel and Accessories categories) not tied to any job
+  await safeQuery(`
+    DELETE FROM qc_inspection.checklist_template
+    WHERE category IN ('Apparel','Accessories','Bags','Footwear')
+      AND NOT EXISTS (
+        SELECT 1 FROM qc_inspection.inspection_job ij WHERE ij.checklist_template_id = template_id
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM qc_inspection.job_items ji WHERE ji.checklist_template_id = template_id
+      )
+  `, 'delete apparel checklist templates');
+
   console.log('✅ Migrations applied');
 }
 
