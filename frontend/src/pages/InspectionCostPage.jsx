@@ -6,6 +6,7 @@ import { useResizableColumns } from '../hooks/useResizableColumns.js'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
+import * as XLSX from 'xlsx'
 import { getAdvices, createAdvice, approveAdvice, rejectAdvice, getContracts, createContract, uploadInvoice, getInvoiceUrl } from '../api/inspectionCosts.js'
 import { getJobs } from '../api/inspectionJobs.js'
 import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
@@ -205,6 +206,35 @@ export default function InspectionCostPage() {
       load()
       setTimeout(() => { setShowApprove(null); setActionMsg('') }, 2500)
     } finally { setActionSaving(false) }
+  }
+
+  const downloadAdvices = (rows) => {
+    const data = rows.map(a => ({
+      'Advice Ref':      a.advice_ref,
+      'Agency':          a.agency_name,
+      'Jobs':            (a.jobs || []).map(j => j.job_ref || j.po_no).join(', '),
+      'Rate Type':       a.rate_type === 'manday' ? 'Manday' : '% of PO',
+      'Rate Value':      a.rate_value,
+      'Mandays':         a.num_mandays ?? '',
+      'Travel':          a.travel_allowance ?? 0,
+      'Stay':            a.stay_allowance ?? 0,
+      'Total Cost':      a.total_cost,
+      'Currency':        a.currency,
+      'Cost Bearer':     a.cost_bearer === 'supplier' ? 'Supplier' : 'Company',
+      'Status':          a.status,
+      'QA Approved By':       a.qa_user_name ?? '',
+      'Buying Approved By':   a.buying_user_name ?? '',
+      'Imports Approved By':  a.imports_user_name ?? '',
+      'Accounts Approved By': a.accounts_user_name ?? '',
+      'Rejection Reason':     a.rejection_reason ?? '',
+      'Created By':      a.created_by_name,
+      'Created At':      new Date(a.created_at).toLocaleDateString(),
+      'Notes':           a.notes ?? '',
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Inspection Costs')
+    XLSX.writeFile(wb, `inspection_costs_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
   const canApprove = (a) =>
@@ -416,9 +446,25 @@ export default function InspectionCostPage() {
                   </span>
                 )}
               </div>
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
-                {displayAdvices.length}{(activeFilter || hasAdvFilter) ? ` of ${advices.length}` : ''} advice(s)
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                  {displayAdvices.length}{(activeFilter || hasAdvFilter) ? ` of ${advices.length}` : ''} advice(s)
+                </span>
+                <button
+                  onClick={() => downloadAdvices(displayAdvices)}
+                  disabled={displayAdvices.length === 0}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600',
+                    background: displayAdvices.length === 0 ? '#f1f5f9' : '#f0fdf4',
+                    color: displayAdvices.length === 0 ? '#94a3b8' : '#15803d',
+                    border: `1px solid ${displayAdvices.length === 0 ? '#e2e8f0' : '#86efac'}`,
+                    cursor: displayAdvices.length === 0 ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  ⬇ Download Excel
+                </button>
+              </div>
             </div>
             <TableScrollWrap>
               <table className="data-table" style={{ fontSize: '12px', tableLayout: 'fixed', minWidth: '100%' }}>
