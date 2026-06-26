@@ -179,7 +179,11 @@ export default function AdminUsersPage() {
               {form.role === 'agency_user' && (
                 <div className="field" style={{ marginBottom: 0 }}>
                   <label>{t('admin_users_agency_code')} *</label>
-                  <select value={form.agency_code} onChange={e => setForm(p => ({ ...p, agency_code: e.target.value }))} className="input" required>
+                  <select value={form.agency_code} onChange={e => {
+                    const code = e.target.value
+                    const agency = agencies.find(a => a.agency_code === code)
+                    setForm(p => ({ ...p, agency_code: code, name: agency?.contact_name || p.name }))
+                  }} className="input" required>
                     <option value="">— Select Agency —</option>
                     {agencies.map(a => (
                       <option key={a.agency_code} value={a.agency_code}>{a.name} ({a.agency_code})</option>
@@ -190,7 +194,11 @@ export default function AdminUsersPage() {
               {form.role === 'supplier_user' && (
                 <div className="field" style={{ marginBottom: 0 }}>
                   <label>{t('admin_users_supplier_code')} *</label>
-                  <select value={form.supplier_code} onChange={e => setForm(p => ({ ...p, supplier_code: e.target.value }))} className="input" required>
+                  <select value={form.supplier_code} onChange={e => {
+                    const code = e.target.value
+                    const supplier = suppliers.find(s => s.supplier_code === code)
+                    setForm(p => ({ ...p, supplier_code: code, name: supplier?.contact_name || p.name }))
+                  }} className="input" required>
                     <option value="">— Select Supplier —</option>
                     {suppliers.map(s => (
                       <option key={s.supplier_code} value={s.supplier_code}>{s.name} ({s.supplier_code})</option>
