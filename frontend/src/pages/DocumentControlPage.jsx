@@ -387,8 +387,10 @@ function ReviewerView({ groups, role, onRefresh }) {
           {filtered.map(group => {
             const docsMap = {}
             group.docs.forEach(d => { docsMap[d.doc_type] = d })
-            const approved = group.docs.filter(d => d.status === 'approved').length
-            const pct = Math.round((approved / DOC_TYPES.length) * 100)
+            const fullyApproved = group.docs.filter(d => d.status === 'approved').length
+            const qaApproved = group.docs.filter(d => d.status === 'qa_approved').length
+            const approved = fullyApproved + qaApproved
+            const pct = Math.round((fullyApproved / DOC_TYPES.length) * 100)
 
             return (
               <div key={`${group.item_code}-${group.supplier_code}`} style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
@@ -399,7 +401,9 @@ function ReviewerView({ groups, role, onRefresh }) {
                   </div>
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', color: '#94a3b8' }}>{group.supplier_name}</span>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: pct === 100 ? '#4ade80' : '#fbbf24' }}>{approved}/{DOC_TYPES.length} approved</span>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: fullyApproved === DOC_TYPES.length ? '#4ade80' : '#fbbf24' }}>
+                      {fullyApproved}/{DOC_TYPES.length} approved{qaApproved > 0 ? ` · ${qaApproved} QA✓` : ''}
+                    </span>
                   </div>
                 </div>
                 <div style={{ height: '3px', background: '#e5e7eb' }}>
