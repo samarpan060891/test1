@@ -80,7 +80,10 @@ function SupplierUploadView({ groups, onRefresh }) {
       return
     }
     if (Object.keys(stagedFiles).length === 0) {
-      setSubmitMsg('No new files to submit.')
+      // No new files — N/A marks already saved, just confirm to user
+      setSubmitMsg('Document status updated. N/A selections have been saved.')
+      setToast('Document status updated successfully.')
+      setTimeout(() => setToast(''), 5000)
       return
     }
     setSubmitting(true); setSubmitMsg('')
@@ -170,7 +173,7 @@ function SupplierUploadView({ groups, onRefresh }) {
               const status = doc?.status || 'pending_upload'
               const meta = STATUS_META[status]
               const staged = stagedFiles[key]
-              const canUpload = status === 'pending_upload' || status === 'rejected'
+              const canUpload = true // supplier can always replace/re-attach any doc
 
               return (
                 <div key={key} style={{
@@ -239,7 +242,7 @@ function SupplierUploadView({ groups, onRefresh }) {
                     </div>
                   )}
                   {/* Undo N/A */}
-                  {status === 'not_applicable' && canUpload && (
+                  {status === 'not_applicable' && (
                     <button
                       onClick={() => handleMarkNA(key)}
                       title="Click to undo — mark as needed"
@@ -253,8 +256,8 @@ function SupplierUploadView({ groups, onRefresh }) {
         </div>
       )}
 
-      {/* Sticky submit bar — always visible at bottom when files are staged */}
-      {pendingCount > 0 && (
+      {/* Sticky submit/re-submit bar — always visible when item is selected */}
+      {group && (
         <div style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 30,
           background: '#1C1208', padding: '14px 32px',
@@ -262,8 +265,10 @@ function SupplierUploadView({ groups, onRefresh }) {
           boxShadow: '0 -4px 20px rgba(0,0,0,0.2)',
         }}>
           <span style={{ color: '#d4c5a0', fontSize: '14px' }}>
-            📎 <strong style={{ color: '#fff' }}>{pendingCount} file{pendingCount > 1 ? 's' : ''}</strong> ready to submit
-            {group && <span style={{ marginLeft: '8px' }}>— {group.item_name}</span>}
+            {pendingCount > 0
+              ? <><strong style={{ color: '#fff' }}>📎 {pendingCount} file{pendingCount > 1 ? 's' : ''}</strong> ready — {group.item_name}</>
+              : <span style={{ color: 'rgba(255,255,255,0.7)' }}>{group.item_name} — attach new files or update N/A marks, then re-submit</span>
+            }
           </span>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             {submitMsg && (
@@ -279,14 +284,14 @@ function SupplierUploadView({ groups, onRefresh }) {
                 letterSpacing: '0.02em',
               }}
             >
-              {submitting ? 'Submitting...' : `Submit for Approval`}
+              {submitting ? 'Submitting...' : pendingCount > 0 ? 'Submit for Approval' : 'Re-Submit for Approval'}
             </button>
           </div>
         </div>
       )}
 
       {/* Spacer so content isn't hidden behind sticky bar */}
-      {pendingCount > 0 && <div style={{ height: '72px' }} />}
+      {group && <div style={{ height: '72px' }} />}
 
       {/* Toast notification */}
       {toast && (
