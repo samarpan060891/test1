@@ -125,20 +125,7 @@ function SupplierUploadView({ groups, onRefresh }) {
               {group.item_name}
               <span style={{ marginLeft: '8px', fontSize: '13px', color: '#64748b', fontWeight: '400' }}>{group.supplier_name}</span>
             </h3>
-            {pendingCount > 0 && (
-              <button
-                onClick={handleSubmitAll}
-                disabled={submitting}
-                style={{
-                  padding: '9px 24px', background: submitting ? '#93c5fd' : '#1C1208',
-                  color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px',
-                  fontWeight: '700', cursor: submitting ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {submitting ? 'Submitting...' : `Submit ${pendingCount} Document${pendingCount > 1 ? 's' : ''}`}
-              </button>
-            )}
-          </div>
+            </div>
 
           {submitMsg && (
             <div style={{ padding: '10px 16px', marginBottom: '14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600',
@@ -220,6 +207,41 @@ function SupplierUploadView({ groups, onRefresh }) {
           </div>
         </div>
       )}
+
+      {/* Sticky submit bar — always visible at bottom when files are staged */}
+      {pendingCount > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 30,
+          background: '#1C1208', padding: '14px 32px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          boxShadow: '0 -4px 20px rgba(0,0,0,0.2)',
+        }}>
+          <span style={{ color: '#d4c5a0', fontSize: '14px' }}>
+            📎 <strong style={{ color: '#fff' }}>{pendingCount} file{pendingCount > 1 ? 's' : ''}</strong> ready to submit
+            {group && <span style={{ marginLeft: '8px' }}>— {group.item_name}</span>}
+          </span>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {submitMsg && (
+              <span style={{ fontSize: '13px', color: submitMsg.includes('failed') ? '#fca5a5' : '#86efac', fontWeight: '600' }}>{submitMsg}</span>
+            )}
+            <button
+              onClick={handleSubmitAll}
+              disabled={submitting}
+              style={{
+                padding: '10px 28px', background: submitting ? '#475569' : '#E8470F',
+                color: '#fff', border: 'none', borderRadius: '8px',
+                fontSize: '14px', fontWeight: '700', cursor: submitting ? 'not-allowed' : 'pointer',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {submitting ? 'Submitting...' : `Submit for Approval`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Spacer so content isn't hidden behind sticky bar */}
+      {pendingCount > 0 && <div style={{ height: '72px' }} />}
 
       {/* View panel */}
       {panel && (
