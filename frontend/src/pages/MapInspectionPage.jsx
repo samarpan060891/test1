@@ -16,7 +16,9 @@ export default function MapInspectionPage() {
     { key: 'final',          label: t('stage_final_full'),          desc: t('map_stage_final_desc') },
     { key: 'loading',        label: t('stage_loading_full'),        desc: t('map_stage_loading_desc') },
   ]
+
   const [selectedPO, setSelectedPO] = useState(null)
+  const [selectedItemCodes, setSelectedItemCodes] = useState([])
   const [selectedAgency, setSelectedAgency] = useState(null)
   const [agencyContracts, setAgencyContracts] = useState([])
   const [selectedContractId, setSelectedContractId] = useState('')
@@ -30,30 +32,19 @@ export default function MapInspectionPage() {
   const [successJobs, setSuccessJobs] = useState([])
 
   const inputStyle = {
-    width: '100%',
-    padding: '10px 14px',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '14px',
-    outline: 'none',
-    boxSizing: 'border-box',
+    width: '100%', padding: '10px 14px', border: '1px solid #d1d5db',
+    borderRadius: '6px', fontSize: '14px', outline: 'none', boxSizing: 'border-box',
   }
-
   const labelStyle = {
-    display: 'block',
-    marginBottom: '6px',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#374151',
+    display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#374151',
   }
 
-  // Fetch functions for dropdowns
   const fetchPOs = async (search) => {
     const rows = await searchPOs(search)
     return rows.map(r => ({
       value: r.po_no,
-      label: r.po_no,
-      sublabel: `${r.item_name} · ${r.supplier_name} · Qty: ${r.quantity}`,
+      label: r.po_no + (r.inspection_status === 'partial' ? ' [partial]' : ''),
+      sublabel: `${r.supplier_name} · ${r.total_items} item(s)${r.inspected_count > 0 ? ` · ${r.inspected_count} being inspected` : ''}`,
       meta: r,
     }))
   }
@@ -66,6 +57,19 @@ export default function MapInspectionPage() {
       sublabel: `${r.agency_code}${r.country ? ' · ' + r.country : ''}`,
       meta: r,
     }))
+  }
+
+  const handlePOChange = (po) => {
+    setSelectedPO(po)
+    // Auto-select all uninspected items
+    const available = (po?.meta?.items || []).filter(i => !i.is_being_inspected)
+    setSelectedItemCodes(available.map(i => i.item_code))
+  }
+
+  const toggleItem = (itemCode) => {
+    setSelectedItemCodes(prev =>
+      prev.includes(itemCode) ? prev.filter(c => c !== itemCode) : [...prev, itemCode]
+    )
   }
 
   const handleSubmit = async (e) => {
@@ -86,6 +90,10 @@ export default function MapInspectionPage() {
       setError(t('map_error_stage') || 'Please select at least one inspection stage.')
       return
     }
+    if (!selectedItemCodes.length) {
+      setError('Please select at least one item to inspect.')
+      return
+    }
 
     setLoading(true)
     try {
@@ -96,6 +104,7 @@ export default function MapInspectionPage() {
         inspection_date: inspectionDate,
         inspection_type: inspectionType,
         inspection_stages: selectedStages,
+        item_codes: selectedItemCodes,
       })
       const data = res.data
       if (data.jobs) {
@@ -108,8 +117,8 @@ export default function MapInspectionPage() {
     } catch (err) {
       const status = err?.response?.status
       const data = err?.response?.data
-      if (status === 422 && (data?.code === 'NO_ACTIVE_TEMPLATE' || data?.error?.includes?.('template'))) {
-        setNoTemplateError(data?.category || data?.details?.category || 'this category')
+      if (status === 422 && (data?.error_code === 'NO_ACTIVE_TEMPLATE' || data?.error?.includes?.('template'))) {
+        setNoTemplateError({ category: data?.category || 'this category', item: data?.item_code || '' })
       } else {
         setError(data?.message || data?.error || 'Failed to map inspection. Please try again.')
       }
@@ -122,6 +131,7 @@ export default function MapInspectionPage() {
 
   const handleReset = () => {
     setSelectedPO(null)
+    setSelectedItemCodes([])
     setSelectedAgency(null)
     setAgencyContracts([])
     setSelectedContractId('')
@@ -134,26 +144,22 @@ export default function MapInspectionPage() {
     setSuccessJobs([])
   }
 
+  const poItems = selectedPO?.meta?.items || []
+  const availableItems = poItems.filter(i => !i.is_being_inspected)
+
   return (
     <div className="page">
       <Navbar />
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '36px 28px' }}>
 
         <div style={{ marginBottom: '28px' }}>
-          <h1 className="page-title">
-            {t('map_title')}
-          </h1>
-          <p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: '14px' }}>
-            {t('map_subtitle')}
-          </p>
+          <h1 className="page-title">{t('map_title')}</h1>
+          <p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: '14px' }}>{t('map_subtitle')}</p>
         </div>
 
         {/* No active template error */}
         {noTemplateError && (
-          <div style={{
-            backgroundColor: '#fef2f2', border: '2px solid #f87171',
-            borderRadius: '10px', padding: '20px 24px', marginBottom: '24px',
-          }}>
+          <div style={{ backgroundColor: '#fef2f2', border: '2px solid #f87171', borderRadius: '10px', padding: '20px 24px', marginBottom: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
               <span style={{ fontSize: '24px', flexShrink: 0 }}>⚠️</span>
               <div>
@@ -161,15 +167,11 @@ export default function MapInspectionPage() {
                   {t('map_no_template_title') || 'No Active Checklist Template'}
                 </h3>
                 <p style={{ margin: 0, fontSize: '14px', color: '#7f1d1d', lineHeight: '1.5' }}>
-                  {t('map_no_template_body') || 'No active checklist template found for'} <strong>{noTemplateError}</strong>.
-                  {t('map_no_template_hint') || ' Please create and activate one in Checklist Templates before mapping this inspection.'}
+                  No active checklist template found for <strong>{noTemplateError.category}</strong>
+                  {noTemplateError.item ? ` (item: ${noTemplateError.item})` : ''}.
+                  Please create and activate one in Checklist Templates before mapping this inspection.
                 </p>
-                <Link to="/checklist-templates" style={{
-                  display: 'inline-block', marginTop: '10px',
-                  backgroundColor: '#dc2626', color: '#fff',
-                  padding: '7px 14px', borderRadius: '6px',
-                  textDecoration: 'none', fontSize: '13px', fontWeight: '600',
-                }}>
+                <Link to="/checklist-templates" style={{ display: 'inline-block', marginTop: '10px', backgroundColor: '#dc2626', color: '#fff', padding: '7px 14px', borderRadius: '6px', textDecoration: 'none', fontSize: '13px', fontWeight: '600' }}>
                   {t('nav_checklist_templates')}
                 </Link>
               </div>
@@ -177,13 +179,8 @@ export default function MapInspectionPage() {
           </div>
         )}
 
-        {/* Generic error */}
         {error && (
-          <div style={{
-            backgroundColor: '#fef2f2', border: '1px solid #fca5a5',
-            color: '#dc2626', padding: '12px 16px', borderRadius: '6px',
-            marginBottom: '20px', fontSize: '14px',
-          }}>
+          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626', padding: '12px 16px', borderRadius: '6px', marginBottom: '20px', fontSize: '14px' }}>
             {error}
           </div>
         )}
@@ -202,7 +199,7 @@ export default function MapInspectionPage() {
           </div>
         )}
 
-        {/* Success — multiple jobs (multiple stages) */}
+        {/* Success — multiple jobs */}
         {successJobs.length > 0 && (
           <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', padding: '20px 24px', marginBottom: '24px' }}>
             <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: '600', color: '#15803d' }}>
@@ -229,36 +226,86 @@ export default function MapInspectionPage() {
 
         {/* Form */}
         {!successJob && !successJobs.length && (
-          <div style={{
-            backgroundColor: '#fff', borderRadius: '10px',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '32px',
-          }}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '32px' }}>
             <form onSubmit={handleSubmit}>
 
-              {/* PO searchable dropdown */}
+              {/* PO dropdown */}
               <SearchableDropdown
                 label={t('map_po')}
                 required
                 placeholder={t('map_po_placeholder')}
                 value={selectedPO}
-                onChange={setSelectedPO}
+                onChange={handlePOChange}
                 fetchOptions={fetchPOs}
               />
 
-              {/* Show PO details once selected */}
+              {/* PO summary + item selection */}
               {selectedPO?.meta && (
-                <div style={{
-                  marginTop: '-12px', marginBottom: '20px',
-                  padding: '12px 16px', backgroundColor: '#f8fafc',
-                  borderRadius: '6px', border: '1px solid #e2e8f0',
-                  fontSize: '13px', color: '#475569',
-                }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                    <div><span style={{ fontWeight: '600' }}>{t('job_item_code')}:</span> {selectedPO.meta.item_name}</div>
-                    <div><span style={{ fontWeight: '600' }}>Category:</span> {selectedPO.meta.category} / {selectedPO.meta.sub_category}</div>
-                    <div><span style={{ fontWeight: '600' }}>{t('job_supplier')}:</span> {selectedPO.meta.supplier_name}</div>
-                    <div><span style={{ fontWeight: '600' }}>Qty:</span> {selectedPO.meta.quantity}</div>
+                <div style={{ marginTop: '-12px', marginBottom: '20px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>
+                      {selectedPO.meta.supplier_name} — {selectedPO.meta.total_items} line item(s)
+                    </span>
+                    {selectedPO.meta.inspection_status === 'partial' && (
+                      <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>
+                        PARTIAL — some items already being inspected
+                      </span>
+                    )}
                   </div>
+
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                    Select items to inspect in this job: <span style={{ color: '#dc2626' }}>*</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {poItems.map(item => (
+                      <label
+                        key={item.item_code}
+                        style={{
+                          display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px',
+                          borderRadius: '7px', cursor: item.is_being_inspected ? 'not-allowed' : 'pointer',
+                          border: `2px solid ${item.is_being_inspected ? '#e5e7eb' : selectedItemCodes.includes(item.item_code) ? '#1C1208' : '#e5e7eb'}`,
+                          backgroundColor: item.is_being_inspected ? '#f9fafb' : selectedItemCodes.includes(item.item_code) ? '#FEF0EB' : '#fff',
+                          opacity: item.is_being_inspected ? 0.6 : 1,
+                        }}
+                        onClick={() => !item.is_being_inspected && toggleItem(item.item_code)}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedItemCodes.includes(item.item_code)}
+                          disabled={item.is_being_inspected}
+                          onChange={() => {}}
+                          style={{ marginTop: '2px', accentColor: '#1C1208', flexShrink: 0 }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: '600', fontSize: '13px', color: item.is_being_inspected ? '#9ca3af' : '#1C1208' }}>
+                            {item.item_name}
+                            {item.is_being_inspected && (
+                              <span style={{ marginLeft: '8px', background: '#e5e7eb', color: '#6b7280', padding: '1px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '400' }}>
+                                Being inspected
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                            {item.item_code} · {item.category} / {item.sub_category} · Qty: {item.quantity} · ${parseFloat(item.unit_price || 0).toFixed(2)}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
+                  {availableItems.length > 0 && (
+                    <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+                      <button type="button" onClick={() => setSelectedItemCodes(availableItems.map(i => i.item_code))}
+                        style={{ fontSize: '12px', color: '#1C1208', background: 'none', border: '1px solid #1C1208', borderRadius: '5px', padding: '3px 10px', cursor: 'pointer', fontWeight: '600' }}>
+                        Select all available
+                      </button>
+                      <button type="button" onClick={() => setSelectedItemCodes([])}
+                        style={{ fontSize: '12px', color: '#6b7280', background: 'none', border: '1px solid #d1d5db', borderRadius: '5px', padding: '3px 10px', cursor: 'pointer' }}>
+                        Clear
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -270,8 +317,7 @@ export default function MapInspectionPage() {
                     { value: 'agency', label: `🏢 ${t('map_type_agency')}`, desc: t('map_type_agency_desc') },
                     { value: 'self',   label: `🏭 ${t('map_type_self')}`,   desc: t('map_type_self_desc') },
                   ].map(opt => (
-                    <div
-                      key={opt.value}
+                    <div key={opt.value}
                       onClick={() => { setInspectionType(opt.value); setSelectedAgency(null); setAgencyContracts([]); setSelectedContractId('') }}
                       style={{
                         flex: 1, padding: '14px 16px', borderRadius: '8px', cursor: 'pointer',
@@ -279,16 +325,14 @@ export default function MapInspectionPage() {
                         backgroundColor: inspectionType === opt.value ? '#FEF0EB' : '#fff',
                       }}
                     >
-                      <div style={{ fontWeight: '600', fontSize: '14px', color: inspectionType === opt.value ? '#1C1208' : '#374151', marginBottom: '4px' }}>
-                        {opt.label}
-                      </div>
+                      <div style={{ fontWeight: '600', fontSize: '14px', color: inspectionType === opt.value ? '#1C1208' : '#374151', marginBottom: '4px' }}>{opt.label}</div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>{opt.desc}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Agency searchable dropdown — only for agency inspections */}
+              {/* Agency dropdown */}
               {inspectionType === 'agency' && (
                 <>
                   <SearchableDropdown
@@ -311,15 +355,10 @@ export default function MapInspectionPage() {
                   />
                   {agencyContracts.length > 0 && (
                     <div style={{ marginBottom: '20px' }}>
-                      <label style={labelStyle}>
-                        Rate Contract <span style={{ color: '#dc2626' }}>*</span>
-                        <span style={{ fontWeight: '400', color: '#6b7280', fontSize: '13px', marginLeft: '8px' }}>Select the applicable contract for this inspection</span>
-                      </label>
+                      <label style={labelStyle}>Rate Contract <span style={{ color: '#dc2626' }}>*</span></label>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {agencyContracts.map(c => {
-                          const rateLabel = c.rate_type === 'manday'
-                            ? `${c.rate_value} ${c.currency}/manday`
-                            : `${c.rate_value}% of PO value`
+                          const rateLabel = c.rate_type === 'manday' ? `${c.rate_value} ${c.currency}/manday` : `${c.rate_value}% of PO value`
                           const validity = c.valid_to ? `valid till ${c.valid_to}` : 'no expiry'
                           return (
                             <label key={c.contract_id} onClick={() => setSelectedContractId(c.contract_id)} style={{
@@ -330,12 +369,8 @@ export default function MapInspectionPage() {
                             }}>
                               <input type="radio" checked={selectedContractId === c.contract_id} onChange={() => {}} style={{ marginTop: '3px', accentColor: '#1C1208', flexShrink: 0 }} />
                               <div>
-                                <div style={{ fontWeight: '600', fontSize: '14px', color: selectedContractId === c.contract_id ? '#1C1208' : '#374151' }}>
-                                  {c.contract_name}
-                                </div>
-                                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                                  {rateLabel} · {validity}
-                                </div>
+                                <div style={{ fontWeight: '600', fontSize: '14px', color: selectedContractId === c.contract_id ? '#1C1208' : '#374151' }}>{c.contract_name}</div>
+                                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{rateLabel} · {validity}</div>
                               </div>
                             </label>
                           )
@@ -371,9 +406,7 @@ export default function MapInspectionPage() {
                     }}>
                       <input type="checkbox" checked={selectedStages.includes(stage.key)} onChange={() => {}} style={{ marginTop: '2px', accentColor: '#1C1208', width: '16px', height: '16px', flexShrink: 0 }} />
                       <div>
-                        <div style={{ fontWeight: '600', fontSize: '14px', color: selectedStages.includes(stage.key) ? '#1C1208' : '#374151' }}>
-                          {idx + 1}. {stage.label}
-                        </div>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: selectedStages.includes(stage.key) ? '#1C1208' : '#374151' }}>{idx + 1}. {stage.label}</div>
                         <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{stage.desc}</div>
                       </div>
                     </label>
@@ -381,20 +414,15 @@ export default function MapInspectionPage() {
                 </div>
                 {selectedStages.length > 1 && (
                   <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#E8470F', fontWeight: '500' }}>
-                    {t('map_stages_selected') || `${selectedStages.length} stages selected — ${selectedStages.length} separate jobs will be created`}
+                    {`${selectedStages.length} stages selected — ${selectedStages.length} separate jobs will be created`}
                   </p>
                 )}
               </div>
 
               {/* Inspection Date */}
               <div style={{ marginBottom: '32px' }}>
-                <label style={labelStyle}>
-                  {t('map_date')} <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-                <input
-                  type="date"
-                  value={inspectionDate}
-                  onChange={e => setInspectionDate(e.target.value)}
+                <label style={labelStyle}>{t('map_date')} <span style={{ color: '#dc2626' }}>*</span></label>
+                <input type="date" value={inspectionDate} onChange={e => setInspectionDate(e.target.value)}
                   style={inputStyle}
                   onFocus={e => e.target.style.borderColor = '#1C1208'}
                   onBlur={e => e.target.style.borderColor = '#d1d5db'}
@@ -402,23 +430,15 @@ export default function MapInspectionPage() {
               </div>
 
               <div style={{ display: 'flex', gap: '12px' }}>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  style={{
-                    backgroundColor: loading ? '#93c5fd' : '#1C1208',
-                    color: '#fff', border: 'none', padding: '11px 28px',
-                    borderRadius: '7px', fontSize: '14px', fontWeight: '600',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                  }}
-                >
+                <button type="submit" disabled={loading} style={{
+                  backgroundColor: loading ? '#93c5fd' : '#1C1208',
+                  color: '#fff', border: 'none', padding: '11px 28px',
+                  borderRadius: '7px', fontSize: '14px', fontWeight: '600',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                }}>
                   {loading ? t('map_submitting') : selectedStages.length > 1 ? t('map_submit_multiple').replace('{n}', selectedStages.length) : t('map_submit')}
                 </button>
-                <Link to="/dashboard" style={{
-                  padding: '11px 20px', borderRadius: '7px', fontSize: '14px',
-                  textDecoration: 'none', color: '#374151',
-                  border: '1px solid #d1d5db', backgroundColor: '#fff',
-                }}>
+                <Link to="/dashboard" style={{ padding: '11px 20px', borderRadius: '7px', fontSize: '14px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', backgroundColor: '#fff' }}>
                   {t('map_cancel')}
                 </Link>
               </div>

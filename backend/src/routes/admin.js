@@ -242,7 +242,19 @@ router.get('/buyers', async (req, res) => {
 
 router.get('/masters/po', async (req, res) => {
   const r = await db.query(`
-    SELECT p.*, b.name AS buyer_name, b.email AS buyer_email
+    SELECT p.*, b.name AS buyer_name, b.email AS buyer_email,
+      COALESCE((
+        SELECT json_agg(json_build_object(
+          'item_code', pl.item_code,
+          'item_name', im.name,
+          'quantity', pl.quantity,
+          'unit_price', pl.unit_price,
+          'line_no', pl.line_no
+        ) ORDER BY pl.line_no, pl.item_code)
+        FROM qc_inspection.po_line_items pl
+        JOIN qc_inspection.item_master im ON im.item_code = pl.item_code
+        WHERE pl.po_no = p.po_no
+      ), '[]'::json) AS line_items
     FROM qc_inspection.po_master p
     LEFT JOIN qc_inspection.team_stakeholder b ON b.user_id = p.buyer_id
     ORDER BY p.po_no
@@ -251,16 +263,33 @@ router.get('/masters/po', async (req, res) => {
 });
 
 router.post('/masters/po/single', async (req, res) => {
-  const { po_no, supplier_code, item_code, quantity, unit_price, order_date, status, buyer_id } = req.body;
-  if (!po_no || !supplier_code || !item_code) return res.status(400).json({ error: 'po_no, supplier_code and item_code are required' });
+  const { po_no, supplier_code, item_code, quantity, unit_price, order_date, status, buyer_id, line_items } = req.body;
+  if (!po_no || !supplier_code) return res.status(400).json({ error: 'po_no and supplier_code are required' });
   try {
+    // Upsert PO header (keep item_code/quantity/unit_price from first line item for backward compat)
+    const items = Array.isArray(line_items) && line_items.length > 0 ? line_items : (item_code ? [{ item_code, quantity, unit_price, line_no: 1 }] : []);
+    const primary = items[0] || {};
     const r = await db.query(
       `INSERT INTO qc_inspection.po_master (po_no, supplier_code, item_code, quantity, unit_price, order_date, status, buyer_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (po_no) DO UPDATE
-       SET supplier_code=$2, item_code=$3, quantity=$4, unit_price=$5, order_date=$6, status=$7, buyer_id=$8 RETURNING *`,
-      [po_no, supplier_code, item_code, quantity || null, unit_price || 0, order_date || null, status || 'open', buyer_id || null]
+       SET supplier_code=$2, item_code=COALESCE($3, qc_inspection.po_master.item_code),
+           quantity=COALESCE($4, qc_inspection.po_master.quantity),
+           unit_price=COALESCE($5, qc_inspection.po_master.unit_price),
+           order_date=$6, status=$7, buyer_id=$8 RETURNING *`,
+      [po_no, supplier_code, primary.item_code || null, primary.quantity || null, primary.unit_price || 0, order_date || null, status || 'open', buyer_id || null]
     );
-    res.status(201).json(r.rows[0]);
+    // Upsert line items
+    for (let i = 0; i < items.length; i++) {
+      const li = items[i];
+      if (!li.item_code) continue;
+      await db.query(
+        `INSERT INTO qc_inspection.po_line_items (po_no, item_code, quantity, unit_price, line_no)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (po_no, item_code) DO UPDATE SET quantity=$3, unit_price=$4, line_no=$5`,
+        [po_no, li.item_code, li.quantity || 1, li.unit_price || 0, li.line_no || (i + 1)]
+      );
+    }
+    res.status(201).json({ ...r.rows[0], line_items: items });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -277,6 +306,16 @@ router.post('/masters/po/bulk', async (req, res) => {
       buyer_id: r.buyer_id || r['Buyer ID'] || null,
     })).filter(r => r.po_no && r.supplier_code && r.item_code);
     const result = await bulkUpsert('qc_inspection.po_master', rows, 'po_no');
+    // Also sync po_line_items for each bulk row
+    for (const row of rows) {
+      try {
+        await db.query(
+          `INSERT INTO qc_inspection.po_line_items (po_no, item_code, quantity, unit_price, line_no)
+           VALUES ($1,$2,$3,$4,1) ON CONFLICT (po_no, item_code) DO UPDATE SET quantity=$3, unit_price=$4`,
+          [row.po_no, row.item_code, row.quantity || 1, row.unit_price || 0]
+        );
+      } catch (_) {}
+    }
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

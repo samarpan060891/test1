@@ -40,13 +40,12 @@ const ITEM_FIELDS = [
 const PO_FIELDS = [
   { key: 'po_no', label: 'PO Number', placeholder: 'PO-2026-001', required: true },
   { key: 'supplier_code', label: 'Supplier Code', placeholder: 'SUP-001', required: true },
-  { key: 'item_code', label: 'Item Code', placeholder: 'ITM-001', required: true },
-  { key: 'quantity', label: 'Quantity', placeholder: '500', required: false, type: 'number' },
-  { key: 'unit_price', label: 'Unit Price (USD)', placeholder: '18.50', required: false, type: 'number' },
   { key: 'order_date', label: 'Order Date', placeholder: '', required: false, type: 'date' },
   { key: 'status', label: 'Status', placeholder: 'open', required: false },
   { key: 'buyer_id', label: 'Assigned Buyer', placeholder: '', required: false, type: 'buyer_select' },
 ]
+
+const EMPTY_LINE_ITEM = () => ({ item_code: '', quantity: '', unit_price: '' })
 
 const CONFIG = {
   Suppliers: { fields: SUPPLIER_FIELDS, get: getSuppliers, saveSingle: saveSingleSupplier, bulk: bulkSuppliers, codeKey: 'supplier_code', nameKey: 'name' },
@@ -75,6 +74,7 @@ export default function AdminMastersPage() {
   const setMasterFilter = (key, value) => setMasterFilters(prev => ({ ...prev, [key]: value }))
   const clearMasterFilters = () => setMasterFilters({})
   const [buyers, setBuyers] = useState([])
+  const [lineItems, setLineItems] = useState([EMPTY_LINE_ITEM()])
 
   useEffect(() => { getBuyers().then(r => setBuyers(r.data || [])).catch(() => {}) }, [])
 
@@ -82,6 +82,11 @@ export default function AdminMastersPage() {
     setForm(Object.fromEntries(cfg.fields.map(f => [f.key, Array.isArray(row[f.key]) ? row[f.key].join(', ') : (row[f.key] ?? '')])))
     setEditingCode(row[cfg.codeKey])
     setFormMsg('')
+    if (activeTab === 'POs' && Array.isArray(row.line_items) && row.line_items.length > 0) {
+      setLineItems(row.line_items.map(li => ({ item_code: li.item_code || '', quantity: li.quantity ?? '', unit_price: li.unit_price ?? '' })))
+    } else if (activeTab === 'POs') {
+      setLineItems([EMPTY_LINE_ITEM()])
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -89,6 +94,7 @@ export default function AdminMastersPage() {
     setForm(emptyForm(cfg.fields))
     setEditingCode(null)
     setFormMsg('')
+    setLineItems([EMPTY_LINE_ITEM()])
   }
 
   const cfg = CONFIG[activeTab]
@@ -104,6 +110,7 @@ export default function AdminMastersPage() {
     setBulkMsg('')
     setMasterFilters({})
     setEditingCode(null)
+    setLineItems([EMPTY_LINE_ITEM()])
     load()
     const interval = setInterval(load, 60000)
     return () => clearInterval(interval)
@@ -113,9 +120,13 @@ export default function AdminMastersPage() {
     e.preventDefault()
     setSaving(true); setFormMsg('')
     try {
-      await cfg.saveSingle(form)
+      const payload = activeTab === 'POs'
+        ? { ...form, line_items: lineItems.filter(li => li.item_code).map((li, i) => ({ item_code: li.item_code, quantity: Number(li.quantity) || 1, unit_price: Number(li.unit_price) || 0, line_no: i + 1 })) }
+        : form
+      await cfg.saveSingle(payload)
       setFormMsg('Saved successfully!')
       setForm(emptyForm(cfg.fields))
+      setLineItems([EMPTY_LINE_ITEM()])
       setEditingCode(null)
       load()
     } catch (err) {
@@ -231,6 +242,40 @@ export default function AdminMastersPage() {
                     )}
                   </div>
                 ))}
+                {activeTab === 'POs' && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Line Items *</label>
+                    {lineItems.map((li, idx) => (
+                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '4px', marginBottom: '6px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={li.item_code}
+                          onChange={e => setLineItems(prev => prev.map((x, i) => i === idx ? { ...x, item_code: e.target.value } : x))}
+                          placeholder="Item Code"
+                          style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '12px' }}
+                        />
+                        <input
+                          type="number"
+                          value={li.quantity}
+                          onChange={e => setLineItems(prev => prev.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x))}
+                          placeholder="Qty"
+                          style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '12px' }}
+                        />
+                        <input
+                          type="number"
+                          value={li.unit_price}
+                          onChange={e => setLineItems(prev => prev.map((x, i) => i === idx ? { ...x, unit_price: e.target.value } : x))}
+                          placeholder="Price"
+                          style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '12px' }}
+                        />
+                        <button type="button" onClick={() => setLineItems(prev => prev.length === 1 ? [EMPTY_LINE_ITEM()] : prev.filter((_, i) => i !== idx))}
+                          style={{ padding: '5px 8px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '14px', fontWeight: '700' }}>×</button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setLineItems(prev => [...prev, EMPTY_LINE_ITEM()])}
+                      style={{ fontSize: '12px', color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', padding: '0', fontWeight: '600' }}>+ Add Item</button>
+                  </div>
+                )}
                 {formMsg && (
                   <p style={{ margin: '0 0 10px', fontSize: '13px', color: formMsg.includes('success') ? '#059669' : '#dc2626' }}>{formMsg}</p>
                 )}
@@ -341,6 +386,9 @@ export default function AdminMastersPage() {
                           </span>
                         </th>
                       ))}
+                      {activeTab === 'POs' && (
+                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Line Items</th>
+                      )}
                       <th style={{ padding: '10px 14px', borderBottom: '1px solid #e5e7eb' }} />
                     </tr>
                   </thead>
@@ -354,6 +402,13 @@ export default function AdminMastersPage() {
                               : Array.isArray(row[f.key]) ? (row[f.key].join(', ') || '—') : (row[f.key] ?? '—')}
                           </td>
                         ))}
+                        {activeTab === 'POs' && (
+                          <td style={{ padding: '10px 14px', color: '#374151', fontSize: '12px' }}>
+                            {Array.isArray(row.line_items) && row.line_items.length > 0
+                              ? row.line_items.map(li => `${li.item_code} (×${li.quantity})`).join(', ')
+                              : '—'}
+                          </td>
+                        )}
                         <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                           <button
                             onClick={() => handleEditRow(row)}

@@ -292,6 +292,45 @@ async function runMigrations() {
     ON CONFLICT (po_no) DO NOTHING
   `, 'new POs PO-2026-021 to PO-2026-030');
 
+  // 012: po_line_items — multiple items per PO
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.po_line_items (
+      line_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      po_no TEXT NOT NULL REFERENCES qc_inspection.po_master(po_no) ON DELETE CASCADE,
+      item_code TEXT NOT NULL REFERENCES qc_inspection.item_master(item_code),
+      quantity NUMERIC NOT NULL DEFAULT 1,
+      unit_price NUMERIC NOT NULL DEFAULT 0,
+      line_no INT NOT NULL DEFAULT 1,
+      UNIQUE(po_no, item_code)
+    )
+  `, 'po_line_items table');
+  await safeQuery(`
+    INSERT INTO qc_inspection.po_line_items(po_no, item_code, quantity, unit_price, line_no)
+    SELECT po_no, item_code, COALESCE(quantity, 1), COALESCE(unit_price, 0), 1
+    FROM qc_inspection.po_master
+    WHERE item_code IS NOT NULL
+    ON CONFLICT (po_no, item_code) DO NOTHING
+  `, 'migrate po items to po_line_items');
+
+  // 013: job_items — multiple items per inspection job
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.job_items (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      job_id UUID NOT NULL REFERENCES qc_inspection.inspection_job(job_id) ON DELETE CASCADE,
+      item_code TEXT NOT NULL REFERENCES qc_inspection.item_master(item_code),
+      checklist_template_id UUID REFERENCES qc_inspection.checklist_template(template_id),
+      sort_order INT NOT NULL DEFAULT 0,
+      UNIQUE(job_id, item_code)
+    )
+  `, 'job_items table');
+  await safeQuery(`
+    INSERT INTO qc_inspection.job_items(job_id, item_code, checklist_template_id, sort_order)
+    SELECT job_id, item_code, checklist_template_id, 0
+    FROM qc_inspection.inspection_job
+    WHERE item_code IS NOT NULL
+    ON CONFLICT (job_id, item_code) DO NOTHING
+  `, 'migrate job items to job_items');
+
   console.log('✅ Migrations applied');
 }
 

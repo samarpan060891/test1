@@ -6,7 +6,6 @@ const { sendNotification } = require('../services/notifications');
 const router = express.Router();
 router.use(authenticate);
 
-// Fetch all stakeholder emails for a job so we can notify everyone
 async function getJobStakeholders(jobId) {
   const r = await db.query(
     `SELECT
@@ -25,32 +24,27 @@ async function getJobStakeholders(jobId) {
   const qaUsers = await db.query(
     "SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'qa' AND email IS NOT NULL"
   );
-  const buyingUsers = await db.query(
-    "SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'buying' AND email IS NOT NULL"
-  );
-
   return {
     jobRef: job.job_ref,
     poNo: job.po_no,
     agencyEmails: job.agency_emails || [],
     supplierEmail: job.supplier_email ? [job.supplier_email] : [],
     qaEmails: qaUsers.rows.map(u => u.email),
-    buyingEmails: buyingUsers.rows.map(u => u.email),
   };
 }
 
-// Notify all stakeholders relevant to an event
-async function notifyAll(jobId, eventType, recipientMap, messageOverride = null) {
-  const stakeholders = await getJobStakeholders(jobId).catch(() => null);
-  if (!stakeholders) return;
-
-  const { jobRef, poNo, agencyEmails, supplierEmail, qaEmails, buyingEmails } = stakeholders;
-  const suffix = ` (Job: ${jobRef || jobId.slice(0, 8)}, PO: ${poNo})`;
-
-  for (const [role, emails] of Object.entries(recipientMap)) {
-    const msg = (messageOverride || null);
-    await sendNotification(jobId, eventType, role, emails, msg ? msg + suffix : null);
-  }
+// Fetch items for a job from job_items table
+async function getJobItemsFor(jobId, client_or_db = db) {
+  const r = await client_or_db.query(
+    `SELECT ji.item_code, ji.checklist_template_id, ji.sort_order,
+            im.name AS item_name, im.category, im.sub_category
+     FROM qc_inspection.job_items ji
+     JOIN qc_inspection.item_master im ON im.item_code = ji.item_code
+     WHERE ji.job_id = $1
+     ORDER BY ji.sort_order, ji.item_code`,
+    [jobId]
+  );
+  return r.rows;
 }
 
 /**
@@ -71,9 +65,12 @@ router.get('/', async (req, res) => {
         ac.rate_type AS contract_rate_type,
         ac.rate_value AS contract_rate_value,
         ac.currency AS contract_currency,
-        p.quantity,
-        p.unit_price,
-        COALESCE(p.quantity * p.unit_price, 0) AS po_value,
+        COALESCE((
+          SELECT SUM(pl.quantity * pl.unit_price)
+          FROM qc_inspection.job_items ji2
+          JOIN qc_inspection.po_line_items pl ON pl.po_no = j.po_no AND pl.item_code = ji2.item_code
+          WHERE ji2.job_id = j.job_id
+        ), p.quantity * p.unit_price, 0) AS po_value,
         (
           SELECT ca.status
           FROM qc_inspection.inspection_charges_advice ca
@@ -154,16 +151,21 @@ router.get('/:id', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const childResult = await db.query(
-      `SELECT j.job_id, j.job_ref, j.status, j.inspection_date, j.mapped_at,
-              creator.name AS triggered_by_name, creator.role AS triggered_by_role
-       FROM qc_inspection.inspection_job j
-       LEFT JOIN qc_inspection.team_stakeholder creator ON creator.user_id = j.mapped_by
-       WHERE j.parent_job_id = $1
-       ORDER BY j.mapped_at DESC LIMIT 1`,
-      [req.params.id]
-    );
+    const [childResult, jobItems] = await Promise.all([
+      db.query(
+        `SELECT j.job_id, j.job_ref, j.status, j.inspection_date, j.mapped_at,
+                creator.name AS triggered_by_name, creator.role AS triggered_by_role
+         FROM qc_inspection.inspection_job j
+         LEFT JOIN qc_inspection.team_stakeholder creator ON creator.user_id = j.mapped_by
+         WHERE j.parent_job_id = $1
+         ORDER BY j.mapped_at DESC LIMIT 1`,
+        [req.params.id]
+      ),
+      getJobItemsFor(req.params.id),
+    ]);
+
     job.reinspection_job = childResult.rows[0] || null;
+    job.items = jobItems;
 
     res.json(job);
   } catch (err) {
@@ -174,12 +176,13 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/inspection-jobs
- * Map new inspection. Notifies agency, supplier, buying.
+ * Map new inspection with one or more items from a PO.
+ * Body: { po_no, agency_code?, contract_id?, inspection_date, inspection_type, inspection_stages, item_codes? }
  */
 const VALID_STAGES = ['pre_production', 'inline', 'final', 'loading'];
 
 router.post('/', authorize('qa', 'buying'), async (req, res) => {
-  const { po_no, agency_code, contract_id, inspection_date, inspection_type = 'agency', inspection_stages } = req.body;
+  const { po_no, agency_code, contract_id, inspection_date, inspection_type = 'agency', inspection_stages, item_codes } = req.body;
 
   if (!['agency', 'self'].includes(inspection_type)) {
     return res.status(400).json({ error: 'inspection_type must be "agency" or "self"' });
@@ -201,10 +204,10 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
   try {
     await client.query('BEGIN');
 
+    // Load PO header
     const poResult = await client.query(
-      `SELECT p.*, i.category, i.sub_category, i.name AS item_name, s.name AS supplier_name
+      `SELECT p.*, s.name AS supplier_name, s.contact_email AS supplier_contact_email
        FROM qc_inspection.po_master p
-       JOIN qc_inspection.item_master i ON i.item_code = p.item_code
        JOIN qc_inspection.supplier_master s ON s.supplier_code = p.supplier_code
        WHERE p.po_no = $1`,
       [po_no]
@@ -213,6 +216,69 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
     const po = poResult.rows[0];
     if (po.status === 'cancelled') { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Cannot map inspection for a cancelled PO' }); }
+
+    // Determine which items to inspect
+    let selectedCodes = Array.isArray(item_codes) && item_codes.length > 0 ? item_codes : null;
+
+    // Load items from po_line_items (fall back to po_master.item_code for legacy POs)
+    let lineItemsResult;
+    if (selectedCodes) {
+      lineItemsResult = await client.query(
+        `SELECT pl.item_code, pl.quantity, pl.unit_price, pl.line_no,
+                im.name AS item_name, im.category, im.sub_category
+         FROM qc_inspection.po_line_items pl
+         JOIN qc_inspection.item_master im ON im.item_code = pl.item_code
+         WHERE pl.po_no = $1 AND pl.item_code = ANY($2::text[])
+         ORDER BY pl.line_no, pl.item_code`,
+        [po_no, selectedCodes]
+      );
+    } else {
+      lineItemsResult = await client.query(
+        `SELECT pl.item_code, pl.quantity, pl.unit_price, pl.line_no,
+                im.name AS item_name, im.category, im.sub_category
+         FROM qc_inspection.po_line_items pl
+         JOIN qc_inspection.item_master im ON im.item_code = pl.item_code
+         WHERE pl.po_no = $1
+         ORDER BY pl.line_no, pl.item_code`,
+        [po_no]
+      );
+      // Legacy fallback if po_line_items is empty
+      if (lineItemsResult.rows.length === 0 && po.item_code) {
+        lineItemsResult = await client.query(
+          `SELECT $1::text AS item_code, $2::numeric AS quantity, $3::numeric AS unit_price, 1 AS line_no,
+                  im.name AS item_name, im.category, im.sub_category
+           FROM qc_inspection.item_master im WHERE im.item_code = $1`,
+          [po.item_code, po.quantity, po.unit_price]
+        );
+      }
+    }
+
+    if (lineItemsResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No items found for this PO. Please add line items first.' });
+    }
+
+    // Find checklist template for each item
+    const itemsWithTemplates = [];
+    for (const item of lineItemsResult.rows) {
+      const templateResult = await client.query(
+        `SELECT template_id FROM qc_inspection.checklist_template
+         WHERE category = $1 AND sub_category = $2 AND status = 'active'
+         ORDER BY version DESC LIMIT 1`,
+        [item.category, item.sub_category]
+      );
+      if (templateResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(422).json({
+          error_code: 'NO_ACTIVE_TEMPLATE',
+          error: `No active checklist template found for item '${item.item_name}' (${item.category} / ${item.sub_category}).`,
+          item_code: item.item_code,
+          category: item.category,
+          sub_category: item.sub_category,
+        });
+      }
+      itemsWithTemplates.push({ ...item, checklist_template_id: templateResult.rows[0].template_id });
+    }
 
     let agencyResult = { rows: [{}] };
     if (inspection_type === 'agency') {
@@ -223,23 +289,7 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
       if (agencyResult.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ error: `Agency ${agency_code} not found` }); }
     }
 
-    const templateResult = await client.query(
-      `SELECT template_id FROM qc_inspection.checklist_template
-       WHERE category = $1 AND sub_category = $2 AND status = 'active'
-       ORDER BY version DESC LIMIT 1`,
-      [po.category, po.sub_category]
-    );
-    if (templateResult.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(422).json({
-        error_code: 'NO_ACTIVE_TEMPLATE',
-        error: `No active checklist template found for category '${po.category}' / sub_category '${po.sub_category}'.`,
-        category: po.category,
-        sub_category: po.sub_category,
-      });
-    }
-
-    const templateId = templateResult.rows[0].template_id;
+    const primaryItem = itemsWithTemplates[0];
     const createdJobs = [];
 
     for (const stage of stages) {
@@ -248,24 +298,34 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
           (po_no, item_code, supplier_code, agency_code, contract_id, checklist_template_id, status, inspection_date, inspection_type, inspection_stage)
          VALUES ($1, $2, $3, $4, $5, $6, 'mapped_awaiting_inspection', $7, $8, $9)
          RETURNING *`,
-        [po_no, po.item_code, po.supplier_code, agency_code || null, contract_id || null, templateId, inspection_date, inspection_type, stage]
+        [po_no, primaryItem.item_code, po.supplier_code, agency_code || null, contract_id || null, primaryItem.checklist_template_id, inspection_date, inspection_type, stage]
       );
       const job = jobResult.rows[0];
       createdJobs.push(job);
 
+      // Insert job_items for all selected items
+      for (let i = 0; i < itemsWithTemplates.length; i++) {
+        const item = itemsWithTemplates[i];
+        await client.query(
+          `INSERT INTO qc_inspection.job_items (job_id, item_code, checklist_template_id, sort_order)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (job_id, item_code) DO NOTHING`,
+          [job.job_id, item.item_code, item.checklist_template_id, i]
+        );
+      }
+
+      const itemSummary = itemsWithTemplates.map(i => i.item_name).join(', ');
       await client.query(
         `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
          VALUES ($1, $2, $3, $4, $5)`,
         [po_no, job.job_id, req.user.user_id, req.user.role,
-         `Inspection job mapped. Stage: ${stage}. Agency: ${agency_code || 'self'}. Date: ${inspection_date}.`]
+         `Inspection job mapped. Stage: ${stage}. Items: ${itemSummary}. Agency: ${agency_code || 'self'}. Date: ${inspection_date}.`]
       );
     }
 
     await client.query('COMMIT');
 
-    // Notify all connected stakeholders
     const firstJobId = createdJobs[0].job_id;
-    // Look up the assigned buyer for this PO
     const buyerResult = await db.query(
       `SELECT b.user_id AS buyer_id, b.email AS buyer_email
        FROM qc_inspection.po_master p
@@ -276,16 +336,17 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
     const stakeMap = {};
     if (inspection_type === 'agency') stakeMap['agency_user'] = agencyResult.rows[0].contact_emails || [];
-    stakeMap['supplier_user'] = [po.contact_email];
+    stakeMap['supplier_user'] = [po.supplier_contact_email];
 
     const stagesSummary = stages.length > 1
       ? `${stages.length} stages (${stages.map(s => s.replace('_', ' ')).join(', ')})`
       : stages[0].replace('_', ' ') + ' stage';
+    const itemsLabel = itemsWithTemplates.map(i => i.item_name).join(', ');
     const msg = JSON.stringify({
       key: 'JOB_MAPPED_EXTERNAL',
       job_ref: createdJobs[0].job_ref || null,
       po_no,
-      item_name: po.item_name,
+      item_name: itemsLabel,
       supplier_name: po.supplier_name,
       agency_name: inspection_type === 'agency' ? (agencyResult.rows[0].name || agency_code) : null,
       stages: stagesSummary,
@@ -296,7 +357,6 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
       const roleSupplierCode = role === 'supplier_user' ? po.supplier_code : null;
       sendNotification(firstJobId, 'JOB_MAPPED', role, emails, msg, null, roleAgencyCode, roleSupplierCode);
     }
-    // Notify the assigned buyer specifically
     if (poBuyer) {
       sendNotification(firstJobId, 'JOB_MAPPED', 'buying', [poBuyer.buyer_email], msg, null, null, null, poBuyer.buyer_id);
     }
@@ -313,7 +373,7 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
 
 /**
  * PUT /api/inspection-jobs/:id/submit
- * Agency submits checklist. Notifies QA + buying.
+ * Agency submits checklist. Validates responses across ALL items in the job.
  */
 router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req, res) => {
   const { actual_inspection_date } = req.body;
@@ -339,19 +399,35 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
       await client.query('ROLLBACK'); return res.status(400).json({ error: `Cannot submit job in status: ${job.status}` });
     }
 
-    const totalItems = await client.query(
-      'SELECT COUNT(*) AS cnt FROM qc_inspection.checklist_item WHERE template_id = $1',
-      [job.checklist_template_id]
+    // Count total checklist items across ALL templates for this job's items
+    const totalItemsResult = await client.query(
+      `SELECT COUNT(*) AS cnt
+       FROM qc_inspection.checklist_item ci
+       WHERE ci.template_id IN (
+         SELECT checklist_template_id FROM qc_inspection.job_items WHERE job_id = $1
+       )`,
+      [req.params.id]
     );
+    // Fallback for legacy jobs without job_items
+    const totalFromJobItems = parseInt(totalItemsResult.rows[0].cnt);
+    let expectedCount = totalFromJobItems;
+    if (expectedCount === 0) {
+      const legacyCount = await client.query(
+        'SELECT COUNT(*) AS cnt FROM qc_inspection.checklist_item WHERE template_id = $1',
+        [job.checklist_template_id]
+      );
+      expectedCount = parseInt(legacyCount.rows[0].cnt);
+    }
+
     const totalResponses = await client.query(
       'SELECT COUNT(*) AS cnt FROM qc_inspection.inspection_response WHERE job_id = $1',
       [req.params.id]
     );
 
-    if (parseInt(totalResponses.rows[0].cnt) < parseInt(totalItems.rows[0].cnt)) {
+    if (parseInt(totalResponses.rows[0].cnt) < expectedCount) {
       await client.query('ROLLBACK');
       return res.status(400).json({
-        error: `All checklist items must be answered. ${totalResponses.rows[0].cnt} of ${totalItems.rows[0].cnt} completed.`,
+        error: `All checklist items must be answered. ${totalResponses.rows[0].cnt} of ${expectedCount} completed.`,
       });
     }
 
@@ -371,11 +447,12 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
 
     await client.query('COMMIT');
 
-    // Notify QA + buying
+    const jobItems = await getJobItemsFor(job.job_id);
+    const itemsLabel = jobItems.map(i => i.item_name).join(', ') || job.item_code;
+
     const jobDetail = await db.query(
-      `SELECT j.job_ref, j.inspection_date, i.name AS item_name, s.name AS supplier_name, a.name AS agency_name
+      `SELECT j.job_ref, j.inspection_date, s.name AS supplier_name, a.name AS agency_name
        FROM qc_inspection.inspection_job j
-       JOIN qc_inspection.item_master i ON i.item_code = j.item_code
        JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
        LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
        WHERE j.job_id = $1`, [job.job_id]
@@ -394,7 +471,7 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
       job_ref: jd.job_ref || null,
       job_id: job.job_id,
       po_no: job.po_no,
-      item_name: jd.item_name,
+      item_name: itemsLabel,
       supplier_name: jd.supplier_name,
       agency_name: jd.agency_name || null,
       inspection_date: jd.inspection_date,
@@ -417,7 +494,6 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
 
 /**
  * PUT /api/inspection-jobs/:id/decision
- * QA approves or rejects. Notifies agency, supplier, buying.
  */
 router.put('/:id/decision', authorize('qa'), async (req, res) => {
   const { outcome, remarks } = req.body;
@@ -457,12 +533,13 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
 
     await client.query('COMMIT');
 
-    // Notify agency + supplier + buying
     const eventType = outcome === 'approved' ? 'QA_APPROVED' : 'QA_REJECTED';
+    const jobItems = await getJobItemsFor(job.job_id);
+    const itemsLabel = jobItems.map(i => i.item_name).join(', ') || job.item_code;
+
     const jobDetail2 = await db.query(
-      `SELECT j.job_ref, i.name AS item_name, s.name AS supplier_name, a.name AS agency_name
+      `SELECT j.job_ref, s.name AS supplier_name, a.name AS agency_name
        FROM qc_inspection.inspection_job j
-       JOIN qc_inspection.item_master i ON i.item_code = j.item_code
        JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
        LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
        WHERE j.job_id = $1`, [job.job_id]
@@ -472,7 +549,7 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
       job_ref: jd2.job_ref || null,
       job_id: job.job_id,
       po_no: job.po_no,
-      item_name: jd2.item_name,
+      item_name: itemsLabel,
       supplier_name: jd2.supplier_name,
       agency_name: jd2.agency_name || null,
       reviewer_name: req.user.name || req.user.email,
@@ -499,7 +576,6 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
 
 /**
  * POST /api/inspection-jobs/:id/reinspect
- * Re-inspection triggered. Notifies agency, supplier, buying.
  */
 router.post('/:id/reinspect', authorize('qa', 'buying'), async (req, res) => {
   const { agency_code, inspection_date, inspection_type = 'agency' } = req.body;
@@ -526,6 +602,12 @@ router.post('/:id/reinspect', authorize('qa', 'buying'), async (req, res) => {
       if (agencyResult.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ error: `Agency ${agency_code} not found` }); }
     }
 
+    // Copy parent job_items
+    const parentItems = await client.query(
+      'SELECT item_code, checklist_template_id, sort_order FROM qc_inspection.job_items WHERE job_id = $1 ORDER BY sort_order',
+      [req.params.id]
+    );
+
     const newJobResult = await client.query(
       `INSERT INTO qc_inspection.inspection_job
         (po_no, item_code, supplier_code, agency_code, checklist_template_id, status, inspection_date, inspection_type, parent_job_id)
@@ -538,6 +620,15 @@ router.post('/:id/reinspect', authorize('qa', 'buying'), async (req, res) => {
 
     const newJob = newJobResult.rows[0];
 
+    // Copy job_items from parent
+    for (const item of parentItems.rows) {
+      await client.query(
+        `INSERT INTO qc_inspection.job_items (job_id, item_code, checklist_template_id, sort_order)
+         VALUES ($1, $2, $3, $4) ON CONFLICT (job_id, item_code) DO NOTHING`,
+        [newJob.job_id, item.item_code, item.checklist_template_id, item.sort_order]
+      );
+    }
+
     await client.query(
       `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
        VALUES ($1, $2, $3, $4, $5)`,
@@ -547,21 +638,22 @@ router.post('/:id/reinspect', authorize('qa', 'buying'), async (req, res) => {
 
     await client.query('COMMIT');
 
-    // Notify agency, supplier, buying
     const reinspectDetail = await db.query(
-      `SELECT j.job_ref, i.name AS item_name, s.name AS supplier_name, a.name AS agency_name
+      `SELECT j.job_ref, s.name AS supplier_name, a.name AS agency_name
        FROM qc_inspection.inspection_job j
-       JOIN qc_inspection.item_master i ON i.item_code = j.item_code
        JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
        LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
        WHERE j.job_id = $1`, [newJob.job_id]
     );
     const rd = reinspectDetail.rows[0] || {};
+    const jobItems = await getJobItemsFor(newJob.job_id);
+    const itemsLabel = jobItems.map(i => i.item_name).join(', ') || parent.item_code;
+
     const msg = JSON.stringify({
       job_ref: rd.job_ref || null,
       job_id: newJob.job_id,
       po_no: parent.po_no,
-      item_name: rd.item_name,
+      item_name: itemsLabel,
       supplier_name: rd.supplier_name,
       agency_name: rd.agency_name || null,
       inspection_date,

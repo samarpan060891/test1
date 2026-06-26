@@ -421,17 +421,26 @@ export default function JobDetailPage() {
                 major:    { bg: '#fff7ed', color: '#c2410c' },
                 minor:    { bg: '#f8fafc', color: '#64748b' },
               }
-              const bySection = checklistRows.reduce((acc, r) => {
+              // Group by item first, then by section within each item
+              const byItem = []
+              const itemKeyOrder = []
+              checklistRows.forEach(r => {
+                const itemKey = r.item_code || 'default'
+                let itemGroup = byItem.find(g => g.itemKey === itemKey)
+                if (!itemGroup) {
+                  itemGroup = { itemKey, itemName: r.item_name || null, sections: {} }
+                  byItem.push(itemGroup)
+                }
                 const s = r.section || 'General'
-                if (!acc[s]) acc[s] = []
-                acc[s].push(r)
-                return acc
-              }, {})
+                if (!itemGroup.sections[s]) itemGroup.sections[s] = []
+                itemGroup.sections[s].push(r)
+              })
+              const multiItem = byItem.length > 1
               return (
                 <div>
                   {/* Job meta strip */}
                   <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '20px', fontSize: '12px', color: '#475569' }}>
-                    {checklistRows[0]?.item_name    && <span><strong>{t('col_item')}:</strong> {checklistRows[0].item_name}</span>}
+                    {!multiItem && checklistRows[0]?.item_name && <span><strong>{t('col_item')}:</strong> {checklistRows[0].item_name}</span>}
                     {checklistRows[0]?.supplier_name && <span><strong>{t('col_supplier')}:</strong> {checklistRows[0].supplier_name}</span>}
                     {checklistRows[0]?.agency_name   && <span><strong>{t('col_agency')}:</strong> {checklistRows[0].agency_name}</span>}
                     {checklistRows[0]?.inspection_date && <span><strong>{t('col_date')}:</strong> {new Date(checklistRows[0].inspection_date).toLocaleDateString()}</span>}
@@ -441,39 +450,48 @@ export default function JobDetailPage() {
                     </span>
                   </div>
 
-                  {Object.entries(bySection).map(([section, items]) => (
-                    <div key={section} style={{ marginBottom: '16px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                      <div style={{ background: '#1C1208', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        {section}
-                      </div>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                        <thead>
-                          <tr style={{ background: '#f8fafc' }}>
-                            {['#', t('col_checkpoint'), t('col_criticality'), t('col_result'), t('col_remark')].map(h => (
-                              <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {items.map((r, i) => {
-                            const rm = RESULT_META[r.result] || RESULT_META.pending
-                            const cm = CRIT_META[r.criticality] || {}
-                            return (
-                              <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: r.result === 'fail' ? '#fff8f7' : 'transparent' }}>
-                                <td style={{ padding: '7px 12px', color: '#94a3b8', width: '32px' }}>{r.sort_order ?? i + 1}</td>
-                                <td style={{ padding: '7px 12px', color: '#334155', fontWeight: '500' }}>{r.checkpoint_text}</td>
-                                <td style={{ padding: '7px 12px' }}>
-                                  <span style={{ ...cm, padding: '2px 8px', borderRadius: '9999px', fontWeight: '600', fontSize: '11px' }}>{r.criticality}</span>
-                                </td>
-                                <td style={{ padding: '7px 12px' }}>
-                                  <span style={{ background: rm.bg, color: rm.color, padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{t(rm.key)}</span>
-                                </td>
-                                <td style={{ padding: '7px 12px', color: '#64748b', fontStyle: r.remarks ? 'normal' : 'italic' }}>{r.remarks || '—'}</td>
+                  {byItem.map(({ itemKey, itemName, sections }) => (
+                    <div key={itemKey} style={{ marginBottom: multiItem ? '24px' : '0' }}>
+                      {multiItem && itemName && (
+                        <div style={{ background: '#1e293b', padding: '10px 16px', fontSize: '13px', fontWeight: '700', color: '#f8fafc', borderRadius: '8px 8px 0 0', marginBottom: '0', letterSpacing: '0.03em' }}>
+                          {itemName}
+                        </div>
+                      )}
+                      {Object.entries(sections).map(([section, items]) => (
+                        <div key={section} style={{ marginBottom: '8px', borderRadius: multiItem ? '0' : '10px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                          <div style={{ background: '#1C1208', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {section}
+                          </div>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                            <thead>
+                              <tr style={{ background: '#f8fafc' }}>
+                                {['#', t('col_checkpoint'), t('col_criticality'), t('col_result'), t('col_remark')].map(h => (
+                                  <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+                                ))}
                               </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
+                            </thead>
+                            <tbody>
+                              {items.map((r, i) => {
+                                const rm = RESULT_META[r.result] || RESULT_META.pending
+                                const cm = CRIT_META[r.criticality] || {}
+                                return (
+                                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: r.result === 'fail' ? '#fff8f7' : 'transparent' }}>
+                                    <td style={{ padding: '7px 12px', color: '#94a3b8', width: '32px' }}>{r.sort_order ?? i + 1}</td>
+                                    <td style={{ padding: '7px 12px', color: '#334155', fontWeight: '500' }}>{r.checkpoint_text}</td>
+                                    <td style={{ padding: '7px 12px' }}>
+                                      <span style={{ ...cm, padding: '2px 8px', borderRadius: '9999px', fontWeight: '600', fontSize: '11px' }}>{r.criticality}</span>
+                                    </td>
+                                    <td style={{ padding: '7px 12px' }}>
+                                      <span style={{ background: rm.bg, color: rm.color, padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{t(rm.key)}</span>
+                                    </td>
+                                    <td style={{ padding: '7px 12px', color: '#64748b', fontStyle: r.remarks ? 'normal' : 'italic' }}>{r.remarks || '—'}</td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>

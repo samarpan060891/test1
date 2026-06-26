@@ -244,12 +244,22 @@ router.post('/', authorize('agency_user'), upload.single('invoice'), async (req,
     let total_cost = 0;
     let po_value = null;
 
-    // Fetch PO value: quantity * unit_price
+    // Fetch proportionate PO value: only the items being inspected in these jobs
     const poRes = await db.query(
-      `SELECT COALESCE(SUM(pm.quantity * pm.unit_price), 0) AS total_po_value
-       FROM qc_inspection.inspection_job j
-       LEFT JOIN qc_inspection.po_master pm ON pm.po_no = j.po_no
-       WHERE j.job_id = ANY($1::uuid[])`,
+      `SELECT COALESCE(SUM(subtotal), 0) AS total_po_value
+       FROM (
+         SELECT DISTINCT pl.po_no, pl.item_code, pl.quantity * pl.unit_price AS subtotal
+         FROM qc_inspection.inspection_job j
+         JOIN qc_inspection.job_items ji ON ji.job_id = j.job_id
+         JOIN qc_inspection.po_line_items pl ON pl.po_no = j.po_no AND pl.item_code = ji.item_code
+         WHERE j.job_id = ANY($1::uuid[])
+         UNION
+         SELECT DISTINCT j.po_no, j.item_code, pm.quantity * pm.unit_price AS subtotal
+         FROM qc_inspection.inspection_job j
+         JOIN qc_inspection.po_master pm ON pm.po_no = j.po_no
+         WHERE j.job_id = ANY($1::uuid[])
+           AND NOT EXISTS (SELECT 1 FROM qc_inspection.job_items ji2 WHERE ji2.job_id = j.job_id)
+       ) t`,
       [job_ids]
     );
     po_value = parseFloat(poRes.rows[0].total_po_value) || 0;

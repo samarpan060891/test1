@@ -360,20 +360,25 @@ router.get('/checklist', async (req, res) => {
 
     const q = `
       SELECT
-        j.job_ref, j.po_no, j.item_code, i.name AS item_name,
+        j.job_ref, j.po_no, j.inspection_date,
         j.supplier_code, s.name AS supplier_name,
         j.agency_code, ag.name AS agency_name,
-        j.status, j.final_outcome, j.inspection_date,
-        ci.section, ci.checkpoint_text, ci.criticality,
-        r.result, r.remark
+        j.status, j.final_outcome,
+        ci.section, ci.checkpoint_text, ci.criticality, ci.sort_order,
+        r.result, r.remark,
+        COALESCE(ji_item.item_code, j.item_code) AS item_code,
+        COALESCE(ji_im.name, j_im.name) AS item_name
       FROM qc_inspection.inspection_response r
       JOIN qc_inspection.inspection_job j ON j.job_id = r.job_id
-      JOIN qc_inspection.item_master i ON i.item_code = j.item_code
+      JOIN qc_inspection.item_master j_im ON j_im.item_code = j.item_code
       JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
       LEFT JOIN qc_inspection.quality_agency_master ag ON ag.agency_code = j.agency_code
       JOIN qc_inspection.checklist_item ci ON ci.item_id = r.checklist_item_id
+      LEFT JOIN qc_inspection.job_items ji ON ji.job_id = r.job_id AND ji.checklist_template_id = ci.template_id
+      LEFT JOIN qc_inspection.item_master ji_im ON ji_im.item_code = ji.item_code
+      LEFT JOIN LATERAL (SELECT ji2.item_code FROM qc_inspection.job_items ji2 WHERE ji2.job_id = r.job_id AND ji2.checklist_template_id = ci.template_id LIMIT 1) ji_item ON true
       WHERE ${conditions.join(' AND ')}
-      ORDER BY j.inspection_date DESC NULLS LAST, ci.sort_order
+      ORDER BY j.inspection_date DESC NULLS LAST, COALESCE(ji_item.item_code, j.item_code), ci.sort_order
     `;
 
     const result = await db.query(q, params);
