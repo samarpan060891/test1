@@ -142,7 +142,8 @@ async function runMigrations() {
           'aaaaaaaa-0001-0001-0001-000000000010'::uuid,
           'aaaaaaaa-0001-0001-0001-000000000011'::uuid,
           'aaaaaaaa-0001-0001-0001-000000000012'::uuid,
-          'aaaaaaaa-0001-0001-0001-000000000013'::uuid
+          'aaaaaaaa-0001-0001-0001-000000000013'::uuid,
+          'aaaaaaaa-0001-0001-0001-000000000014'::uuid
         )
       `);
       await db.query(`INSERT INTO qc_inspection._migration_flags VALUES ('dedup_new_templates_v2')`);
@@ -158,7 +159,8 @@ async function runMigrations() {
       ('aaaaaaaa-0001-0001-0001-000000000010', 'Furniture',  'Living Room', 'Living Room Furniture Inspection v1', '1.0', 'active'),
       ('aaaaaaaa-0001-0001-0001-000000000011', 'Household',  'Décor',       'Décor Items Inspection v1',           '1.0', 'active'),
       ('aaaaaaaa-0001-0001-0001-000000000012', 'Furniture',  'Outdoor',     'Outdoor Furniture Inspection v1',     '1.0', 'active'),
-      ('aaaaaaaa-0001-0001-0001-000000000013', 'Household',  'Bathroom',    'Bathroom Accessories Inspection v1',  '1.0', 'active')
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Household',  'Bathroom',    'Bathroom Accessories Inspection v1',  '1.0', 'active'),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Furniture',  'Storage & Organisation', 'Storage & Organisation Inspection v1', '1.0', 'active')
     ON CONFLICT (template_id) DO NOTHING
   `, 'new checklist templates for Living Room, Decor, Outdoor, Bathroom');
 
@@ -219,7 +221,23 @@ async function runMigrations() {
       ('aaaaaaaa-0001-0001-0001-000000000013', 'Material',    'No toxic or restricted substances used in coating or material',      'critical', 9),
       ('aaaaaaaa-0001-0001-0001-000000000013', 'Finishing',   'Country of origin and care labels correctly attached',              'minor',   10),
       ('aaaaaaaa-0001-0001-0001-000000000013', 'Packaging',   'Each piece individually protected to prevent scratching in transit', 'major',   11),
-      ('aaaaaaaa-0001-0001-0001-000000000013', 'Packaging',   'Correct barcode/SKU on packaging matches PO specification',          'minor',   12)
+      ('aaaaaaaa-0001-0001-0001-000000000013', 'Packaging',   'Correct barcode/SKU on packaging matches PO specification',          'minor',   12),
+
+      -- Storage & Organisation Furniture (Wooden Wall Shelf 3-tier)
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Structure',   'All shelf brackets/fixings are correctly installed and load-bearing', 'critical', 1),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Structure',   'Shelves are level, flat and do not bow or deflect under load',        'critical', 2),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Structure',   'Dimensions (W x D x H per tier) match approved specification',        'major',    3),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Material',    'Wood species/grade and finish match approved sample',                 'critical', 4),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Material',    'No warping, cracking or knots that compromise structural integrity',  'critical', 5),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Material',    'Colour and grain are consistent across all shelf tiers',              'major',    6),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Hardware',    'All wall anchors, screws, dowels and fixings are included in pack',   'critical', 7),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Hardware',    'Metal hardware (brackets/rods) show no rust or surface defects',      'major',    8),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Finishing',   'All surfaces sanded smooth with no splinters or rough edges',         'critical', 9),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Finishing',   'Paint/lacquer/oil coating is even with no drips, bare spots or runs', 'major',   10),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Finishing',   'Care, weight-limit and country of origin labels correctly attached',  'major',   11),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Packaging',   'All components present and accounted for (shelves, hardware, manual)','critical',12),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Packaging',   'Shelf surfaces protected with foam/wrap to prevent transit scratches','major',   13),
+      ('aaaaaaaa-0001-0001-0001-000000000014', 'Packaging',   'Correct barcode/SKU on outer carton matches PO specification',        'minor',   14)
     ) AS v(template_id, section, checkpoint_text, criticality, sort_order)
     WHERE NOT EXISTS (
       SELECT 1 FROM qc_inspection.checklist_item ci WHERE ci.template_id = v.template_id::uuid AND ci.sort_order = v.sort_order
