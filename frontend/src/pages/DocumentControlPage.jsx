@@ -346,7 +346,9 @@ function SupplierUploadView({ groups, onRefresh }) {
 
 // ─── Reviewer / Admin View ────────────────────────────────────────────────────
 function ReviewerView({ groups, role, onRefresh }) {
+  const [activeFilter, setActiveFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [expandedKey, setExpandedKey] = useState(null)
   const [panel, setPanel] = useState(null)
   const [fileUrl, setFileUrl] = useState(null)
   const [fileType, setFileType] = useState(null)
@@ -358,9 +360,46 @@ function ReviewerView({ groups, role, onRefresh }) {
   const canQAReview = ['qa', 'admin', 'imports', 'accounts'].includes(role)
   const canBuyingReview = role === 'buying'
 
+  const getGroupStats = (g) => {
+    const docs = g.docs
+    return {
+      pendingApproval: docs.filter(d => d.status === 'pending_approval').length,
+      pendingBuying:   docs.filter(d => d.status === 'qa_approved').length,
+      approved:        docs.filter(d => d.status === 'approved').length,
+      rejected:        docs.filter(d => d.status === 'rejected').length,
+      na:              docs.filter(d => d.status === 'not_applicable').length,
+      uploaded:        docs.filter(d => d.file_name).length,
+    }
+  }
+
+  // Stat card counts
+  const statCounts = {
+    all:             groups.length,
+    pendingApproval: groups.filter(g => getGroupStats(g).pendingApproval > 0).length,
+    pendingBuying:   groups.filter(g => getGroupStats(g).pendingBuying > 0).length,
+    approved:        groups.filter(g => getGroupStats(g).approved > 0).length,
+    rejected:        groups.filter(g => getGroupStats(g).rejected > 0).length,
+  }
+
+  const statCards = [
+    { key: 'all',             label: 'ALL ITEMS',       color: '#E8470F' },
+    { key: 'pendingApproval', label: 'PENDING QA',      color: '#d97706' },
+    { key: 'pendingBuying',   label: 'PENDING BUYING',  color: '#0284c7' },
+    { key: 'approved',        label: 'APPROVED',        color: '#15803d' },
+    { key: 'rejected',        label: 'REJECTED',        color: '#dc2626' },
+  ]
+
   const filtered = groups.filter(g => {
     const q = search.toLowerCase()
-    return !q || g.item_name?.toLowerCase().includes(q) || g.supplier_name?.toLowerCase().includes(q) || g.item_code?.toLowerCase().includes(q)
+    const matchSearch = !q || g.item_name?.toLowerCase().includes(q) || g.supplier_name?.toLowerCase().includes(q) || g.item_code?.toLowerCase().includes(q)
+    if (!matchSearch) return false
+    if (activeFilter === 'all') return true
+    const s = getGroupStats(g)
+    if (activeFilter === 'pendingApproval') return s.pendingApproval > 0
+    if (activeFilter === 'pendingBuying')   return s.pendingBuying > 0
+    if (activeFilter === 'approved')        return s.approved > 0
+    if (activeFilter === 'rejected')        return s.rejected > 0
+    return true
   })
 
   const openPanel = async (group, docTypeKey) => {
@@ -386,7 +425,6 @@ function ReviewerView({ groups, role, onRefresh }) {
       await reviewDocument(panel.doc.id, { action, remarks: reviewRemarks })
       setActionMsg(action === 'approve' ? 'Approved.' : 'Rejected with remarks.')
       onRefresh()
-      // update panel doc status
       setPanel(p => ({ ...p, doc: { ...p.doc, status: action === 'approve' ? (canQAReview ? 'qa_approved' : 'approved') : 'rejected', qa_remarks: canQAReview ? reviewRemarks : p.doc?.qa_remarks, buying_remarks: canBuyingReview ? reviewRemarks : p.doc?.buying_remarks } }))
     } catch (e) { setActionMsg(e?.response?.data?.error || 'Action failed') }
     finally { setReviewing(false) }
@@ -401,121 +439,191 @@ function ReviewerView({ groups, role, onRefresh }) {
 
   return (
     <div>
-      <input
-        type="text"
-        placeholder="Search by item name, code or supplier..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        style={{ width: '320px', padding: '9px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', marginBottom: '20px' }}
-      />
-
-      {filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '64px', color: '#94a3b8', background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-          <div style={{ fontSize: '40px', marginBottom: '12px' }}>📋</div>
-          <p style={{ margin: 0 }}>No document records found</p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {filtered.map(group => {
-            const docsMap = {}
-            group.docs.forEach(d => { docsMap[d.doc_type] = d })
-            const fullyApproved = group.docs.filter(d => d.status === 'approved').length
-            const qaApproved = group.docs.filter(d => d.status === 'qa_approved').length
-            const pct = Math.round((fullyApproved / DOC_TYPES.length) * 100)
-            // Chips: only uploaded docs needing action (not N/A, not already approved)
-            const actionDocs = DOC_TYPES.filter(({ key }) => {
-              const s = docsMap[key]?.status
-              return s && s !== 'not_applicable' && s !== 'qa_approved' && s !== 'approved'
-            })
-            // Summary: qa_approved + approved
-            const resolvedDocs = DOC_TYPES.filter(({ key }) => {
-              const s = docsMap[key]?.status
-              return s === 'qa_approved' || s === 'approved'
-            })
-
-            return (
-              <div key={`${group.item_code}-${group.supplier_code}`} style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                <div style={{ background: '#1e293b', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                  <div>
-                    <span style={{ fontSize: '15px', fontWeight: '700', color: '#f8fafc' }}>{group.item_name}</span>
-                    <span style={{ marginLeft: '8px', fontSize: '12px', color: '#94a3b8' }}>{group.item_code}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>{group.supplier_name}</span>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: fullyApproved === DOC_TYPES.length ? '#4ade80' : '#fbbf24' }}>
-                      {fullyApproved}/{DOC_TYPES.length} approved{qaApproved > 0 ? ` · ${qaApproved} pending buying` : ''}
-                    </span>
-                  </div>
-                </div>
-                <div style={{ height: '3px', background: '#e5e7eb' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? '#22c55e' : '#f59e0b' }} />
-                </div>
-                {/* Action chips — only docs needing review */}
-                {actionDocs.length > 0 ? (
-                  <div style={{ padding: '14px 18px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '7px' }}>
-                    {actionDocs.map(({ key, label }) => {
-                      const doc = docsMap[key]
-                      const status = doc?.status || 'pending_upload'
-                      const meta = STATUS_META[status]
-                      const isActive = panel?.group?.item_code === group.item_code && panel?.group?.supplier_code === group.supplier_code && panel?.docTypeKey === key
-                      return (
-                        <button key={key} onClick={() => openPanel(group, key)} style={{
-                          display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 11px',
-                          borderRadius: '7px', cursor: 'pointer', textAlign: 'left',
-                          border: isActive ? '2px solid #1C1208' : `1px solid ${meta.border}`,
-                          background: isActive ? '#fef9f0' : meta.bg,
-                        }}>
-                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: '12px', fontWeight: '500', color: '#374151', lineHeight: 1.3 }}>{label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ padding: '12px 18px', fontSize: '13px', color: '#64748b' }}>No documents pending review.</div>
-                )}
-
-                {/* Summary table — qa_approved + approved */}
-                {resolvedDocs.length > 0 && (
-                  <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 18px 14px', paddingTop: '12px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Approved Documents</div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc' }}>
-                          <th style={{ padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: '600', borderBottom: '1px solid #e5e7eb' }}>Document</th>
-                          <th style={{ padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: '600', borderBottom: '1px solid #e5e7eb' }}>Status</th>
-                          <th style={{ padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: '600', borderBottom: '1px solid #e5e7eb' }}>File</th>
-                          <th style={{ padding: '6px 10px', borderBottom: '1px solid #e5e7eb' }} />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {resolvedDocs.map(({ key, label }) => {
-                          const doc = docsMap[key]
-                          const meta = STATUS_META[doc.status]
-                          return (
-                            <tr key={key} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '7px 10px', color: '#374151', fontWeight: '500' }}>{label}</td>
-                              <td style={{ padding: '7px 10px' }}>
-                                <span style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>{meta.label}</span>
-                              </td>
-                              <td style={{ padding: '7px 10px', color: '#64748b' }}>{doc.file_name || '—'}</td>
-                              <td style={{ padding: '7px 10px', textAlign: 'right' }}>
-                                {doc.id && doc.file_name && (
-                                  <button onClick={() => openPanel(group, key)} style={{ padding: '3px 10px', background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '5px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>View</button>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+      {/* Stat filter cards */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        {statCards.map(card => {
+          const isActive = activeFilter === card.key
+          return (
+            <div key={card.key} onClick={() => setActiveFilter(card.key)} style={{
+              background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px',
+              padding: '14px 20px', cursor: 'pointer', minWidth: '120px', flex: '1',
+              borderTop: `3px solid ${isActive ? card.color : '#e5e7eb'}`,
+              boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.05)',
+              transition: 'all 0.15s',
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                <span>{card.label}</span>
+                {isActive && activeFilter !== 'all' && (
+                  <span onClick={e => { e.stopPropagation(); setActiveFilter('all') }} style={{ color: '#94a3b8', cursor: 'pointer', fontWeight: '400' }}>× FILTER</span>
                 )}
               </div>
-            )
-          })}
-        </div>
-      )}
+              <div style={{ fontSize: '28px', fontWeight: '700', color: card.color }}>{statCounts[card.key]}</div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Table header bar */}
+      <div style={{ background: '#fff', borderRadius: '10px 10px 0 0', border: '1px solid #e5e7eb', borderBottom: 'none', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+          Documents · <span style={{ color: '#64748b', fontWeight: '400' }}>{filtered.length} item(s)</span>
+        </span>
+        <input
+          type="text"
+          placeholder="Search item, code or supplier..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ padding: '7px 12px', border: '1px solid #d1d5db', borderRadius: '7px', fontSize: '13px', width: '240px' }}
+        />
+      </div>
+
+      {/* Table */}
+      <div style={{ background: '#fff', borderRadius: '0 0 10px 10px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+              <th style={{ padding: '10px 16px', textAlign: 'left', color: '#64748b', fontWeight: '600' }}>ITEM</th>
+              <th style={{ padding: '10px 16px', textAlign: 'left', color: '#64748b', fontWeight: '600' }}>SUPPLIER</th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#d97706', fontWeight: '600' }}>PENDING QA</th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#0284c7', fontWeight: '600' }}>PENDING BUYING</th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#15803d', fontWeight: '600' }}>APPROVED</th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#dc2626', fontWeight: '600' }}>REJECTED</th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#64748b', fontWeight: '600' }}>N/A</th>
+              <th style={{ padding: '10px 16px', textAlign: 'right', color: '#64748b', fontWeight: '600' }}>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>📋</div>
+                <div>No document records found</div>
+              </td></tr>
+            ) : filtered.map(group => {
+              const key = `${group.item_code}-${group.supplier_code}`
+              const s = getGroupStats(group)
+              const docsMap = {}
+              group.docs.forEach(d => { docsMap[d.doc_type] = d })
+              const isExpanded = expandedKey === key
+              const actionDocs = DOC_TYPES.filter(({ key: k }) => {
+                const st = docsMap[k]?.status
+                return st && st !== 'not_applicable' && st !== 'qa_approved' && st !== 'approved'
+              })
+              const resolvedDocs = DOC_TYPES.filter(({ key: k }) => {
+                const st = docsMap[k]?.status
+                return st === 'qa_approved' || st === 'approved'
+              })
+
+              return (
+                <React.Fragment key={key}>
+                  <tr style={{ borderBottom: '1px solid #f1f5f9', background: isExpanded ? '#fefce8' : '#fff' }}
+                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#f8fafc' }}
+                      onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = '#fff' }}>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ fontWeight: '600', color: '#1e293b' }}>{group.item_name}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{group.item_code}</div>
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#374151' }}>{group.supplier_name}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      {s.pendingApproval > 0 ? <span style={{ background: '#fef9c3', color: '#92400e', border: '1px solid #fde68a', padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '12px' }}>{s.pendingApproval}</span> : <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      {s.pendingBuying > 0 ? <span style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '12px' }}>{s.pendingBuying}</span> : <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      {s.approved > 0 ? <span style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '12px' }}>{s.approved}</span> : <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      {s.rejected > 0 ? <span style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', padding: '2px 10px', borderRadius: '9999px', fontWeight: '700', fontSize: '12px' }}>{s.rejected}</span> : <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>{s.na > 0 ? s.na : '—'}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      <button onClick={() => setExpandedKey(isExpanded ? null : key)} style={{
+                        padding: '5px 14px', background: isExpanded ? '#1C1208' : '#f1f5f9',
+                        color: isExpanded ? '#fff' : '#374151', border: '1px solid #e5e7eb',
+                        borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer'
+                      }}>{isExpanded ? 'Close' : 'View'}</button>
+                    </td>
+                  </tr>
+
+                  {/* Expanded docs row */}
+                  {isExpanded && (
+                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                      <td colSpan={8} style={{ padding: '0 16px 16px', background: '#fafafa' }}>
+                        {/* Action docs needing review */}
+                        {actionDocs.length > 0 && (
+                          <div style={{ marginTop: '12px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Pending Review</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '6px' }}>
+                              {actionDocs.map(({ key: k, label }) => {
+                                const doc = docsMap[k]
+                                const status = doc?.status || 'pending_upload'
+                                const meta = STATUS_META[status]
+                                const isActive = panel?.group?.item_code === group.item_code && panel?.group?.supplier_code === group.supplier_code && panel?.docTypeKey === k
+                                return (
+                                  <button key={k} onClick={() => openPanel(group, k)} style={{
+                                    display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 11px',
+                                    borderRadius: '7px', cursor: 'pointer', textAlign: 'left',
+                                    border: isActive ? '2px solid #1C1208' : `1px solid ${meta.border}`,
+                                    background: isActive ? '#fef9f0' : meta.bg,
+                                  }}>
+                                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
+                                    <span style={{ fontSize: '12px', fontWeight: '500', color: '#374151', lineHeight: 1.3 }}>{label}</span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Approved summary table */}
+                        {resolvedDocs.length > 0 && (
+                          <div style={{ marginTop: '14px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Approved Documents</div>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', background: '#fff', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                              <thead>
+                                <tr style={{ background: '#f8fafc' }}>
+                                  <th style={{ padding: '7px 12px', textAlign: 'left', color: '#64748b', fontWeight: '600', borderBottom: '1px solid #e5e7eb' }}>Document</th>
+                                  <th style={{ padding: '7px 12px', textAlign: 'left', color: '#64748b', fontWeight: '600', borderBottom: '1px solid #e5e7eb' }}>Status</th>
+                                  <th style={{ padding: '7px 12px', textAlign: 'left', color: '#64748b', fontWeight: '600', borderBottom: '1px solid #e5e7eb' }}>File</th>
+                                  <th style={{ padding: '7px 12px', borderBottom: '1px solid #e5e7eb' }} />
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {resolvedDocs.map(({ key: k, label }) => {
+                                  const doc = docsMap[k]
+                                  const meta = STATUS_META[doc.status]
+                                  return (
+                                    <tr key={k} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                      <td style={{ padding: '7px 12px', color: '#374151', fontWeight: '500' }}>{label}</td>
+                                      <td style={{ padding: '7px 12px' }}>
+                                        <span style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>{meta.label}</span>
+                                      </td>
+                                      <td style={{ padding: '7px 12px', color: '#64748b' }}>{doc.file_name || '—'}</td>
+                                      <td style={{ padding: '7px 12px', textAlign: 'right' }}>
+                                        {doc.id && doc.file_name && (
+                                          <button onClick={() => openPanel(group, k)} style={{ padding: '3px 10px', background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '5px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>View</button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {actionDocs.length === 0 && resolvedDocs.length === 0 && (
+                          <div style={{ padding: '16px', color: '#94a3b8', fontSize: '13px', textAlign: 'center' }}>No documents uploaded yet.</div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
 
       {/* Slide panel */}
       {panel && (
@@ -635,13 +743,7 @@ export default function DocumentControlPage() {
             <h1 style={{ margin: '0 0 4px', fontSize: '22px', fontWeight: '700', color: '#fff' }}>Document Control</h1>
             <p style={{ margin: 0, color: '#d4c5a0', fontSize: '13px' }}>Track and manage required documents per item/supplier</p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {Object.entries(STATUS_META).map(([key, meta]) => (
-              <span key={key} style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, padding: '4px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '600' }}>
-                {meta.label}
-              </span>
-            ))}
-          </div>
+          <p style={{ margin: 0, color: '#d4c5a0', fontSize: '12px' }}>Use filter cards to narrow by status · click View to review documents</p>
         </div>
 
         {error && <p style={{ color: '#dc2626', padding: '12px', background: '#fef2f2', borderRadius: '8px', marginBottom: '16px' }}>{error}</p>}
