@@ -12,7 +12,7 @@ const fmtDateTime = (val) => (val ? new Date(val).toLocaleString('en-GB') : '');
 
 router.get('/download', async (req, res) => {
   try {
-    const { role, agency_code, supplier_code } = req.user;
+    const { role, agency_code, supplier_code, user_id } = req.user;
     const { from, to } = req.query;
     const wb = XLSX.utils.book_new();
 
@@ -42,6 +42,9 @@ router.get('/download', async (req, res) => {
     } else if (role === 'supplier_user') {
       jobParams.push(supplier_code);
       jobQuery = jobQuery.replace('ORDER BY', `WHERE j.supplier_code = $${jobParams.length} ORDER BY`);
+    } else if (role === 'buying') {
+      jobParams.push(user_id);
+      jobQuery = jobQuery.replace('ORDER BY', `WHERE EXISTS (SELECT 1 FROM qc_inspection.po_master pm WHERE pm.po_no = j.po_no AND pm.buyer_id = $${jobParams.length}) ORDER BY`);
     }
 
     // Date filter
@@ -102,6 +105,9 @@ router.get('/download', async (req, res) => {
       } else if (role === 'supplier_user') {
         respParams.push(supplier_code);
         respQuery = respQuery.replace('ORDER BY', `WHERE j.supplier_code = $${respParams.length} ORDER BY`);
+      } else if (role === 'buying') {
+        respParams.push(user_id);
+        respQuery = respQuery.replace('ORDER BY', `WHERE EXISTS (SELECT 1 FROM qc_inspection.po_master pm WHERE pm.po_no = j.po_no AND pm.buyer_id = $${respParams.length}) ORDER BY`);
       }
       const hasRespWhere = respQuery.includes('WHERE');
       const respDateConds = [];
@@ -153,6 +159,9 @@ router.get('/download', async (req, res) => {
     else if (role === 'supplier_user') {
       chargesSummaryQuery += ` WHERE a.cost_bearer = 'supplier' AND EXISTS (SELECT 1 FROM qc_inspection.ica_jobs ij2 JOIN qc_inspection.inspection_job j2 ON j2.job_id = ij2.job_id WHERE ij2.advice_id = a.advice_id AND j2.supplier_code = $1)`;
       csp.push(supplier_code);
+    } else if (role === 'buying') {
+      chargesSummaryQuery += ` WHERE EXISTS (SELECT 1 FROM qc_inspection.ica_jobs ij2 JOIN qc_inspection.inspection_job j2 ON j2.job_id = ij2.job_id JOIN qc_inspection.po_master pm ON pm.po_no = j2.po_no WHERE ij2.advice_id = a.advice_id AND pm.buyer_id = $1)`;
+      csp.push(user_id);
     }
     const cs = await db.query(chargesSummaryQuery, csp).catch(() => ({ rows: [{}] }));
     const csRow = cs.rows[0] || {};
@@ -229,6 +238,15 @@ router.get('/download', async (req, res) => {
             WHERE ij2.advice_id = a.advice_id AND j2.supplier_code = $${chargesParams.length}
           )`;
         hasChargesWhere = true;
+      } else if (role === 'buying') {
+        chargesParams.push(user_id);
+        chargesQuery += ` WHERE EXISTS (
+          SELECT 1 FROM qc_inspection.ica_jobs ij2
+          JOIN qc_inspection.inspection_job j2 ON j2.job_id = ij2.job_id
+          JOIN qc_inspection.po_master pm ON pm.po_no = j2.po_no
+          WHERE ij2.advice_id = a.advice_id AND pm.buyer_id = $${chargesParams.length}
+        )`;
+        hasChargesWhere = true;
       }
 
       if (from) { chargesParams.push(from); chargesQuery += ` ${hasChargesWhere ? 'AND' : 'WHERE'} a.created_at >= $${chargesParams.length}::date`; hasChargesWhere = true; }
@@ -284,6 +302,10 @@ router.get('/download', async (req, res) => {
 
     // ── 5. PO LOG SHEET (QA / Buying / Admin only) ───────────────────────────
     if (['qa', 'buying', 'admin'].includes(role)) {
+      const logParams = role === 'buying' ? [user_id] : [];
+      const logFilter = role === 'buying'
+        ? `WHERE EXISTS (SELECT 1 FROM qc_inspection.po_master pm WHERE pm.po_no = j.po_no AND pm.buyer_id = $1)`
+        : '';
       const logs = await db.query(`
         SELECT
           l.created_at, j.job_ref, l.po_no, l.author_role,
@@ -291,9 +313,10 @@ router.get('/download', async (req, res) => {
         FROM qc_inspection.log_entry l
         LEFT JOIN qc_inspection.inspection_job j ON j.job_id = l.job_id
         LEFT JOIN qc_inspection.team_stakeholder ts ON ts.user_id = l.author_id
+        ${logFilter}
         ORDER BY l.created_at DESC
         LIMIT 500
-      `);
+      `, logParams);
       const logRows = [
         ['Timestamp', 'Job Ref', 'PO No', 'Author Role', 'Author Name', 'Activity'],
         ...logs.rows.map(r => [
