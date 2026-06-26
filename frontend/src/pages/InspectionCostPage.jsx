@@ -226,6 +226,7 @@ export default function InspectionCostPage() {
       'Buying Approved By':   a.buying_user_name ?? '',
       'Imports Approved By':  a.imports_user_name ?? '',
       'Accounts Approved By': a.accounts_user_name ?? '',
+      'Accounts Remarks':     a.accounts_notes ?? '',
       'Rejection Reason':     a.rejection_reason ?? '',
       'Created By':      a.created_by_name,
       'Created At':      new Date(a.created_at).toLocaleDateString(),
