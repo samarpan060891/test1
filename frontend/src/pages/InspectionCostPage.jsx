@@ -532,6 +532,7 @@ export default function InspectionCostPage() {
                           {a.buying_user_name   && <span>✅ Buying: <strong>{a.buying_user_name}</strong></span>}
                           {a.imports_user_name  && <span>✅ Imports: <strong>{a.imports_user_name}</strong></span>}
                           {a.accounts_user_name && <span style={{ color: '#15803d', fontWeight: '700' }}>💰 <strong>{a.accounts_user_name}</strong></span>}
+                          {a.accounts_notes && <span style={{ color: '#15803d', fontStyle: 'italic' }}>{a.accounts_notes}</span>}
                           {a.status === 'rejected' && <span style={{ color: '#991b1b' }}>❌ {a.rejection_reason}</span>}
                           {!a.qa_user_name && !a.buying_user_name && !a.imports_user_name && !a.accounts_user_name && !a.rejection_reason && <span style={{ color: '#cbd5e1' }}>—</span>}
                         </div>
