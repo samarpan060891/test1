@@ -722,11 +722,13 @@ export default function DocumentControlPage() {
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const loadedOnce = useRef(false)
 
   const load = useCallback(() => {
-    setLoading(true)
+    // Only show full loading spinner on first load — refreshes update data silently
+    if (!loadedOnce.current) setLoading(true)
     getDocuments()
-      .then(r => setGroups(r.data || []))
+      .then(r => { setGroups(r.data || []); loadedOnce.current = true })
       .catch(e => setError(e?.response?.data?.error || 'Failed to load documents'))
       .finally(() => setLoading(false))
   }, [])
