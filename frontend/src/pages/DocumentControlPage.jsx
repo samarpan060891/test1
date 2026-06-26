@@ -31,6 +31,7 @@ const STATUS_META = {
 // ─── Supplier Upload View ─────────────────────────────────────────────────────
 function SupplierUploadView({ groups, onRefresh }) {
   const [selectedKey, setSelectedKey] = useState('')
+  const [activeFilter, setActiveFilter] = useState('all')
   const [stagedFiles, setStagedFiles] = useState({}) // doc_type → File
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState('')
@@ -40,6 +41,38 @@ function SupplierUploadView({ groups, onRefresh }) {
   const [fileType, setFileType] = useState(null)
   const [panelLoading, setPanelLoading] = useState(false)
   const fileRefs = useRef({})
+
+  const getGroupStatus = (g) => {
+    const docs = g.docs
+    if (docs.some(d => d.status === 'rejected')) return 'rejected'
+    if (docs.every(d => d.status === 'approved' || d.status === 'not_applicable')) return 'complete'
+    if (docs.some(d => d.status === 'qa_approved')) return 'pendingBuying'
+    if (docs.some(d => d.status === 'pending_approval')) return 'pendingQA'
+    return 'actionNeeded'
+  }
+
+  const statCards = [
+    { key: 'all',          label: 'ALL ITEMS',       color: '#E8470F' },
+    { key: 'actionNeeded', label: 'ACTION NEEDED',   color: '#dc2626' },
+    { key: 'pendingQA',    label: 'PENDING QA',      color: '#d97706' },
+    { key: 'pendingBuying',label: 'PENDING BUYING',  color: '#0284c7' },
+    { key: 'complete',     label: 'COMPLETE',        color: '#15803d' },
+    { key: 'rejected',     label: 'REJECTED',        color: '#dc2626' },
+  ]
+
+  const statCounts = statCards.reduce((acc, c) => {
+    acc[c.key] = c.key === 'all' ? groups.length : groups.filter(g => getGroupStatus(g) === c.key).length
+    return acc
+  }, {})
+
+  const filteredGroups = activeFilter === 'all' ? groups : groups.filter(g => getGroupStatus(g) === activeFilter)
+
+  const handleFilterClick = (key) => {
+    setActiveFilter(key)
+    setSelectedKey('')
+    setStagedFiles({})
+    setSubmitMsg('')
+  }
 
   const group = groups.find(g => `${g.item_code}::${g.supplier_code}` === selectedKey) || null
   const docsMap = {}
@@ -128,10 +161,38 @@ function SupplierUploadView({ groups, onRefresh }) {
 
   return (
     <div>
+      {/* Status summary cards */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {statCards.map(card => {
+          const isActive = activeFilter === card.key
+          const count = statCounts[card.key]
+          return (
+            <div key={card.key} onClick={() => handleFilterClick(card.key)} style={{
+              background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px',
+              padding: '12px 18px', cursor: 'pointer', flex: '1', minWidth: '100px',
+              borderTop: `3px solid ${isActive ? card.color : '#e5e7eb'}`,
+              boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.05)',
+              transition: 'all 0.15s', opacity: count === 0 ? 0.5 : 1,
+            }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                {card.label}
+              </div>
+              <div style={{ fontSize: '26px', fontWeight: '700', color: card.color }}>{count}</div>
+            </div>
+          )
+        })}
+      </div>
+
       {/* Item selector */}
       <div style={{ background: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '20px' }}>
         <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
           Select Item to Upload Documents
+          {activeFilter !== 'all' && (
+            <span style={{ marginLeft: '8px', fontSize: '11px', color: '#64748b', fontWeight: '400' }}>
+              — showing {statCards.find(c => c.key === activeFilter)?.label} items
+              <button onClick={() => handleFilterClick('all')} style={{ marginLeft: '6px', background: 'none', border: 'none', color: '#E8470F', fontSize: '11px', cursor: 'pointer', padding: 0 }}>× clear</button>
+            </span>
+          )}
         </label>
         <select
           value={selectedKey}
@@ -139,11 +200,12 @@ function SupplierUploadView({ groups, onRefresh }) {
           style={{ width: '100%', padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', background: '#fff', color: '#111827' }}
         >
           <option value=''>— Choose an item —</option>
-          {groups.map(g => {
+          {filteredGroups.map(g => {
+            const statusLabel = { actionNeeded: '⚠ Action Needed', pendingQA: '🕐 Pending QA', pendingBuying: '🔵 Pending Buying', complete: '✅ Complete', rejected: '❌ Rejected' }[getGroupStatus(g)] || ''
             const uploaded = g.docs.filter(d => d.status && d.status !== 'pending_upload').length
             return (
               <option key={`${g.item_code}::${g.supplier_code}`} value={`${g.item_code}::${g.supplier_code}`}>
-                {g.item_name} ({g.item_code}) — {uploaded}/{DOC_TYPES.length} submitted
+                {g.item_name} ({g.item_code}) — {uploaded}/{DOC_TYPES.length} submitted · {statusLabel}
               </option>
             )
           })}
