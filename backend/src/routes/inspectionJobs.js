@@ -67,6 +67,10 @@ router.get('/', async (req, res) => {
         s.name AS supplier_name,
         s.country AS supplier_country,
         a.name AS agency_name,
+        ac.contract_name,
+        ac.rate_type AS contract_rate_type,
+        ac.rate_value AS contract_rate_value,
+        ac.currency AS contract_currency,
         p.quantity,
         p.unit_price,
         COALESCE(p.quantity * p.unit_price, 0) AS po_value,
@@ -82,6 +86,7 @@ router.get('/', async (req, res) => {
       JOIN qc_inspection.item_master i ON i.item_code = j.item_code
       JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
       LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+      LEFT JOIN qc_inspection.agency_contract ac ON ac.contract_id = j.contract_id
       JOIN qc_inspection.po_master p ON p.po_no = j.po_no
     `;
     const params = [];
@@ -171,7 +176,7 @@ router.get('/:id', async (req, res) => {
 const VALID_STAGES = ['pre_production', 'inline', 'final', 'loading'];
 
 router.post('/', authorize('qa', 'buying'), async (req, res) => {
-  const { po_no, agency_code, inspection_date, inspection_type = 'agency', inspection_stages } = req.body;
+  const { po_no, agency_code, contract_id, inspection_date, inspection_type = 'agency', inspection_stages } = req.body;
 
   if (!['agency', 'self'].includes(inspection_type)) {
     return res.status(400).json({ error: 'inspection_type must be "agency" or "self"' });
@@ -237,10 +242,10 @@ router.post('/', authorize('qa', 'buying'), async (req, res) => {
     for (const stage of stages) {
       const jobResult = await client.query(
         `INSERT INTO qc_inspection.inspection_job
-          (po_no, item_code, supplier_code, agency_code, checklist_template_id, status, inspection_date, inspection_type, inspection_stage)
-         VALUES ($1, $2, $3, $4, $5, 'mapped_awaiting_inspection', $6, $7, $8)
+          (po_no, item_code, supplier_code, agency_code, contract_id, checklist_template_id, status, inspection_date, inspection_type, inspection_stage)
+         VALUES ($1, $2, $3, $4, $5, $6, 'mapped_awaiting_inspection', $7, $8, $9)
          RETURNING *`,
-        [po_no, po.item_code, po.supplier_code, agency_code || null, templateId, inspection_date, inspection_type, stage]
+        [po_no, po.item_code, po.supplier_code, agency_code || null, contract_id || null, templateId, inspection_date, inspection_type, stage]
       );
       const job = jobResult.rows[0];
       createdJobs.push(job);

@@ -213,6 +213,7 @@ export default function InspectionCostPage() {
     const data = rows.map(a => ({
       'Advice Ref':      a.advice_ref,
       'Agency':          a.agency_name,
+      'Contract':        a.contract_name ?? '',
       'Jobs':            (a.jobs || []).map(j => j.job_ref || j.po_no).join(', '),
       'Rate Type':       a.rate_type === 'manday' ? 'Manday' : '% of PO',
       'Rate Value':      a.rate_value,
@@ -244,7 +245,22 @@ export default function InspectionCostPage() {
     (role === 'buying'   && a.status === 'pending_buying') ||
     (role === 'imports'  && a.status === 'pending_imports') ||
     (role === 'accounts' && a.status === 'pending_accounts')
-  const toggleJob = (id) => setSelectedJobs(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+  const toggleJob = (id) => {
+    setSelectedJobs(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      // Auto-fill rate from contract if first job selected has a contract
+      if (!prev.includes(id) && next.length === 1) {
+        const j = jobs.find(j => j.job_id === id)
+        if (j?.contract_id && j?.contract_rate_type) {
+          setRateType(j.contract_rate_type)
+          setRateValue(String(j.contract_rate_value || ''))
+          if (j.contract_currency) setCurrency(j.contract_currency)
+          setSelectedContract(j.contract_id)
+        }
+      }
+      return next
+    })
+  }
   const raisedJobIds = new Set(advices.flatMap(a => (a.jobs || []).map(j => j.job_id)))
 
   // ── Supplier view ─────────────────────────────────────────────────────
@@ -529,13 +545,14 @@ export default function InspectionCostPage() {
                       <td style={{ whiteSpace: 'nowrap' }}><StatusBadge status={a.status} t={t} /></td>
                       <td style={{ fontSize: '11px', color: '#64748b' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '120px' }}>
+                          {a.contract_name && <span style={{ color: '#1d4ed8', fontWeight: '700', background: '#eff6ff', padding: '1px 6px', borderRadius: '4px', alignSelf: 'flex-start', marginBottom: '2px' }}>📋 {a.contract_name}</span>}
                           {a.qa_user_name       && <span>✅ QA: <strong>{a.qa_user_name}</strong></span>}
                           {a.buying_user_name   && <span>✅ Buying: <strong>{a.buying_user_name}</strong></span>}
                           {a.imports_user_name  && <span>✅ Imports: <strong>{a.imports_user_name}</strong></span>}
                           {a.accounts_user_name && <span style={{ color: '#15803d', fontWeight: '700' }}>💰 <strong>{a.accounts_user_name}</strong></span>}
                           {a.accounts_notes && <span style={{ color: '#15803d', fontStyle: 'italic' }}>{a.accounts_notes}</span>}
                           {a.status === 'rejected' && <span style={{ color: '#991b1b' }}>❌ {a.rejection_reason}</span>}
-                          {!a.qa_user_name && !a.buying_user_name && !a.imports_user_name && !a.accounts_user_name && !a.rejection_reason && <span style={{ color: '#cbd5e1' }}>—</span>}
+                          {!a.contract_name && !a.qa_user_name && !a.buying_user_name && !a.imports_user_name && !a.accounts_user_name && !a.rejection_reason && <span style={{ color: '#cbd5e1' }}>—</span>}
                         </div>
                       </td>
                       {(role === 'imports' || role === 'qa' || role === 'buying' || role === 'accounts' || role === 'admin') && (
@@ -717,6 +734,7 @@ export default function InspectionCostPage() {
                           <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>{j.po_no} · {j.item_name || j.supplier_code}</span>
                           {isSelf && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#dc2626', fontWeight: '600' }}>{t('costs_self_no_charge')}</span>}
                           {isReinspect && !isSelf && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#92400e', fontWeight: '600', background: '#fefce8', padding: '1px 6px', borderRadius: '4px' }}>{t('costs_reinspect_supplier')}</span>}
+                          {j.contract_name && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#1d4ed8', fontWeight: '600', background: '#eff6ff', padding: '1px 6px', borderRadius: '4px' }}>📋 {j.contract_name}</span>}
                         </div>
                       </label>
                     )
@@ -737,6 +755,18 @@ export default function InspectionCostPage() {
                   </select>
                 </div>
               )}
+
+              {selectedContract && (() => {
+                const c = contracts.find(c => c.contract_id === selectedContract)
+                const jobWithContract = jobs.find(j => j.contract_id === selectedContract)
+                const name = c?.contract_name || jobWithContract?.contract_name
+                return name ? (
+                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>📋</span>
+                    <span><strong>Per Contract:</strong> {name} — rates auto-filled (excl. taxes). Travel & stay to be entered as actuals.</span>
+                  </div>
+                ) : null
+              })()}
 
               <div>
                 <label style={labelSt}>{t('costs_rate_type_label')}</label>

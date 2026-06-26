@@ -49,6 +49,16 @@ async function getAdviceContext(adviceId) {
 
 // ── CONTRACTS ────────────────────────────────────────────────────────────────
 
+router.get('/contracts/by-agency/:agency_code', async (req, res) => {
+  try {
+    const r = await db.query(
+      `SELECT * FROM qc_inspection.agency_contract WHERE agency_code = $1 ORDER BY created_at DESC`,
+      [req.params.agency_code]
+    );
+    res.json(r.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.get('/contracts', async (req, res) => {
   const { role, agency_code } = req.user;
   try {
@@ -100,10 +110,15 @@ router.get('/', async (req, res) => {
                    'job_id', j.job_id, 'job_ref', j.job_ref,
                    'po_no', j.po_no, 'supplier_code', j.supplier_code,
                    'item_name', im.name, 'inspection_date', j.inspection_date,
-                   'status', j.status, 'result', j.result
+                   'status', j.status, 'result', j.result,
+                   'contract_name', ac.contract_name
                  )
                ) FILTER (WHERE j.job_id IS NOT NULL), '[]'
-             ) AS jobs
+             ) AS jobs,
+             (SELECT ac2.contract_name FROM qc_inspection.agency_contract ac2
+              JOIN qc_inspection.inspection_job j2 ON j2.contract_id = ac2.contract_id
+              JOIN qc_inspection.ica_jobs ij2 ON ij2.job_id = j2.job_id AND ij2.advice_id = a.advice_id
+              LIMIT 1) AS contract_name
       FROM qc_inspection.inspection_charges_advice a
       JOIN qc_inspection.quality_agency_master ag USING (agency_code)
       JOIN qc_inspection.team_stakeholder creator ON creator.user_id = a.created_by
@@ -114,7 +129,8 @@ router.get('/', async (req, res) => {
       LEFT JOIN qc_inspection.team_stakeholder rej_u ON rej_u.user_id = a.rejected_by
       LEFT JOIN qc_inspection.ica_jobs ij ON ij.advice_id = a.advice_id
       LEFT JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
-      LEFT JOIN qc_inspection.item_master im ON im.item_code = j.item_code`;
+      LEFT JOIN qc_inspection.item_master im ON im.item_code = j.item_code
+      LEFT JOIN qc_inspection.agency_contract ac ON ac.contract_id = j.contract_id
 
     const params = [];
     if (role === 'agency_user') {
@@ -130,6 +146,7 @@ router.get('/', async (req, res) => {
       params.push(req.user.supplier_code);
     }
     q += ' GROUP BY a.advice_id, ag.name, creator.name, qa_u.name, buy_u.name, imp_u.name, acc_u.name, rej_u.name ORDER BY a.created_at DESC';
+    // Note: contract_name uses a correlated subquery so no GROUP BY needed for it
 
     const r = await db.query(q, params);
     res.json(r.rows);

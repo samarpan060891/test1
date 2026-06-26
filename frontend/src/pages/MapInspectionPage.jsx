@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import SearchableDropdown from '../components/SearchableDropdown.jsx'
 import { mapJob } from '../api/inspectionJobs.js'
+import { getContractsByAgency } from '../api/inspectionCosts.js'
 import { searchPOs, searchAgencies } from '../api/masters.js'
 import { useLanguage } from '../context/LanguageContext.jsx'
 
@@ -17,6 +18,8 @@ export default function MapInspectionPage() {
   ]
   const [selectedPO, setSelectedPO] = useState(null)
   const [selectedAgency, setSelectedAgency] = useState(null)
+  const [agencyContracts, setAgencyContracts] = useState([])
+  const [selectedContractId, setSelectedContractId] = useState('')
   const [inspectionDate, setInspectionDate] = useState('')
   const [inspectionType, setInspectionType] = useState('agency')
   const [selectedStages, setSelectedStages] = useState(['final'])
@@ -89,6 +92,7 @@ export default function MapInspectionPage() {
       const res = await mapJob({
         po_no: selectedPO.value,
         agency_code: inspectionType === 'agency' ? selectedAgency.value : undefined,
+        contract_id: inspectionType === 'agency' && selectedContractId ? selectedContractId : undefined,
         inspection_date: inspectionDate,
         inspection_type: inspectionType,
         inspection_stages: selectedStages,
@@ -119,6 +123,8 @@ export default function MapInspectionPage() {
   const handleReset = () => {
     setSelectedPO(null)
     setSelectedAgency(null)
+    setAgencyContracts([])
+    setSelectedContractId('')
     setInspectionDate('')
     setInspectionType('agency')
     setSelectedStages(['final'])
@@ -266,7 +272,7 @@ export default function MapInspectionPage() {
                   ].map(opt => (
                     <div
                       key={opt.value}
-                      onClick={() => { setInspectionType(opt.value); setSelectedAgency(null) }}
+                      onClick={() => { setInspectionType(opt.value); setSelectedAgency(null); setAgencyContracts([]); setSelectedContractId('') }}
                       style={{
                         flex: 1, padding: '14px 16px', borderRadius: '8px', cursor: 'pointer',
                         border: `2px solid ${inspectionType === opt.value ? '#1C1208' : '#e5e7eb'}`,
@@ -284,14 +290,69 @@ export default function MapInspectionPage() {
 
               {/* Agency searchable dropdown — only for agency inspections */}
               {inspectionType === 'agency' && (
-                <SearchableDropdown
-                  label={t('map_agency')}
-                  required
-                  placeholder={t('map_agency_placeholder')}
-                  value={selectedAgency}
-                  onChange={setSelectedAgency}
-                  fetchOptions={fetchAgencies}
-                />
+                <>
+                  <SearchableDropdown
+                    label={t('map_agency')}
+                    required
+                    placeholder={t('map_agency_placeholder')}
+                    value={selectedAgency}
+                    onChange={async (agency) => {
+                      setSelectedAgency(agency)
+                      setSelectedContractId('')
+                      setAgencyContracts([])
+                      if (agency?.value) {
+                        try {
+                          const r = await getContractsByAgency(agency.value)
+                          setAgencyContracts(r.data || [])
+                        } catch {}
+                      }
+                    }}
+                    fetchOptions={fetchAgencies}
+                  />
+                  {agencyContracts.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <label style={labelStyle}>
+                        Rate Contract <span style={{ color: '#dc2626' }}>*</span>
+                        <span style={{ fontWeight: '400', color: '#6b7280', fontSize: '13px', marginLeft: '8px' }}>Select the applicable contract for this inspection</span>
+                      </label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {agencyContracts.map(c => {
+                          const rateLabel = c.rate_type === 'manday'
+                            ? `${c.rate_value} ${c.currency}/manday`
+                            : `${c.rate_value}% of PO value`
+                          const validity = c.valid_to ? `valid till ${c.valid_to}` : 'no expiry'
+                          return (
+                            <label key={c.contract_id} onClick={() => setSelectedContractId(c.contract_id)} style={{
+                              display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 16px',
+                              borderRadius: '8px', cursor: 'pointer',
+                              border: `2px solid ${selectedContractId === c.contract_id ? '#1C1208' : '#e5e7eb'}`,
+                              backgroundColor: selectedContractId === c.contract_id ? '#FEF0EB' : '#fff',
+                            }}>
+                              <input type="radio" checked={selectedContractId === c.contract_id} onChange={() => {}} style={{ marginTop: '3px', accentColor: '#1C1208', flexShrink: 0 }} />
+                              <div>
+                                <div style={{ fontWeight: '600', fontSize: '14px', color: selectedContractId === c.contract_id ? '#1C1208' : '#374151' }}>
+                                  {c.contract_name}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                                  {rateLabel} · {validity}
+                                </div>
+                              </div>
+                            </label>
+                          )
+                        })}
+                        <label onClick={() => setSelectedContractId('')} style={{
+                          display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px',
+                          borderRadius: '8px', cursor: 'pointer',
+                          border: `2px solid ${selectedContractId === '' ? '#1C1208' : '#e5e7eb'}`,
+                          backgroundColor: selectedContractId === '' ? '#f8fafc' : '#fff',
+                        }}>
+                          <input type="radio" checked={selectedContractId === ''} onChange={() => {}} style={{ accentColor: '#1C1208', flexShrink: 0 }} />
+                          <div style={{ fontSize: '14px', color: '#6b7280' }}>No contract / manual rates</div>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Inspection Stages */}

@@ -14,6 +14,7 @@ export const approveAdvice = (id, notes) => client.put(`/inspection-costs/${id}/
 export const rejectAdvice = (id, reason) => client.put(`/inspection-costs/${id}/reject`, { reason })
 
 export const getContracts = () => client.get('/inspection-costs/contracts')
+export const getContractsByAgency = (agencyCode) => client.get(`/inspection-costs/contracts/by-agency/${agencyCode}`)
 export const createContract = (data) => client.post('/inspection-costs/contracts', data)
 
 export const uploadInvoice = (id, file) => {
