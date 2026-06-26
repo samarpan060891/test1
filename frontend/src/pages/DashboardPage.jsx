@@ -665,7 +665,13 @@ export default function DashboardPage() {
                         </td>
                         <td>
                           <Link
-                            to={`/jobs/${job.job_id || job.id}`}
+                            to={
+                              job.payment_status && job.payment_status.startsWith('pending')
+                                ? '/inspection-costs'
+                                : job.status && job.status.startsWith('pending')
+                                ? '/po-log'
+                                : `/jobs/${job.job_id || job.id}`
+                            }
                             className="btn btn-outline btn-sm"
                           >
                             {t('th_view')}
