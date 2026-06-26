@@ -331,6 +331,101 @@ async function runMigrations() {
     ON CONFLICT (job_id, item_code) DO NOTHING
   `, 'migrate job items to job_items');
 
+  // 014: 20 dummy multi-item POs for testing (2-3 items each, all with active checklists)
+  await safeQuery(`
+    INSERT INTO qc_inspection.po_master (po_no, supplier_code, item_code, quantity, unit_price, order_date, status) VALUES
+      ('PO-2026-031','SUP-001','ITM-001', 3000, 18.50,'2026-06-15','open'),
+      ('PO-2026-032','SUP-001','ITM-001', 2500, 18.50,'2026-06-15','open'),
+      ('PO-2026-033','SUP-002','ITM-002', 1800, 32.00,'2026-06-16','open'),
+      ('PO-2026-034','SUP-002','ITM-007', 1200, 45.00,'2026-06-16','open'),
+      ('PO-2026-035','SUP-003','ITM-001', 4000, 16.00,'2026-06-17','open'),
+      ('PO-2026-036','SUP-004','ITM-002', 1500, 35.00,'2026-06-17','open'),
+      ('PO-2026-037','SUP-005','ITM-004',  800, 28.00,'2026-06-18','open'),
+      ('PO-2026-038','SUP-001','ITM-011',  200, 42.00,'2026-06-18','open'),
+      ('PO-2026-039','SUP-003','ITM-011',  150, 44.00,'2026-06-19','open'),
+      ('PO-2026-040','SUP-005','ITM-017',  300, 48.00,'2026-06-19','open'),
+      ('PO-2026-041','SUP-002','ITM-013',  600, 14.00,'2026-06-20','open'),
+      ('PO-2026-042','SUP-004','ITM-015',  180, 36.00,'2026-06-20','open'),
+      ('PO-2026-043','SUP-001','ITM-018',  250, 33.50,'2026-06-21','open'),
+      ('PO-2026-044','SUP-003','ITM-011',  120, 44.00,'2026-06-21','open'),
+      ('PO-2026-045','SUP-002','ITM-017',  220, 48.00,'2026-06-22','open'),
+      ('PO-2026-046','SUP-005','ITM-015',  160, 36.00,'2026-06-22','open'),
+      ('PO-2026-047','SUP-004','ITM-001', 2000, 18.50,'2026-06-23','open'),
+      ('PO-2026-048','SUP-001','ITM-013',  400, 14.00,'2026-06-23','open'),
+      ('PO-2026-049','SUP-003','ITM-007', 1400, 45.00,'2026-06-24','open'),
+      ('PO-2026-050','SUP-002','ITM-011',  180, 42.00,'2026-06-24','open')
+    ON CONFLICT (po_no) DO NOTHING
+  `, 'dummy POs PO-2026-031 to PO-2026-050');
+
+  await safeQuery(`
+    INSERT INTO qc_inspection.po_line_items (po_no, item_code, quantity, unit_price, line_no) VALUES
+      -- PO-031: Knits x2 (Cotton T-Shirt + Wool Sweater)
+      ('PO-2026-031','ITM-001',3000,18.50,1),
+      ('PO-2026-031','ITM-007',1500,45.00,2),
+      -- PO-032: Knits + Wovens (Cotton T-Shirt + Denim Jeans)
+      ('PO-2026-032','ITM-001',2500,18.50,1),
+      ('PO-2026-032','ITM-002', 800,32.00,2),
+      -- PO-033: Wovens + Knits (Denim Jeans + Wool Sweater)
+      ('PO-2026-033','ITM-002',1800,32.00,1),
+      ('PO-2026-033','ITM-007', 600,45.00,2),
+      -- PO-034: Knits + Wovens (Wool Sweater + Denim Jeans)
+      ('PO-2026-034','ITM-007',1200,45.00,1),
+      ('PO-2026-034','ITM-002', 900,32.00,2),
+      -- PO-035: Knits x2 + Wovens (3 items)
+      ('PO-2026-035','ITM-001',4000,16.00,1),
+      ('PO-2026-035','ITM-007',1000,45.00,2),
+      ('PO-2026-035','ITM-002', 500,32.00,3),
+      -- PO-036: Wovens + Belts (Denim Jeans + Leather Belt)
+      ('PO-2026-036','ITM-002',1500,35.00,1),
+      ('PO-2026-036','ITM-004', 400,28.00,2),
+      -- PO-037: Belts + Knits (Leather Belt + Cotton T-Shirt)
+      ('PO-2026-037','ITM-004', 800,28.00,1),
+      ('PO-2026-037','ITM-001',1200,18.50,2),
+      -- PO-038: Living Room x2 (Rattan Coffee Table + Woven Storage Ottoman)
+      ('PO-2026-038','ITM-011', 200,42.00,1),
+      ('PO-2026-038','ITM-018', 180,33.50,2),
+      -- PO-039: Furniture mix (Rattan Coffee Table + Outdoor Garden Chair)
+      ('PO-2026-039','ITM-011', 150,44.00,1),
+      ('PO-2026-039','ITM-017', 200,48.00,2),
+      -- PO-040: Furniture mix (Outdoor Garden Chair + Wooden Wall Shelf)
+      ('PO-2026-040','ITM-017', 300,48.00,1),
+      ('PO-2026-040','ITM-015', 120,36.00,2),
+      -- PO-041: Household mix (Ceramic Vase Set + Bathroom Accessory Set)
+      ('PO-2026-041','ITM-013', 600,14.00,1),
+      ('PO-2026-041','ITM-020', 300,19.75,2),
+      -- PO-042: Furniture mix (Wooden Wall Shelf + Rattan Coffee Table)
+      ('PO-2026-042','ITM-015', 180,36.00,1),
+      ('PO-2026-042','ITM-011', 100,42.00,2),
+      -- PO-043: Furniture + Household (Woven Ottoman + Ceramic Vase Set)
+      ('PO-2026-043','ITM-018', 250,33.50,1),
+      ('PO-2026-043','ITM-013', 400,14.00,2),
+      -- PO-044: Furniture + Household x2 (3 items)
+      ('PO-2026-044','ITM-011', 120,44.00,1),
+      ('PO-2026-044','ITM-013', 350,14.00,2),
+      ('PO-2026-044','ITM-020', 200,19.75,3),
+      -- PO-045: Furniture mix (Outdoor Chair + Woven Ottoman)
+      ('PO-2026-045','ITM-017', 220,48.00,1),
+      ('PO-2026-045','ITM-018', 160,33.50,2),
+      -- PO-046: Furniture + Household (Wooden Wall Shelf + Bathroom Accessory Set)
+      ('PO-2026-046','ITM-015', 160,36.00,1),
+      ('PO-2026-046','ITM-020', 240,19.75,2),
+      -- PO-047: Apparel set (Cotton T-Shirt + Denim Jeans + Leather Belt)
+      ('PO-2026-047','ITM-001',2000,18.50,1),
+      ('PO-2026-047','ITM-002', 600,35.00,2),
+      ('PO-2026-047','ITM-004', 300,28.00,3),
+      -- PO-048: Household mix (Ceramic Vase Set + Wooden Wall Shelf)
+      ('PO-2026-048','ITM-013', 400,14.00,1),
+      ('PO-2026-048','ITM-015', 140,36.00,2),
+      -- PO-049: Knits + Wovens (Wool Sweater + Denim Jeans)
+      ('PO-2026-049','ITM-007',1400,45.00,1),
+      ('PO-2026-049','ITM-002', 700,32.00,2),
+      -- PO-050: Furniture x3 (Rattan Coffee Table + Wooden Wall Shelf + Outdoor Garden Chair)
+      ('PO-2026-050','ITM-011', 180,42.00,1),
+      ('PO-2026-050','ITM-015', 100,36.00,2),
+      ('PO-2026-050','ITM-017', 150,48.00,3)
+    ON CONFLICT (po_no, item_code) DO NOTHING
+  `, 'dummy PO line items for multi-item testing');
+
   console.log('✅ Migrations applied');
 }
 
