@@ -643,16 +643,6 @@ export default function InspectionCostPage() {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
-                        <label style={{ ...labelSt, color: contractForm.rate_type === 'percentage' ? '#94a3b8' : undefined }}>{t('costs_travel_allowance')}</label>
-                        <input type="number" min="0" step="0.01" value={contractForm.travel_allowance} onChange={e => setContractForm(p => ({ ...p, travel_allowance: e.target.value }))} placeholder="0" disabled={contractForm.rate_type === 'percentage'} style={{ ...inputSt, opacity: contractForm.rate_type === 'percentage' ? 0.4 : 1, cursor: contractForm.rate_type === 'percentage' ? 'not-allowed' : 'auto' }} />
-                      </div>
-                      <div>
-                        <label style={{ ...labelSt, color: contractForm.rate_type === 'percentage' ? '#94a3b8' : undefined }}>{t('col_stay_day')}</label>
-                        <input type="number" min="0" step="0.01" value={contractForm.stay_allowance_per_day} onChange={e => setContractForm(p => ({ ...p, stay_allowance_per_day: e.target.value }))} placeholder="0" disabled={contractForm.rate_type === 'percentage'} style={{ ...inputSt, opacity: contractForm.rate_type === 'percentage' ? 0.4 : 1, cursor: contractForm.rate_type === 'percentage' ? 'not-allowed' : 'auto' }} />
-                      </div>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <div>
                         <label style={labelSt}>{t('costs_valid_from')}</label>
                         <input type="date" value={contractForm.valid_from} onChange={e => setContractForm(p => ({ ...p, valid_from: e.target.value }))} style={inputSt} />
                       </div>
@@ -679,7 +669,7 @@ export default function InspectionCostPage() {
                     <div className="table-wrap">
                       <table className="data-table">
                         <thead>
-                          <tr>{[t('col_agency'), t('col_structure'), t('col_rate_type'), t('col_rate'), t('col_travel'), t('col_stay_day'), t('col_currency'), t('col_valid')].map(h => <th key={h}>{h}</th>)}</tr>
+                          <tr>{[t('col_agency'), t('col_structure'), t('col_rate_type'), t('col_rate'), t('col_currency'), t('col_valid')].map(h => <th key={h}>{h}</th>)}</tr>
                         </thead>
                         <tbody>
                           {allContracts.map(c => (
@@ -687,10 +677,8 @@ export default function InspectionCostPage() {
                               <td style={{ fontWeight: '600' }}>{c.agency_name || c.agency_code}</td>
                               <td style={{ fontWeight: '500' }}>{c.contract_name || '—'}</td>
                               <td>{c.rate_type === 'manday' ? 'Manday' : '% PO'}</td>
-                              <td>{c.rate_value}</td>
-                              <td style={{ color: '#94a3b8' }}>{c.travel_allowance}</td>
-                              <td style={{ color: '#94a3b8' }}>{c.stay_allowance_per_day}</td>
-                              <td>{c.currency}</td>
+                              <td>{c.rate_type === 'percentage' ? `${c.rate_value}%` : c.rate_value}</td>
+                              <td>{c.rate_type === 'percentage' ? '—' : c.currency}</td>
                               <td className="text-mono" style={{ color: '#94a3b8' }}>{c.valid_from || '—'} → {c.valid_to || '∞'}</td>
                             </tr>
                           ))}
