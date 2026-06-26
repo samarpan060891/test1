@@ -158,21 +158,9 @@ export default function AdminUsersPage() {
             <p className="modal-title">{editUser ? t('admin_edit') : t('admin_add_user')}</p>
             {error && <div className="alert alert-error mb-4">{error}</div>}
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {[[t('admin_users_name'), 'name', 'text'], [t('col_email'), 'email', 'email']].map(([label, key, type]) => (
-                <div key={key} className="field" style={{ marginBottom: 0 }}>
-                  <label>{label} *</label>
-                  <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} required className="input" />
-                </div>
-              ))}
-              {!editUser && (
-                <div className="field" style={{ marginBottom: 0 }}>
-                  <label>{t('admin_users_new_password')} *</label>
-                  <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} className="input" />
-                </div>
-              )}
               <div className="field" style={{ marginBottom: 0 }}>
                 <label>{t('col_role')} *</label>
-                <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value, agency_code: '', supplier_code: '' }))} className="input">
+                <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value, agency_code: '', supplier_code: '', name: '', email: '' }))} className="input">
                   {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
@@ -182,7 +170,8 @@ export default function AdminUsersPage() {
                   <select value={form.agency_code} onChange={e => {
                     const code = e.target.value
                     const agency = agencies.find(a => a.agency_code === code)
-                    setForm(p => ({ ...p, agency_code: code, name: agency?.contact_name || p.name }))
+                    const emails = Array.isArray(agency?.contact_emails) ? agency.contact_emails[0] : (agency?.contact_emails || '')
+                    setForm(p => ({ ...p, agency_code: code, name: agency?.contact_name || '', email: emails }))
                   }} className="input" required>
                     <option value="">— Select Agency —</option>
                     {agencies.map(a => (
@@ -197,13 +186,27 @@ export default function AdminUsersPage() {
                   <select value={form.supplier_code} onChange={e => {
                     const code = e.target.value
                     const supplier = suppliers.find(s => s.supplier_code === code)
-                    setForm(p => ({ ...p, supplier_code: code, name: supplier?.contact_name || p.name }))
+                    setForm(p => ({ ...p, supplier_code: code, name: supplier?.contact_name || '', email: supplier?.contact_email || '' }))
                   }} className="input" required>
                     <option value="">— Select Supplier —</option>
                     {suppliers.map(s => (
                       <option key={s.supplier_code} value={s.supplier_code}>{s.name} ({s.supplier_code})</option>
                     ))}
                   </select>
+                </div>
+              )}
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>{t('admin_users_name')} *</label>
+                <input type="text" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="input" />
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>{t('col_email')} *</label>
+                <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required className="input" />
+              </div>
+              {!editUser && (
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>{t('admin_users_new_password')} *</label>
+                  <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} className="input" />
                 </div>
               )}
               <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
