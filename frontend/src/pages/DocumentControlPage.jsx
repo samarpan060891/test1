@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { getDocuments, uploadDocument, reviewDocument, getDocumentFile } from '../api/documents.js'
+import { getDocuments, uploadDocument, reviewDocument, getDocumentFile, markNotApplicable } from '../api/documents.js'
 
 const DOC_TYPES = [
   { key: 'product_image',                label: 'Product Image' },
@@ -25,6 +25,7 @@ const STATUS_META = {
   qa_approved:      { label: 'QA Approved',       bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
   approved:         { label: 'Approved',           bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
   rejected:         { label: 'Rejected',           bg: '#fef2f2', color: '#991b1b', border: '#fca5a5' },
+  not_applicable:   { label: 'Not Applicable',    bg: '#f5f5f5', color: '#9ca3af', border: '#e5e7eb' },
 }
 
 // ─── Supplier Upload View ─────────────────────────────────────────────────────
@@ -52,6 +53,16 @@ function SupplierUploadView({ groups, onRefresh }) {
   const handleRemoveStaged = (docType) => {
     setStagedFiles(p => { const n = { ...p }; delete n[docType]; return n })
     if (fileRefs.current[docType]) fileRefs.current[docType].value = ''
+  }
+
+  const handleMarkNA = async (docType) => {
+    if (!group) return
+    try {
+      await markNotApplicable({ item_code: group.item_code, supplier_code: group.supplier_code, doc_type: docType })
+      onRefresh()
+    } catch (e) {
+      setSubmitMsg(e?.response?.data?.error || 'Failed to mark N/A')
+    }
   }
 
   const handleSubmitAll = async () => {
@@ -170,8 +181,8 @@ function SupplierUploadView({ groups, onRefresh }) {
                     </button>
                   )}
 
-                  {/* Attach / staged file */}
-                  {canUpload && (
+                  {/* Attach / staged file / N/A actions */}
+                  {canUpload && status !== 'not_applicable' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {staged ? (
                         <>
@@ -197,9 +208,24 @@ function SupplierUploadView({ groups, onRefresh }) {
                           }}>
                             + Attach
                           </label>
+                          {(status === 'pending_upload' || status === 'rejected') && (
+                            <button
+                              onClick={() => handleMarkNA(key)}
+                              title="Mark as Not Applicable for this product"
+                              style={{ padding: '5px 10px', background: '#f5f5f5', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            >N/A</button>
+                          )}
                         </>
                       )}
                     </div>
+                  )}
+                  {/* Undo N/A */}
+                  {status === 'not_applicable' && canUpload && (
+                    <button
+                      onClick={() => handleMarkNA(key)}
+                      title="Click to undo — mark as needed"
+                      style={{ padding: '4px 10px', background: 'none', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}
+                    >Undo N/A</button>
                   )}
                 </div>
               )

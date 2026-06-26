@@ -489,6 +489,15 @@ async function runMigrations() {
     )
   `, 'item_documents table');
 
+  // 017: Add not_applicable to item_documents status check
+  await safeQuery(`
+    ALTER TABLE qc_inspection.item_documents DROP CONSTRAINT IF EXISTS item_documents_status_check
+  `, 'drop old status check');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.item_documents ADD CONSTRAINT item_documents_status_check
+      CHECK (status IN ('pending_upload','pending_approval','qa_approved','approved','rejected','not_applicable'))
+  `, 'add not_applicable status');
+
   console.log('✅ Migrations applied');
 }
 

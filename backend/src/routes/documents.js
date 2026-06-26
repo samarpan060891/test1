@@ -335,6 +335,39 @@ router.put('/:id/review', async (req, res) => {
   }
 });
 
+// ── POST /mark-na ────────────────────────────────────────────────────────────
+router.post('/mark-na', async (req, res) => {
+  const { role, supplier_code: userSupplierCode, user_id } = req.user;
+  const { item_code, supplier_code, doc_type } = req.body;
+
+  if (!item_code || !supplier_code || !doc_type)
+    return res.status(400).json({ error: 'item_code, supplier_code, and doc_type are required' });
+
+  if (role === 'supplier_user' && supplier_code !== userSupplierCode)
+    return res.status(403).json({ error: 'Cannot mark N/A for another supplier' });
+
+  if (!['supplier_user', 'admin', 'qa'].includes(role))
+    return res.status(403).json({ error: 'Not authorized' });
+
+  try {
+    const existing = await db.query(
+      'SELECT id, status FROM qc_inspection.item_documents WHERE item_code=$1 AND supplier_code=$2 AND doc_type=$3',
+      [item_code, supplier_code, doc_type]
+    );
+    const newStatus = existing.rows[0]?.status === 'not_applicable' ? 'pending_upload' : 'not_applicable';
+    await db.query(
+      `INSERT INTO qc_inspection.item_documents (item_code, supplier_code, doc_type, status, uploaded_by, version)
+       VALUES ($1,$2,$3,$4,$5,1)
+       ON CONFLICT (item_code, supplier_code, doc_type) DO UPDATE SET status=$4`,
+      [item_code, supplier_code, doc_type, newStatus, user_id]
+    );
+    res.json({ status: newStatus });
+  } catch (err) {
+    console.error('POST /documents/mark-na error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GET /:id/file ─────────────────────────────────────────────────────────────
 router.get('/:id/file', async (req, res) => {
   const { role, supplier_code: userSupplierCode, agency_code, user_id } = req.user;
