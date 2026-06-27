@@ -392,9 +392,11 @@ export default function AdminMastersPage() {
                           </span>
                         </th>
                       ))}
-                      {activeTab === 'POs' && (
-                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Line Items</th>
-                      )}
+                      {activeTab === 'POs' && (<>
+                        <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Item Code</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Qty</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Unit Price</th>
+                      </>)}
                       <th style={{ padding: '10px 14px', borderBottom: '1px solid #e5e7eb' }} />
                     </tr>
                   </thead>
@@ -410,13 +412,23 @@ export default function AdminMastersPage() {
                                 : Array.isArray(row[f.key]) ? (row[f.key].join(', ') || '—') : (row[f.key] ?? '—')}
                           </td>
                         ))}
-                        {activeTab === 'POs' && (
+                        {activeTab === 'POs' && (<>
                           <td style={{ padding: '10px 14px', color: '#374151', fontSize: '12px' }}>
                             {Array.isArray(row.line_items) && row.line_items.length > 0
-                              ? row.line_items.map(li => `${li.item_code} ×${li.quantity} @ $${Number(li.unit_price || 0).toFixed(2)}`).join(' | ')
+                              ? row.line_items.map(li => li.item_code).join(', ')
                               : '—'}
                           </td>
-                        )}
+                          <td style={{ padding: '10px 14px', color: '#374151', fontSize: '12px', textAlign: 'right' }}>
+                            {Array.isArray(row.line_items) && row.line_items.length > 0
+                              ? row.line_items.map(li => li.quantity).join(', ')
+                              : '—'}
+                          </td>
+                          <td style={{ padding: '10px 14px', color: '#374151', fontSize: '12px', textAlign: 'right' }}>
+                            {Array.isArray(row.line_items) && row.line_items.length > 0
+                              ? row.line_items.map(li => `$${Number(li.unit_price || 0).toFixed(2)}`).join(', ')
+                              : '—'}
+                          </td>
+                        </>)}
                         <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                           <button
                             onClick={() => handleEditRow(row)}
