@@ -178,8 +178,14 @@ export default function AdminMastersPage() {
   }
 
   const downloadTemplate = () => {
-    const headers = Object.fromEntries(cfg.fields.map(f => [f.key, '']))
-    const example = Object.fromEntries(cfg.fields.map(f => [f.key, f.placeholder || '']))
+    let fieldKeys = cfg.fields.filter(f => f.type !== 'buyer_select').map(f => f.key)
+    let exampleRow = Object.fromEntries(cfg.fields.filter(f => f.type !== 'buyer_select').map(f => [f.key, f.placeholder || '']))
+    if (activeTab === 'POs') {
+      fieldKeys = ['po_no', 'supplier_code', 'item_code', 'quantity', 'unit_price', 'order_date', 'status']
+      exampleRow = { po_no: 'PO-2026-001', supplier_code: 'SUP-001', item_code: 'ITEM-001', quantity: '100', unit_price: '25.50', order_date: '2026-01-15', status: 'open' }
+    }
+    const headers = Object.fromEntries(fieldKeys.map(k => [k, '']))
+    const example = exampleRow
     const ws = XLSX.utils.json_to_sheet([headers, example])
     // Bold the header row comment
     const wb = XLSX.utils.book_new()
