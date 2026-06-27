@@ -405,13 +405,15 @@ export default function AdminMastersPage() {
                           <td key={f.key} style={{ padding: '10px 14px', color: '#374151', whiteSpace: 'nowrap' }}>
                             {f.type === 'buyer_select'
                               ? (row.buyer_name || '—')
-                              : Array.isArray(row[f.key]) ? (row[f.key].join(', ') || '—') : (row[f.key] ?? '—')}
+                              : f.type === 'date'
+                                ? (row[f.key] ? row[f.key].slice(0, 10) : '—')
+                                : Array.isArray(row[f.key]) ? (row[f.key].join(', ') || '—') : (row[f.key] ?? '—')}
                           </td>
                         ))}
                         {activeTab === 'POs' && (
                           <td style={{ padding: '10px 14px', color: '#374151', fontSize: '12px' }}>
                             {Array.isArray(row.line_items) && row.line_items.length > 0
-                              ? row.line_items.map(li => `${li.item_code} (×${li.quantity})`).join(', ')
+                              ? row.line_items.map(li => `${li.item_code} ×${li.quantity} @ $${Number(li.unit_price || 0).toFixed(2)}`).join(' | ')
                               : '—'}
                           </td>
                         )}
