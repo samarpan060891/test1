@@ -102,10 +102,16 @@ router.post('/:jobId', authorize('agency_user', 'supplier_user'), async (req, re
       return res.status(400).json({ error: `Cannot modify responses for job in status: ${job.status}` });
     }
 
-    // Verify all checklist_item_ids belong to this job's template
+    // Verify all checklist_item_ids belong to any template associated with this job
+    // (multi-item POs have per-item templates stored in job_items)
     const templateItems = await client.query(
-      'SELECT item_id FROM qc_inspection.checklist_item WHERE template_id = $1',
-      [job.checklist_template_id]
+      `SELECT DISTINCT ci.item_id
+       FROM qc_inspection.checklist_item ci
+       WHERE ci.template_id = $1
+          OR ci.template_id IN (
+            SELECT checklist_template_id FROM qc_inspection.job_items WHERE job_id = $2
+          )`,
+      [job.checklist_template_id, req.params.jobId]
     );
     const validItemIds = new Set(templateItems.rows.map(r => r.item_id));
 
