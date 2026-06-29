@@ -344,14 +344,17 @@ export default function AdminMastersPage() {
     setLineItems([EMPTY_LINE_ITEM()])
   }
 
-  const cfg = CONFIG[activeTab]
+  const cfg = CONFIG[activeTab] || null
+  const isHistoryTab = !cfg
 
   const load = () => {
+    if (!cfg) return
     setLoading(true)
     cfg.get().then(r => setRows(r.data)).catch(() => setRows([])).finally(() => setLoading(false))
   }
 
   useEffect(() => {
+    if (!cfg) return
     setForm(emptyForm(cfg.fields))
     setFormMsg('')
     setBulkMsg('')
@@ -403,7 +406,7 @@ export default function AdminMastersPage() {
     }
   }
 
-  const colKeys = cfg.fields.map(f => f.key)
+  const colKeys = cfg ? cfg.fields.map(f => f.key) : []
 
   const hasActiveMasterFilter = Object.values(masterFilters).some(v => v && v !== '')
   const filteredRows = hasActiveMasterFilter
