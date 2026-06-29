@@ -10,18 +10,6 @@ export default function BrandLogo({ size = 'md', showTagline = false }) {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: s.gap }}>
-      {/* Icon mark — square with stylised 'h' initial */}
-      <div style={{
-        width: s.icon, height: s.icon,
-        background: 'rgba(255,255,255,0.15)',
-        borderRadius: '8px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
-        border: '1px solid rgba(255,255,255,0.25)',
-      }}>
-        <span style={{ fontSize: `calc(${s.icon} * 0.52)`, lineHeight: 1 }}>🏠</span>
-      </div>
-
       {/* Wordmark */}
       <div>
         <div style={{
