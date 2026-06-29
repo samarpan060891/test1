@@ -99,13 +99,8 @@ export default function Navbar() {
           <BrandLogo size="md" showTagline />
         </div>
 
-        {/* Right: user info row */}
+        {/* Right: badge + bell + language only */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-          {user && (
-            <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user.email}
-            </span>
-          )}
           {user && (
             <span style={{ backgroundColor: rm.bg, color: rm.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: '0 1px 4px rgba(0,0,0,0.2)', whiteSpace: 'nowrap' }}>
               {rm.label}
@@ -113,16 +108,6 @@ export default function Navbar() {
           )}
           <NotificationBell />
           <div style={{ opacity: 0.85 }}><LanguageSwitcher /></div>
-          <Link to="/change-password"
-            style={{ color: 'rgba(255,255,255,0.72)', textDecoration: 'none', fontSize: '13px', padding: '5px 10px', borderRadius: '6px', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; e.currentTarget.style.background = 'transparent' }}
-          >{t('nav_change_password')}</Link>
-          <button onClick={logout}
-            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', padding: '6px 16px', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)' }}
-          >{t('nav_logout')}</button>
         </div>
       </nav>
 
