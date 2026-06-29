@@ -1,15 +1,27 @@
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import translations, { COUNTRY_LANGUAGE_MAP } from '../i18n/translations.js'
 import client from '../api/client.js'
+
+// BCP-47 locale codes for browser native translation
+const LANG_TO_LOCALE = {
+  en: 'en', zh: 'zh', tr: 'tr', ms: 'ms',
+  vi: 'vi', id: 'id', th: 'th', fil: 'fil'
+}
 
 const LanguageContext = createContext()
 
 export function LanguageProvider({ children }) {
   const [lang, setLangState] = useState(() => localStorage.getItem('qc_lang') || 'en')
 
+  // Keep <html lang> in sync so browsers offer native translation for DB content
+  useEffect(() => {
+    document.documentElement.lang = LANG_TO_LOCALE[lang] || lang
+  }, [lang])
+
   const setLanguage = useCallback((code) => {
     setLangState(code)
     localStorage.setItem('qc_lang', code)
+    document.documentElement.lang = LANG_TO_LOCALE[code] || code
     client.put('/auth/language', { language: code }).catch(() => {})
   }, [])
 
@@ -18,6 +30,7 @@ export function LanguageProvider({ children }) {
     if (detected && !localStorage.getItem('qc_lang')) {
       setLangState(detected)
       localStorage.setItem('qc_lang', detected)
+      document.documentElement.lang = LANG_TO_LOCALE[detected] || detected
     }
   }, [])
 
