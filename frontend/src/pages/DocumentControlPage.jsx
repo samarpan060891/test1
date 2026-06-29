@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getDocuments, uploadDocument, reviewDocument, getDocumentFile, markNotApplicable, internalUploadDocument } from '../api/documents.js'
+import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
+import { useColumnFilter } from '../hooks/useColumnFilter.js'
 
 const DOC_TYPES = [
   { key: 'product_image',                label: 'Product Image' },
@@ -460,17 +462,14 @@ function ReviewerView({ groups, role, onRefresh }) {
   const [internalUploading, setInternalUploading] = useState(false)
   const internalFileRef = useRef(null)
 
-  const [sortCol, setSortCol] = useState(null)  // 'item' | 'supplier' | 'pendingQA' | 'pendingBuying' | 'approved' | 'rejected' | 'na'
-  const [sortDir, setSortDir] = useState('asc')
-
   const canQAReview = ['qa', 'admin', 'imports', 'accounts'].includes(role)
   const canBuyingReview = role === 'buying'
   const canInternalUpload = ['admin', 'qa', 'buying'].includes(role)
 
-  const handleSort = (col) => {
-    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortCol(col); setSortDir('asc') }
-  }
+  const DOC_COLS = [
+    { key: 'item_name',     label: 'Item' },
+    { key: 'supplier_name', label: 'Supplier' },
+  ]
 
   // Keep listGroup in sync with refreshed groups data
   useEffect(() => {
@@ -508,7 +507,7 @@ function ReviewerView({ groups, role, onRefresh }) {
     { key: 'rejected',        label: 'REJECTED',        color: '#dc2626' },
   ]
 
-  const filtered = groups.filter(g => {
+  const cardFiltered = groups.filter(g => {
     const q = search.toLowerCase()
     const matchSearch = !q || g.item_name?.toLowerCase().includes(q) || g.supplier_name?.toLowerCase().includes(q) || g.item_code?.toLowerCase().includes(q)
     if (!matchSearch) return false
@@ -519,22 +518,9 @@ function ReviewerView({ groups, role, onRefresh }) {
     if (activeFilter === 'approved')        return s.approved > 0
     if (activeFilter === 'rejected')        return s.rejected > 0
     return true
-  }).sort((a, b) => {
-    if (!sortCol) return 0
-    const sa = getGroupStats(a), sb = getGroupStats(b)
-    let va, vb
-    if (sortCol === 'item')         { va = a.item_name?.toLowerCase() || ''; vb = b.item_name?.toLowerCase() || '' }
-    else if (sortCol === 'supplier'){ va = a.supplier_name?.toLowerCase() || ''; vb = b.supplier_name?.toLowerCase() || '' }
-    else if (sortCol === 'pendingQA')     { va = sa.pendingApproval; vb = sb.pendingApproval }
-    else if (sortCol === 'pendingBuying') { va = sa.pendingBuying;   vb = sb.pendingBuying }
-    else if (sortCol === 'approved')      { va = sa.approved;        vb = sb.approved }
-    else if (sortCol === 'rejected')      { va = sa.rejected;        vb = sb.rejected }
-    else if (sortCol === 'na')            { va = sa.na;              vb = sb.na }
-    else return 0
-    if (va < vb) return sortDir === 'asc' ? -1 : 1
-    if (va > vb) return sortDir === 'asc' ? 1 : -1
-    return 0
   })
+
+  const { filters: colFilters, setFilter: setColFilter, filtered, hasActive: hasColFilter, clearFilters: clearColFilters } = useColumnFilter(cardFiltered, DOC_COLS)
 
   const openListPanel = (group) => {
     setListGroup(group)
@@ -659,9 +645,12 @@ function ReviewerView({ groups, role, onRefresh }) {
       </div>
 
       {/* Table header bar */}
-      <div style={{ background: '#fff', borderRadius: '10px 10px 0 0', border: '1px solid #e5e7eb', borderBottom: 'none', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: '10px 10px 0 0', border: '1px solid #e5e7eb', borderBottom: 'none', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
-          Documents · <span style={{ color: '#64748b', fontWeight: '400' }}>{filtered.length} item(s)</span>
+          Documents · <span style={{ color: '#64748b', fontWeight: '400' }}>{filtered.length}{hasColFilter || activeFilter !== 'all' ? ` of ${groups.length}` : ''} item(s)</span>
+          {hasColFilter && (
+            <button onClick={clearColFilters} style={{ marginLeft: '8px', fontSize: '11px', color: '#E8470F', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700' }}>✕ Clear filters</button>
+          )}
         </span>
         <input
           type="text"
@@ -677,25 +666,19 @@ function ReviewerView({ groups, role, onRefresh }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
-              {[
-                { col: 'item',         label: 'ITEM',          align: 'left',   color: '#64748b' },
-                { col: 'supplier',     label: 'SUPPLIER',      align: 'left',   color: '#64748b' },
-                { col: 'pendingQA',    label: 'PENDING QA',    align: 'center', color: '#d97706' },
-                { col: 'pendingBuying',label: 'PENDING BUYING',align: 'center', color: '#0284c7' },
-                { col: 'approved',     label: 'APPROVED',      align: 'center', color: '#15803d' },
-                { col: 'rejected',     label: 'REJECTED',      align: 'center', color: '#dc2626' },
-                { col: 'na',           label: 'N/A',           align: 'center', color: '#64748b' },
-              ].map(({ col, label, align, color }) => {
-                const active = sortCol === col
-                return (
-                  <th key={col} onClick={() => handleSort(col)} style={{ padding: '10px 16px', textAlign: align, color: active ? color : '#64748b', fontWeight: '600', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                    {label}
-                    <span style={{ marginLeft: '4px', fontSize: '10px', opacity: active ? 1 : 0.3 }}>
-                      {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
-                    </span>
-                  </th>
-                )
-              })}
+              <th style={{ padding: '10px 16px', textAlign: 'left', color: '#64748b', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                ITEM
+                <ColumnFilterDropdown colKey="item_name" data={cardFiltered} value={colFilters.item_name || []} onChange={v => setColFilter('item_name', v)} label="Item" />
+              </th>
+              <th style={{ padding: '10px 16px', textAlign: 'left', color: '#64748b', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                SUPPLIER
+                <ColumnFilterDropdown colKey="supplier_name" data={cardFiltered} value={colFilters.supplier_name || []} onChange={v => setColFilter('supplier_name', v)} label="Supplier" />
+              </th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#d97706', fontWeight: '600', whiteSpace: 'nowrap' }}>PENDING QA</th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#0284c7', fontWeight: '600', whiteSpace: 'nowrap' }}>PENDING BUYING</th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#15803d', fontWeight: '600', whiteSpace: 'nowrap' }}>APPROVED</th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#dc2626', fontWeight: '600', whiteSpace: 'nowrap' }}>REJECTED</th>
+              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#64748b', fontWeight: '600', whiteSpace: 'nowrap' }}>N/A</th>
               <th style={{ padding: '10px 16px', textAlign: 'right', color: '#64748b', fontWeight: '600' }}>ACTIONS</th>
             </tr>
           </thead>
