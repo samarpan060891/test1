@@ -12,6 +12,21 @@ const criticalityColors = {
   minor: { backgroundColor: '#dbeafe', color: '#1d4ed8' }
 }
 
+// ISO 2859-1 sample size (General Inspection Level II)
+const ISO_LOT_TABLE = [
+  [2, 8, 'A', 2], [9, 15, 'B', 3], [16, 25, 'C', 5], [26, 50, 'D', 8],
+  [51, 90, 'E', 13], [91, 150, 'F', 20], [151, 280, 'G', 32],
+  [281, 500, 'H', 50], [501, 1200, 'J', 80], [1201, 3200, 'K', 125],
+  [3201, 10000, 'L', 200], [10001, 35000, 'M', 315],
+  [35001, 150000, 'N', 500], [150001, 500000, 'P', 800],
+  [500001, Infinity, 'Q', 1250],
+]
+function getISO2859Sample(lotSize) {
+  if (!lotSize || lotSize < 2) return null
+  const row = ISO_LOT_TABLE.find(([min, max]) => lotSize >= min && lotSize <= max)
+  return row ? { code: row[2], sampleSize: row[3] } : null
+}
+
 export default function ChecklistFillPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -45,6 +60,7 @@ export default function ChecklistFillPage() {
             itemCode: ji.item_code,
             itemName: ji.item_name,
             templateId: ji.checklist_template_id,
+            quantity: ji.quantity,
           }))
         } else if (jobData?.checklist_template_id) {
           // Legacy single-item job
@@ -52,6 +68,7 @@ export default function ChecklistFillPage() {
             itemCode: jobData.item_code,
             itemName: jobData.item_name || jobData.item_code,
             templateId: jobData.checklist_template_id,
+            quantity: jobData.quantity,
           }]
         }
 
@@ -89,7 +106,7 @@ export default function ChecklistFillPage() {
             return acc
           }, {})
           Object.entries(bySection).forEach(([section, items]) => {
-            sections.push({ itemName: entry.itemName, itemCode: entry.itemCode, section, items })
+            sections.push({ itemName: entry.itemName, itemCode: entry.itemCode, quantity: entry.quantity, section, items })
           })
         })
         setAllSections(sections)
@@ -247,12 +264,20 @@ export default function ChecklistFillPage() {
             return (
               <div key={`${group.itemCode}-${group.section}-${groupIdx}`} style={{ marginBottom: '24px' }}>
                 {/* Item header — shown once per item */}
-                {showItemHeader && (
-                  <div style={{ background: '#1e3a5f', color: '#fff', padding: '10px 20px', borderRadius: '8px 8px 0 0', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 10px', borderRadius: '9999px', fontSize: '11px' }}>{group.itemCode}</span>
-                    <span>{group.itemName}</span>
-                  </div>
-                )}
+                {showItemHeader && (() => {
+                  const iso = getISO2859Sample(group.quantity)
+                  return (
+                    <div style={{ background: '#1e3a5f', color: '#fff', padding: '10px 20px', borderRadius: '8px 8px 0 0', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 10px', borderRadius: '9999px', fontSize: '11px' }}>{group.itemCode}</span>
+                      <span style={{ flex: 1 }}>{group.itemName}</span>
+                      {iso && (
+                        <span style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', padding: '3px 12px', borderRadius: '9999px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                          Lot: {group.quantity} · Sample: <strong>{iso.sampleSize}</strong> pcs · Code {iso.code} (ISO 2859-1 Level II)
+                        </span>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {/* Section header */}
                 <div style={{

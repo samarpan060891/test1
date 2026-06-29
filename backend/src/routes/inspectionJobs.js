@@ -37,9 +37,13 @@ async function getJobStakeholders(jobId) {
 async function getJobItemsFor(jobId, client_or_db = db) {
   const r = await client_or_db.query(
     `SELECT ji.item_code, ji.checklist_template_id, ji.sort_order,
-            im.name AS item_name, im.category, im.sub_category
+            im.name AS item_name, im.category, im.sub_category,
+            COALESCE(pl.quantity, p.quantity) AS quantity
      FROM qc_inspection.job_items ji
      JOIN qc_inspection.item_master im ON im.item_code = ji.item_code
+     JOIN qc_inspection.inspection_job ij ON ij.job_id = ji.job_id
+     JOIN qc_inspection.po_master p ON p.po_no = ij.po_no
+     LEFT JOIN qc_inspection.po_line_items pl ON pl.po_no = ij.po_no AND pl.item_code = ji.item_code
      WHERE ji.job_id = $1
      ORDER BY ji.sort_order, ji.item_code`,
     [jobId]
