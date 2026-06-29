@@ -295,10 +295,10 @@ export default function JobDetailPage() {
       <Navbar />
 
       {/* Two-column layout: main content + history panel */}
-      <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '20px 24px', display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: '0', alignItems: 'stretch', minHeight: 'calc(100vh - 52px)' }}>
 
       {/* Left: main content */}
-      <div style={{ flex: '1 1 0', minWidth: 0 }}>
+      <div style={{ flex: '1 1 0', minWidth: 0, padding: '20px 24px', maxWidth: '1100px' }}>
       <div>
         {/* Breadcrumb */}
         <div className="breadcrumb">
@@ -746,8 +746,8 @@ export default function JobDetailPage() {
       </div> {/* end left column */}
 
       {/* ── RIGHT: History Panel ──────────────────────────────────────────── */}
-      <div style={{ width: '380px', flexShrink: 0, position: 'sticky', top: '72px', maxHeight: 'calc(100vh - 90px)', overflowY: 'auto' }}>
-        <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', borderRadius: '12px 12px 0 0', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ width: '380px', flexShrink: 0, position: 'sticky', top: '52px', height: 'calc(100vh - 52px)', overflowY: 'auto', borderLeft: '1px solid #e5e7eb', background: '#f8fafc' }}>
+        <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '10px', position: 'sticky', top: 0, zIndex: 10 }}>
           <span style={{ fontSize: '18px' }}>📊</span>
           <div>
             <div style={{ fontWeight: '800', fontSize: '14px', color: '#fff', letterSpacing: '-0.2px' }}>QC History Panel</div>
@@ -755,7 +755,7 @@ export default function JobDetailPage() {
           </div>
         </div>
 
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+        <div style={{ background: '#fff' }}>
           {histLoading ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading history…</div>
           ) : (
