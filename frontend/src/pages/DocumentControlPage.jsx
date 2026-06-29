@@ -226,8 +226,8 @@ function SupplierUploadView({ groups, onRefresh }) {
         <>
           <div onClick={closeManage} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 40 }} />
           <div style={{
-            position: 'fixed', top: 0, right: 0, width: '520px', maxWidth: '100vw',
-            height: '100vh', background: '#f8fafc', boxShadow: '-4px 0 28px rgba(0,0,0,0.15)',
+            position: 'fixed', top: '52px', right: 0, width: '520px', maxWidth: '100vw',
+            height: 'calc(100vh - 52px)', background: '#f8fafc', boxShadow: '-4px 0 28px rgba(0,0,0,0.15)',
             zIndex: 50, display: 'flex', flexDirection: 'column',
           }}>
             {/* Panel header */}
@@ -404,7 +404,7 @@ function SupplierUploadView({ groups, onRefresh }) {
       {panel && (
         <>
           <div onClick={() => setPanel(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 40 }} />
-          <div style={{ position: 'fixed', top: 0, right: 0, width: '420px', height: '100vh', background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 50, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ position: 'fixed', top: '52px', right: 0, width: '420px', height: 'calc(100vh - 52px)', background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 50, display: 'flex', flexDirection: 'column' }}>
             <div style={{ background: '#1C1208', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '12px', color: '#d4c5a0' }}>{DOC_TYPES.find(d => d.key === panel.doc_type)?.label}</div>
@@ -781,7 +781,7 @@ function ReviewerView({ groups, role, onRefresh }) {
       {panel && (
         <>
           <div onClick={() => setPanel(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 40 }} />
-          <div style={{ position: 'fixed', top: 0, right: 0, width: '440px', height: '100vh', background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 50, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+          <div style={{ position: 'fixed', top: '52px', right: 0, width: '440px', height: 'calc(100vh - 52px)', background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 50, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <div style={{ background: '#1C1208', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ fontSize: '12px', color: '#d4c5a0', marginBottom: '2px' }}>{panel.group.item_name} · {panel.group.supplier_name}</div>
