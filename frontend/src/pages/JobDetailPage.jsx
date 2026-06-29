@@ -750,21 +750,21 @@ export default function JobDetailPage() {
         <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '10px', position: 'sticky', top: 0, zIndex: 10 }}>
           <span style={{ fontSize: '18px' }}>📊</span>
           <div>
-            <div style={{ fontWeight: '800', fontSize: '14px', color: '#fff', letterSpacing: '-0.2px' }}>QC History Panel</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '1px' }}>Item: {job?.item_code}</div>
+            <div style={{ fontWeight: '800', fontSize: '14px', color: '#fff', letterSpacing: '-0.2px' }}>{t('hist_panel_title')}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '1px' }}>{t('hist_panel_item')}: {job?.item_code}</div>
           </div>
         </div>
 
         <div style={{ background: '#fff' }}>
           {histLoading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading history…</div>
+            <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>{t('hist_loading')}</div>
           ) : (
             <>
               {/* ─ Section 1: Past Inspections ─ */}
               <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                   <div style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Past Inspections
+                    {t('hist_past_inspections')}
                   </div>
                   <span style={{ background: '#f1f5f9', color: '#64748b', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
                     {histPastInspections.length}
@@ -772,7 +772,7 @@ export default function JobDetailPage() {
                 </div>
 
                 {histPastInspections.length === 0 ? (
-                  <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No past inspection records found.</p>
+                  <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>{t('hist_no_past')}</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {histPastInspections.slice(0, 5).map((insp, i) => {
@@ -798,7 +798,7 @@ export default function JobDetailPage() {
                             <span>{insp.decided_at ? new Date(insp.decided_at).toLocaleDateString() : (insp.inspection_date ? new Date(insp.inspection_date).toLocaleDateString() : '—')}</span>
                             {Number(insp.total_responses) > 0 && (
                               <span style={{ color: Number(insp.fail_count) > 0 ? '#dc2626' : '#15803d', fontWeight: '600' }}>
-                                {insp.fail_count}/{insp.total_responses} fails
+                                {insp.fail_count}/{insp.total_responses} {t('hist_fails')}
                               </span>
                             )}
                           </div>
@@ -812,7 +812,7 @@ export default function JobDetailPage() {
                     })}
                     {histPastInspections.length > 5 && (
                       <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0, textAlign: 'center' }}>
-                        +{histPastInspections.length - 5} more inspection(s)
+                        +{histPastInspections.length - 5} {t('hist_more_inspections')}
                       </p>
                     )}
                   </div>
@@ -823,7 +823,7 @@ export default function JobDetailPage() {
               <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                   <div style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Customer Complaints
+                    {t('hist_customer_complaints')}
                   </div>
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <span style={{ background: histComplaints.length > 0 ? '#fef2f2' : '#f1f5f9', color: histComplaints.length > 0 ? '#dc2626' : '#64748b', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
@@ -832,14 +832,14 @@ export default function JobDetailPage() {
                     {histComplaints.length > 0 && (
                       <button onClick={() => setHistoryPanel({ type: 'complaints', data: histComplaints })}
                         style={{ fontSize: '11px', fontWeight: '600', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer' }}>
-                        View Details
+                        {t('hist_view_details')}
                       </button>
                     )}
                   </div>
                 </div>
 
                 {histComplaints.length === 0 ? (
-                  <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No customer complaints on record.</p>
+                  <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>{t('hist_no_complaints')}</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {/* Severity summary */}
@@ -850,12 +850,12 @@ export default function JobDetailPage() {
                       return (
                         <div key={sev} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
                           <span style={{ background: sc.bg, color: sc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{sev}</span>
-                          <span style={{ color: '#374151', fontWeight: '600' }}>{cnt} complaint{cnt > 1 ? 's' : ''}</span>
+                          <span style={{ color: '#374151', fontWeight: '600' }}>{cnt} {cnt > 1 ? t('hist_complaints') : t('hist_complaint')}</span>
                         </div>
                       )
                     })}
                     <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
-                      {histComplaints.filter(c => c.status === 'open' || c.status === 'investigating').length} open · {histComplaints.filter(c => c.status === 'resolved' || c.status === 'closed').length} resolved
+                      {histComplaints.filter(c => c.status === 'open' || c.status === 'investigating').length} {t('hist_open')} · {histComplaints.filter(c => c.status === 'resolved' || c.status === 'closed').length} {t('hist_resolved')}
                     </div>
                   </div>
                 )}
@@ -865,7 +865,7 @@ export default function JobDetailPage() {
               <div style={{ padding: '14px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                   <div style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Claims
+                    {t('hist_claims')}
                   </div>
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <span style={{ background: histClaims.length > 0 ? '#fff7ed' : '#f1f5f9', color: histClaims.length > 0 ? '#c2410c' : '#64748b', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
@@ -874,20 +874,20 @@ export default function JobDetailPage() {
                     {histClaims.length > 0 && (
                       <button onClick={() => setHistoryPanel({ type: 'claims', data: histClaims })}
                         style={{ fontSize: '11px', fontWeight: '600', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer' }}>
-                        View Details
+                        {t('hist_view_details')}
                       </button>
                     )}
                   </div>
                 </div>
 
                 {histClaims.length === 0 ? (
-                  <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No claims on record for this item.</p>
+                  <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>{t('hist_no_claims')}</p>
                 ) : (
                   <div>
                     {/* Total claim amount */}
                     {histClaims.some(c => c.claim_amount) && (
                       <div style={{ background: '#fff7ed', borderRadius: '8px', padding: '8px 12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '11px', color: '#92400e', fontWeight: '600' }}>Total claimed</span>
+                        <span style={{ fontSize: '11px', color: '#92400e', fontWeight: '600' }}>{t('hist_total_claimed')}</span>
                         <span style={{ fontSize: '14px', fontWeight: '800', color: '#c2410c' }}>
                           {formatAmount(histClaims.reduce((sum, c) => sum + (Number(c.claim_amount) || 0), 0))}
                         </span>
@@ -931,16 +931,16 @@ export default function JobDetailPage() {
           <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div>
               <div style={{ fontWeight: '800', fontSize: '15px', color: '#fff' }}>
-                {historyPanel.type === 'complaints' ? '⚠️ Customer Complaints' : '📋 Claims'}
+                {historyPanel.type === 'complaints' ? `⚠️ ${t('hist_customer_complaints')}` : `📋 ${t('hist_claims')}`}
               </div>
               <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', marginTop: '2px' }}>
-                Item: {job?.item_code} · {historyPanel.data.length} record{historyPanel.data.length !== 1 ? 's' : ''}
+                {t('hist_panel_item')}: {job?.item_code} · {historyPanel.data.length} {historyPanel.data.length !== 1 ? t('hist_records') : t('hist_record')}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <button onClick={() => exportHistoryExcel(historyPanel.type, historyPanel.data)}
                 style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', borderRadius: '7px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                ⬇ Export Excel
+                ⬇ {t('hist_export_excel')}
               </button>
               <button onClick={() => setHistoryPanel(null)}
                 style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
@@ -953,7 +953,7 @@ export default function JobDetailPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '700px' }}>
                 <thead style={{ position: 'sticky', top: 0, background: '#f8fafc' }}>
                   <tr>
-                    {['Ref No.','Date','Customer','Description','Severity','Status','Resolution'].map(h => (
+                    {[t('hist_col_ref'),t('hist_col_date'),t('hist_col_customer'),t('hist_col_description'),t('hist_col_severity'),t('hist_col_status'),t('hist_col_resolution')].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap', background: '#f8fafc' }}>{h}</th>
                     ))}
                   </tr>
@@ -984,7 +984,7 @@ export default function JobDetailPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '700px' }}>
                 <thead style={{ position: 'sticky', top: 0, background: '#f8fafc' }}>
                   <tr>
-                    {['Ref No.','Date','Customer','Reason',`Amount (${currentCurrency.code})`,'Status','Resolution'].map(h => (
+                    {[t('hist_col_ref'),t('hist_col_date'),t('hist_col_customer'),t('hist_col_reason'),`${t('hist_col_amount')} (${currentCurrency.code})`,t('hist_col_status'),t('hist_col_resolution')].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap', background: '#f8fafc' }}>{h}</th>
                     ))}
                   </tr>
