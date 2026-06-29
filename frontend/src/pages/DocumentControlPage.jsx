@@ -533,6 +533,18 @@ function ReviewerView({ groups, role, onRefresh }) {
     finally { setReviewing(false) }
   }
 
+  const handleInternalMarkNA = async () => {
+    if (!panel) return
+    setActionMsg('')
+    try {
+      await markNotApplicable({ item_code: panel.group.item_code, supplier_code: panel.group.supplier_code, doc_type: panel.docTypeKey })
+      const newStatus = panelDoc?.status === 'not_applicable' ? 'pending_upload' : 'not_applicable'
+      setPanel(p => ({ ...p, doc: { ...p.doc, status: newStatus } }))
+      setActionMsg(newStatus === 'not_applicable' ? 'Marked as Not Applicable.' : 'Restored to Pending Upload.')
+      onRefresh()
+    } catch (e) { setActionMsg(e?.response?.data?.error || 'Action failed') }
+  }
+
   const handleInternalUpload = async () => {
     if (!internalFile || !panel) return
     setInternalUploading(true); setActionMsg('')
@@ -639,7 +651,7 @@ function ReviewerView({ groups, role, onRefresh }) {
               })
               const pendingUploadDocs = DOC_TYPES.filter(({ key: k }) => {
                 const st = docsMap[k]?.status
-                return !st || st === 'pending_upload'
+                return !st || st === 'pending_upload' || st === 'not_applicable'
               })
 
               return (
@@ -745,21 +757,27 @@ function ReviewerView({ groups, role, onRefresh }) {
                         {pendingUploadDocs.length > 0 && (
                           <div style={{ marginTop: '14px' }}>
                             <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span>Not Yet Uploaded by Supplier</span>
+                              <span>Pending / Not Applicable</span>
                               {canInternalUpload && <span style={{ fontSize: '10px', fontWeight: '400', color: '#64748b', background: '#f1f5f9', padding: '1px 7px', borderRadius: '9999px' }}>Click to upload on behalf</span>}
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '6px' }}>
-                              {pendingUploadDocs.map(({ key: k, label }) => (
-                                <button key={k} onClick={() => openPanel(group, k)} style={{
-                                  display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 11px',
-                                  borderRadius: '7px', cursor: canInternalUpload ? 'pointer' : 'default', textAlign: 'left',
-                                  border: '1px dashed #cbd5e1', background: '#f8fafc',
-                                }}>
-                                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#94a3b8', flexShrink: 0 }} />
-                                  <span style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', lineHeight: 1.3 }}>{label}</span>
-                                  {canInternalUpload && <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#94a3b8' }}>↑</span>}
-                                </button>
-                              ))}
+                              {pendingUploadDocs.map(({ key: k, label }) => {
+                                const st = docsMap[k]?.status
+                                const isNA = st === 'not_applicable'
+                                return (
+                                  <button key={k} onClick={() => openPanel(group, k)} style={{
+                                    display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 11px',
+                                    borderRadius: '7px', cursor: canInternalUpload ? 'pointer' : 'default', textAlign: 'left',
+                                    border: isNA ? '1px solid #e5e7eb' : '1px dashed #cbd5e1',
+                                    background: isNA ? '#f5f5f5' : '#f8fafc',
+                                  }}>
+                                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: isNA ? '#d1d5db' : '#94a3b8', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '12px', fontWeight: '500', color: isNA ? '#9ca3af' : '#64748b', lineHeight: 1.3, textDecoration: isNA ? 'line-through' : 'none' }}>{label}</span>
+                                    {isNA && <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#9ca3af', background: '#e5e7eb', padding: '1px 5px', borderRadius: '4px' }}>N/A</span>}
+                                    {!isNA && canInternalUpload && <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#94a3b8' }}>↑</span>}
+                                  </button>
+                                )
+                              })}
                             </div>
                           </div>
                         )}
@@ -830,29 +848,48 @@ function ReviewerView({ groups, role, onRefresh }) {
                   <div style={{ fontSize: '13px', color: '#374151' }}>{panelDoc.buying_remarks}</div>
                 </div>
               )}
-              {/* Internal upload — for admin/qa/buying when doc not yet uploaded */}
-              {canInternalUpload && (panelStatus === 'pending_upload') && (
-                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '14px', marginBottom: '12px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#0369a1', marginBottom: '4px' }}>Upload on Supplier's Behalf</div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Document will be marked <strong>Approved</strong> immediately. Supplier will be notified.</div>
-                  <input ref={internalFileRef} type="file" id="internal-file-input" style={{ display: 'none' }}
-                    onChange={e => setInternalFile(e.target.files[0] || null)}
-                    accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx,.dwg,.ai,.eps,.zip,.csv" />
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <label htmlFor="internal-file-input" style={{ padding: '7px 14px', background: '#fff', color: '#0369a1', border: '1px dashed #93c5fd', borderRadius: '7px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                      {internalFile ? `📎 ${internalFile.name}` : '+ Choose File'}
-                    </label>
-                    {internalFile && (
-                      <>
-                        <button onClick={() => { setInternalFile(null); if (internalFileRef.current) internalFileRef.current.value = '' }}
-                          style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: 0 }}>×</button>
-                        <button onClick={handleInternalUpload} disabled={internalUploading}
-                          style={{ padding: '7px 16px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: '700', cursor: internalUploading ? 'not-allowed' : 'pointer' }}>
-                          {internalUploading ? 'Uploading...' : '↑ Upload & Approve'}
+              {/* Internal upload / N/A — for admin/qa/buying */}
+              {canInternalUpload && (panelStatus === 'pending_upload' || panelStatus === 'not_applicable') && (
+                <div style={{ background: panelStatus === 'not_applicable' ? '#f5f5f5' : '#f0f9ff', border: `1px solid ${panelStatus === 'not_applicable' ? '#e5e7eb' : '#bae6fd'}`, borderRadius: '10px', padding: '14px', marginBottom: '12px' }}>
+                  {panelStatus === 'not_applicable' ? (
+                    <>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#6b7280', marginBottom: '4px' }}>Marked as Not Applicable</div>
+                      <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '10px' }}>This document is marked N/A. You can undo this or upload a file instead.</div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button onClick={handleInternalMarkNA}
+                          style={{ padding: '7px 14px', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: '7px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                          ↩ Undo N/A
                         </button>
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#0369a1', marginBottom: '4px' }}>Upload on Supplier's Behalf</div>
+                      <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Document will be marked <strong>Approved</strong> immediately. Supplier will be notified.</div>
+                      <input ref={internalFileRef} type="file" id="internal-file-input" style={{ display: 'none' }}
+                        onChange={e => setInternalFile(e.target.files[0] || null)}
+                        accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx,.dwg,.ai,.eps,.zip,.csv" />
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <label htmlFor="internal-file-input" style={{ padding: '7px 14px', background: '#fff', color: '#0369a1', border: '1px dashed #93c5fd', borderRadius: '7px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                          {internalFile ? `📎 ${internalFile.name}` : '+ Choose File'}
+                        </label>
+                        {internalFile && (
+                          <>
+                            <button onClick={() => { setInternalFile(null); if (internalFileRef.current) internalFileRef.current.value = '' }}
+                              style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: 0 }}>×</button>
+                            <button onClick={handleInternalUpload} disabled={internalUploading}
+                              style={{ padding: '7px 16px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: '700', cursor: internalUploading ? 'not-allowed' : 'pointer' }}>
+                              {internalUploading ? 'Uploading...' : '↑ Upload & Approve'}
+                            </button>
+                          </>
+                        )}
+                        <button onClick={handleInternalMarkNA}
+                          style={{ padding: '7px 12px', background: '#f5f5f5', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: '7px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          Mark N/A
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
