@@ -447,12 +447,12 @@ function SupplierUploadView({ groups, onRefresh }) {
 function ReviewerView({ groups, role, onRefresh }) {
   const [activeFilter, setActiveFilter] = useState('all')
   const [search, setSearch] = useState('')
-  const [panelMode, setPanelMode] = useState(null) // null | 'list' | 'doc'
-  const [listGroup, setListGroup] = useState(null)
-  const [panel, setPanel] = useState(null)
+  const [listGroup, setListGroup] = useState(null)   // which row's panel is open
+  const [expandedDocKey, setExpandedDocKey] = useState(null) // which doc is expanded inline
+  const [expandedDoc, setExpandedDoc] = useState(null) // optimistic doc state
   const [fileUrl, setFileUrl] = useState(null)
   const [fileType, setFileType] = useState(null)
-  const [panelLoading, setPanelLoading] = useState(false)
+  const [fileLoading, setFileLoading] = useState(false)
   const [reviewRemarks, setReviewRemarks] = useState('')
   const [reviewing, setReviewing] = useState(false)
   const [actionMsg, setActionMsg] = useState('')
@@ -515,80 +515,95 @@ function ReviewerView({ groups, role, onRefresh }) {
 
   const openListPanel = (group) => {
     setListGroup(group)
-    setPanelMode('list')
-    setPanel(null)
+    setExpandedDocKey(null)
+    setExpandedDoc(null)
+    if (fileUrl) { URL.revokeObjectURL(fileUrl); setFileUrl(null) }
+    setFileType(null)
+    setActionMsg('')
+    setReviewRemarks('')
+    setInternalFile(null)
+  }
+
+  const closePanel = () => {
+    setListGroup(null)
+    setExpandedDocKey(null)
+    setExpandedDoc(null)
     if (fileUrl) { URL.revokeObjectURL(fileUrl); setFileUrl(null) }
     setFileType(null)
     setActionMsg('')
   }
 
-  const openPanel = async (group, docTypeKey) => {
-    const doc = group.docs.find(d => d.doc_type === docTypeKey) || null
-    setPanel({ group, docTypeKey, doc })
-    setPanelMode('doc')
-    setReviewRemarks(''); setActionMsg('')
+  const toggleDocExpand = async (docTypeKey) => {
+    if (expandedDocKey === docTypeKey) {
+      setExpandedDocKey(null)
+      setExpandedDoc(null)
+      if (fileUrl) { URL.revokeObjectURL(fileUrl); setFileUrl(null) }
+      setFileType(null)
+      setActionMsg('')
+      setReviewRemarks('')
+      setInternalFile(null)
+      return
+    }
+    const doc = listGroup.docs.find(d => d.doc_type === docTypeKey) || null
+    setExpandedDocKey(docTypeKey)
+    setExpandedDoc(doc)
+    setActionMsg('')
+    setReviewRemarks('')
+    setInternalFile(null)
     if (fileUrl) { URL.revokeObjectURL(fileUrl); setFileUrl(null) }
     setFileType(null)
     if (doc?.id && doc?.file_name) {
-      setPanelLoading(true)
+      setFileLoading(true)
       try {
         const res = await getDocumentFile(doc.id)
         setFileUrl(URL.createObjectURL(res.data)); setFileType(res.data.type)
       } catch {}
-      finally { setPanelLoading(false) }
+      finally { setFileLoading(false) }
     }
   }
 
-  const closePanel = () => {
-    setPanelMode(null)
-    setListGroup(null)
-    setPanel(null)
-    if (fileUrl) { URL.revokeObjectURL(fileUrl); setFileUrl(null) }
-    setFileType(null)
-    setActionMsg('')
-  }
-
   const handleReview = async (action) => {
-    if (!panel?.doc?.id) return
+    if (!expandedDoc?.id) return
     setReviewing(true); setActionMsg('')
     try {
-      await reviewDocument(panel.doc.id, { action, remarks: reviewRemarks })
-      setActionMsg(action === 'approve' ? 'Approved.' : 'Rejected with remarks.')
+      await reviewDocument(expandedDoc.id, { action, remarks: reviewRemarks })
+      setActionMsg(action === 'approve' ? 'Approved.' : 'Rejected.')
+      const newStatus = action === 'approve' ? (canQAReview ? 'qa_approved' : 'approved') : 'rejected'
+      setExpandedDoc(d => ({ ...d, status: newStatus, qa_remarks: canQAReview ? reviewRemarks : d?.qa_remarks, buying_remarks: canBuyingReview ? reviewRemarks : d?.buying_remarks }))
       onRefresh()
-      setPanel(p => ({ ...p, doc: { ...p.doc, status: action === 'approve' ? (canQAReview ? 'qa_approved' : 'approved') : 'rejected', qa_remarks: canQAReview ? reviewRemarks : p.doc?.qa_remarks, buying_remarks: canBuyingReview ? reviewRemarks : p.doc?.buying_remarks } }))
     } catch (e) { setActionMsg(e?.response?.data?.error || 'Action failed') }
     finally { setReviewing(false) }
   }
 
   const handleInternalMarkNA = async () => {
-    if (!panel) return
+    if (!expandedDoc && expandedDocKey && listGroup) {
+      // doc doesn't exist yet (never uploaded)
+    }
     setActionMsg('')
     try {
-      await markNotApplicable({ item_code: panel.group.item_code, supplier_code: panel.group.supplier_code, doc_type: panel.docTypeKey })
-      const newStatus = panel.doc?.status === 'not_applicable' ? 'pending_upload' : 'not_applicable'
-      setPanel(p => ({ ...p, doc: { ...p.doc, status: newStatus } }))
+      await markNotApplicable({ item_code: listGroup.item_code, supplier_code: listGroup.supplier_code, doc_type: expandedDocKey })
+      const newStatus = expandedDoc?.status === 'not_applicable' ? 'pending_upload' : 'not_applicable'
+      setExpandedDoc(d => ({ ...(d || {}), status: newStatus }))
       setActionMsg(newStatus === 'not_applicable' ? 'Marked as Not Applicable.' : 'Restored to Pending Upload.')
       onRefresh()
     } catch (e) { setActionMsg(e?.response?.data?.error || 'Action failed') }
   }
 
   const handleInternalUpload = async () => {
-    if (!internalFile || !panel) return
+    if (!internalFile || !expandedDocKey || !listGroup) return
     setInternalUploading(true); setActionMsg('')
     try {
       const fd = new FormData()
-      fd.append('item_code', panel.group.item_code)
-      fd.append('supplier_code', panel.group.supplier_code)
-      fd.append('doc_type', panel.docTypeKey)
+      fd.append('item_code', listGroup.item_code)
+      fd.append('supplier_code', listGroup.supplier_code)
+      fd.append('doc_type', expandedDocKey)
       fd.append('file', internalFile)
       await internalUploadDocument(fd)
-      setActionMsg('Document uploaded and marked Approved. Supplier has been notified.')
+      setActionMsg('Uploaded and Approved. Supplier notified.')
       setInternalFile(null)
       if (internalFileRef.current) internalFileRef.current.value = ''
+      setExpandedDoc(d => ({ ...(d || {}), status: 'approved', file_name: internalFile.name }))
       onRefresh()
-      // Reload panel file preview
-      const newDoc = { ...panel.doc, status: 'approved', file_name: internalFile.name }
-      setPanel(p => ({ ...p, doc: newDoc }))
     } catch (e) {
       setActionMsg(e?.response?.data?.error || 'Upload failed')
     } finally { setInternalUploading(false) }
@@ -683,11 +698,11 @@ function ReviewerView({ groups, role, onRefresh }) {
                   </td>
                   <td style={{ padding: '12px 16px', textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>{s.na > 0 ? s.na : '—'}</td>
                   <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                    <button onClick={() => isActive && panelMode ? closePanel() : openListPanel(group)} style={{
-                      padding: '5px 14px', background: isActive && panelMode ? '#1C1208' : '#f1f5f9',
-                      color: isActive && panelMode ? '#fff' : '#374151', border: '1px solid #e5e7eb',
+                    <button onClick={() => isActive ? closePanel() : openListPanel(group)} style={{
+                      padding: '5px 14px', background: isActive ? '#1C1208' : '#f1f5f9',
+                      color: isActive ? '#fff' : '#374151', border: '1px solid #e5e7eb',
                       borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer'
-                    }}>{isActive && panelMode ? 'Close' : 'View'}</button>
+                    }}>{isActive ? 'Close' : 'View'}</button>
                   </td>
                 </tr>
               )
@@ -696,180 +711,171 @@ function ReviewerView({ groups, role, onRefresh }) {
         </table>
       </div>
 
-      {/* Slide panel */}
-      {panelMode && (listGroup || panel) && (
+      {/* Single slide panel — list with inline action expansion */}
+      {listGroup && (
         <>
           <div onClick={closePanel} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 40 }} />
-          <div style={{ position: 'fixed', top: '52px', right: 0, width: '480px', height: 'calc(100vh - 52px)', background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 50, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ position: 'fixed', top: '52px', right: 0, width: '460px', height: 'calc(100vh - 52px)', background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 50, display: 'flex', flexDirection: 'column' }}>
 
-            {/* Panel header */}
+            {/* Header */}
             <div style={{ background: '#1C1208', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
               <div style={{ minWidth: 0 }}>
-                {panelMode === 'doc' && (
-                  <button onClick={() => { setPanelMode('list'); setPanel(null); if (fileUrl) { URL.revokeObjectURL(fileUrl); setFileUrl(null) }; setFileType(null); setActionMsg('') }}
-                    style={{ background: 'none', border: 'none', color: '#d4c5a0', fontSize: '12px', cursor: 'pointer', padding: '0 0 4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    ← Back to list
-                  </button>
-                )}
-                <div style={{ fontSize: '12px', color: '#d4c5a0', marginBottom: '2px' }}>
-                  {(panel?.group || listGroup)?.item_name} · {(panel?.group || listGroup)?.supplier_name}
-                </div>
-                <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff' }}>
-                  {panelMode === 'list' ? 'Document List' : (DOC_TYPES.find(d => d.key === panel?.docTypeKey)?.label || panel?.docTypeKey)}
-                </div>
+                <div style={{ fontSize: '12px', color: '#d4c5a0', marginBottom: '2px' }}>{listGroup.item_name} · {listGroup.supplier_name}</div>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff' }}>Document List</div>
               </div>
               <button onClick={closePanel} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', flexShrink: 0 }}>×</button>
             </div>
 
-            {/* List mode */}
-            {panelMode === 'list' && listGroup && (() => {
-              const docsMap = {}
-              listGroup.docs.forEach(d => { docsMap[d.doc_type] = d })
-              return (
-                <div style={{ overflowY: 'auto', flex: 1 }}>
-                  {DOC_TYPES.map(({ key: k, label }) => {
-                    const doc = docsMap[k]
-                    const status = doc?.status || 'pending_upload'
-                    const meta = STATUS_META[status]
-                    const isNA = status === 'not_applicable'
-                    return (
-                      <div key={k} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 18px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
-                        onClick={() => openPanel(listGroup, k)}
-                        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                        onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+            {/* Doc list with inline expansion */}
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {(() => {
+                const docsMap = {}
+                listGroup.docs.forEach(d => { docsMap[d.doc_type] = d })
+                return DOC_TYPES.map(({ key: k, label }) => {
+                  const doc = docsMap[k]
+                  // Use expandedDoc for optimistic status when this row is expanded
+                  const liveDoc = expandedDocKey === k ? expandedDoc : doc
+                  const status = liveDoc?.status || 'pending_upload'
+                  const meta = STATUS_META[status]
+                  const isNA = status === 'not_applicable'
+                  const isOpen = expandedDocKey === k
+                  const showQAReview = canQAReview && status === 'pending_approval'
+                  const showBuyingReview = canBuyingReview && status === 'qa_approved'
+
+                  return (
+                    <div key={k} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      {/* Row */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 18px', cursor: 'pointer', background: isOpen ? '#f0f9ff' : '#fff' }}
+                        onClick={() => toggleDocExpand(k)}
+                        onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = '#f8fafc' }}
+                        onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = '#fff' }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '13px', fontWeight: '600', color: isNA ? '#9ca3af' : '#1e293b', textDecoration: isNA ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
-                          {doc?.file_name && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.file_name}</div>}
+                          {liveDoc?.file_name && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{liveDoc.file_name}</div>}
                         </div>
                         <span style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, padding: '2px 9px', borderRadius: '9999px', fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 }}>{meta.label}</span>
-                        <span style={{ color: '#94a3b8', fontSize: '14px', flexShrink: 0 }}>›</span>
+                        <span style={{ color: '#94a3b8', fontSize: '14px', flexShrink: 0, transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>›</span>
                       </div>
-                    )
-                  })}
-                </div>
-              )
-            })()}
 
-            {/* Doc detail mode */}
-            {panelMode === 'doc' && panel && (() => {
-              const panelDoc = panel.doc
-              const panelStatus = panelDoc?.status || 'pending_upload'
-              const sm = STATUS_META[panelStatus] || STATUS_META.pending_upload
-              const showQAReview = canQAReview && panelStatus === 'pending_approval'
-              const showBuyingReview = canBuyingReview && panelStatus === 'qa_approved'
-              return (
-                <div style={{ overflowY: 'auto', flex: 1, padding: '18px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                    <span style={{ background: sm.bg, color: sm.color, border: `1px solid ${sm.border}`, padding: '4px 12px', borderRadius: '9999px', fontSize: '12px', fontWeight: '700' }}>{sm.label}</span>
-                    {panelDoc?.uploaded_at && <span style={{ fontSize: '11px', color: '#94a3b8' }}>Uploaded {new Date(panelDoc.uploaded_at).toLocaleDateString()}</span>}
-                  </div>
-                  {panelLoading ? (
-                    <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8' }}>Loading...</div>
-                  ) : fileUrl ? (
-                    <div style={{ marginBottom: '14px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                      {fileType?.startsWith('image/') ? (
-                        <img src={fileUrl} alt="" style={{ width: '100%', maxHeight: '280px', objectFit: 'contain', display: 'block' }} />
-                      ) : fileType === 'application/pdf' ? (
-                        <iframe src={fileUrl} style={{ width: '100%', height: '280px', border: 'none' }} title="doc" />
-                      ) : (
-                        <div style={{ padding: '32px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>📄 {panelDoc?.file_name}</div>
-                      )}
-                      <div style={{ padding: '8px 12px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '12px', color: '#64748b' }}>{panelDoc?.file_name}</span>
-                        <button onClick={() => { const a = document.createElement('a'); a.href = fileUrl; a.download = panelDoc.file_name; a.click() }} style={{ padding: '4px 12px', background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>⬇ Download</button>
-                      </div>
-                    </div>
-                  ) : panelStatus !== 'pending_upload' ? (
-                    <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', border: '1px dashed #e5e7eb', borderRadius: '8px', marginBottom: '14px', fontSize: '13px' }}>No file available</div>
-                  ) : (
-                    <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', border: '1px dashed #e5e7eb', borderRadius: '8px', marginBottom: '14px' }}>
-                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>📤</div>
-                      <p style={{ margin: 0, fontSize: '13px' }}>Awaiting supplier upload</p>
-                    </div>
-                  )}
-                  {panelDoc?.qa_remarks && (
-                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', marginBottom: '10px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>QA Remarks</div>
-                      <div style={{ fontSize: '13px', color: '#374151' }}>{panelDoc.qa_remarks}</div>
-                    </div>
-                  )}
-                  {panelDoc?.buying_remarks && (
-                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', marginBottom: '10px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>Buying Remarks</div>
-                      <div style={{ fontSize: '13px', color: '#374151' }}>{panelDoc.buying_remarks}</div>
-                    </div>
-                  )}
-                  {canInternalUpload && (panelStatus === 'pending_upload' || panelStatus === 'not_applicable') && (
-                    <div style={{ background: panelStatus === 'not_applicable' ? '#f5f5f5' : '#f0f9ff', border: `1px solid ${panelStatus === 'not_applicable' ? '#e5e7eb' : '#bae6fd'}`, borderRadius: '10px', padding: '14px', marginBottom: '12px' }}>
-                      {panelStatus === 'not_applicable' ? (
-                        <>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#6b7280', marginBottom: '4px' }}>Marked as Not Applicable</div>
-                          <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '10px' }}>This document is marked N/A. You can undo this or upload a file instead.</div>
-                          <button onClick={handleInternalMarkNA} style={{ padding: '7px 14px', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: '7px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>↩ Undo N/A</button>
-                        </>
-                      ) : (
-                        <>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#0369a1', marginBottom: '4px' }}>Upload on Supplier's Behalf</div>
-                          <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Document will be marked <strong>Approved</strong> immediately. Supplier will be notified.</div>
-                          <input ref={internalFileRef} type="file" id="internal-file-input" style={{ display: 'none' }}
-                            onChange={e => setInternalFile(e.target.files[0] || null)}
-                            accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx,.dwg,.ai,.eps,.zip,.csv" />
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <label htmlFor="internal-file-input" style={{ padding: '7px 14px', background: '#fff', color: '#0369a1', border: '1px dashed #93c5fd', borderRadius: '7px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                              {internalFile ? `📎 ${internalFile.name}` : '+ Choose File'}
-                            </label>
-                            {internalFile && (
-                              <>
-                                <button onClick={() => { setInternalFile(null); if (internalFileRef.current) internalFileRef.current.value = '' }}
-                                  style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: 0 }}>×</button>
-                                <button onClick={handleInternalUpload} disabled={internalUploading}
-                                  style={{ padding: '7px 16px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: '700', cursor: internalUploading ? 'not-allowed' : 'pointer' }}>
-                                  {internalUploading ? 'Uploading...' : '↑ Upload & Approve'}
+                      {/* Inline action area */}
+                      {isOpen && (
+                        <div style={{ padding: '12px 18px 16px', background: '#f8fafc', borderTop: '1px solid #e5e7eb' }}>
+
+                          {/* File preview */}
+                          {fileLoading ? (
+                            <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '13px' }}>Loading file...</div>
+                          ) : fileUrl ? (
+                            <div style={{ marginBottom: '12px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb', background: '#fff' }}>
+                              {fileType?.startsWith('image/') ? (
+                                <img src={fileUrl} alt="" style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', display: 'block' }} />
+                              ) : fileType === 'application/pdf' ? (
+                                <iframe src={fileUrl} style={{ width: '100%', height: '200px', border: 'none' }} title="doc" />
+                              ) : (
+                                <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>📄 {liveDoc?.file_name}</div>
+                              )}
+                              <div style={{ padding: '6px 12px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{liveDoc?.file_name}</span>
+                                <button onClick={() => { const a = document.createElement('a'); a.href = fileUrl; a.download = liveDoc.file_name; a.click() }} style={{ padding: '3px 10px', background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', borderRadius: '5px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', flexShrink: 0 }}>⬇ Download</button>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Remarks */}
+                          {liveDoc?.qa_remarks && (
+                            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', marginBottom: '8px' }}>
+                              <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>QA Remarks</div>
+                              <div style={{ fontSize: '12px', color: '#374151' }}>{liveDoc.qa_remarks}</div>
+                            </div>
+                          )}
+                          {liveDoc?.buying_remarks && (
+                            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '8px 10px', marginBottom: '8px' }}>
+                              <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>Buying Remarks</div>
+                              <div style={{ fontSize: '12px', color: '#374151' }}>{liveDoc.buying_remarks}</div>
+                            </div>
+                          )}
+
+                          {/* Internal upload / N/A */}
+                          {canInternalUpload && (status === 'pending_upload' || status === 'not_applicable') && (
+                            <div style={{ background: status === 'not_applicable' ? '#f5f5f5' : '#f0f9ff', border: `1px solid ${status === 'not_applicable' ? '#e5e7eb' : '#bae6fd'}`, borderRadius: '8px', padding: '10px 12px', marginBottom: '8px' }}>
+                              {status === 'not_applicable' ? (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                  <span style={{ fontSize: '12px', color: '#6b7280' }}>Marked as Not Applicable</span>
+                                  <button onClick={handleInternalMarkNA} style={{ padding: '5px 12px', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>↩ Undo N/A</button>
+                                </div>
+                              ) : (
+                                <>
+                                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1', marginBottom: '8px' }}>Upload on Supplier's Behalf</div>
+                                  <input ref={internalFileRef} type="file" id={`ifile-${k}`} style={{ display: 'none' }}
+                                    onChange={e => setInternalFile(e.target.files[0] || null)}
+                                    accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx,.dwg,.ai,.eps,.zip,.csv" />
+                                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <label htmlFor={`ifile-${k}`} style={{ padding: '6px 12px', background: '#fff', color: '#0369a1', border: '1px dashed #93c5fd', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                                      {internalFile ? `📎 ${internalFile.name}` : '+ Choose File'}
+                                    </label>
+                                    {internalFile && (
+                                      <>
+                                        <button onClick={() => { setInternalFile(null); if (internalFileRef.current) internalFileRef.current.value = '' }}
+                                          style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: 0 }}>×</button>
+                                        <button onClick={handleInternalUpload} disabled={internalUploading}
+                                          style={{ padding: '6px 14px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: internalUploading ? 'not-allowed' : 'pointer' }}>
+                                          {internalUploading ? 'Uploading...' : '↑ Upload & Approve'}
+                                        </button>
+                                      </>
+                                    )}
+                                    <button onClick={handleInternalMarkNA}
+                                      style={{ padding: '6px 10px', background: '#f5f5f5', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                      Mark N/A
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {/* QA / Buying review */}
+                          {(showQAReview || showBuyingReview) && (
+                            <div>
+                              <textarea
+                                value={reviewRemarks}
+                                onChange={e => setReviewRemarks(e.target.value)}
+                                placeholder="Add remarks (required to reject)..."
+                                rows={2}
+                                style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box', resize: 'none', marginBottom: '6px' }}
+                              />
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button onClick={() => handleReview('approve')} disabled={reviewing} style={{ flex: 1, padding: '7px', background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: reviewing ? 'not-allowed' : 'pointer' }}>
+                                  ✓ {showBuyingReview ? 'Final Approve' : 'Approve'}
                                 </button>
-                              </>
-                            )}
-                            <button onClick={handleInternalMarkNA}
-                              style={{ padding: '7px 12px', background: '#f5f5f5', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: '7px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                              Mark N/A
-                            </button>
-                          </div>
-                        </>
+                                <button onClick={() => handleReview('reject')} disabled={reviewing || !reviewRemarks.trim()} style={{ flex: 1, padding: '7px', background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: (reviewing || !reviewRemarks.trim()) ? 'not-allowed' : 'pointer', opacity: !reviewRemarks.trim() ? 0.6 : 1 }}>
+                                  ✗ Reject
+                                </button>
+                              </div>
+                              {!reviewRemarks.trim() && <p style={{ fontSize: '11px', color: '#94a3b8', margin: '4px 0 0' }}>Remarks required to reject</p>}
+                            </div>
+                          )}
+
+                          {/* Action message */}
+                          {actionMsg && (
+                            <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '7px', fontSize: '12px', fontWeight: '600',
+                              background: actionMsg.toLowerCase().includes('fail') ? '#fef2f2' : '#f0fdf4',
+                              color: actionMsg.toLowerCase().includes('fail') ? '#dc2626' : '#15803d',
+                            }}>{actionMsg}</div>
+                          )}
+
+                          {/* No actions available */}
+                          {!canInternalUpload && !showQAReview && !showBuyingReview && !fileUrl && (
+                            <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', padding: '8px 0' }}>
+                              {status === 'pending_upload' ? 'Awaiting supplier upload' : status === 'not_applicable' ? 'Marked N/A' : 'No actions available'}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                  {(showQAReview || showBuyingReview) && (
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
-                        {showBuyingReview ? 'Buying Approval' : 'QA Review'}
-                      </div>
-                      <textarea
-                        value={reviewRemarks}
-                        onChange={e => setReviewRemarks(e.target.value)}
-                        placeholder="Add remarks (required to reject)..."
-                        rows={3}
-                        style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box', resize: 'vertical', marginBottom: '8px' }}
-                      />
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => handleReview('approve')} disabled={reviewing} style={{ flex: 1, padding: '9px', background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', borderRadius: '7px', fontSize: '13px', fontWeight: '700', cursor: reviewing ? 'not-allowed' : 'pointer' }}>
-                          ✓ {showBuyingReview ? 'Final Approve' : 'Approve'}
-                        </button>
-                        <button onClick={() => handleReview('reject')} disabled={reviewing || !reviewRemarks.trim()} style={{ flex: 1, padding: '9px', background: '#fef2f2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '7px', fontSize: '13px', fontWeight: '700', cursor: (reviewing || !reviewRemarks.trim()) ? 'not-allowed' : 'pointer', opacity: !reviewRemarks.trim() ? 0.6 : 1 }}>
-                          ✗ Reject
-                        </button>
-                      </div>
-                      {!reviewRemarks.trim() && <p style={{ fontSize: '11px', color: '#94a3b8', margin: '4px 0 0' }}>Remarks required to reject</p>}
-                    </div>
-                  )}
-                  {actionMsg && (
-                    <div style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '600',
-                      background: actionMsg.includes('fail') || actionMsg.includes('Failed') ? '#fef2f2' : '#f0fdf4',
-                      color: actionMsg.includes('fail') || actionMsg.includes('Failed') ? '#dc2626' : '#15803d',
-                    }}>{actionMsg}</div>
-                  )}
-                </div>
-              )
-            })()}
+                  )
+                })
+              })()}
+            </div>
           </div>
         </>
       )}
