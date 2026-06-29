@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import LanguageSwitcher from './LanguageSwitcher.jsx'
+import CurrencySwitcher from './CurrencySwitcher.jsx'
 import BrandLogo from './BrandLogo.jsx'
 import NotificationBell from './NotificationBell.jsx'
 
@@ -107,6 +108,7 @@ export default function Navbar() {
             </span>
           )}
           <NotificationBell />
+          <div style={{ opacity: 0.85 }}><CurrencySwitcher /></div>
           <div style={{ opacity: 0.85 }}><LanguageSwitcher /></div>
           <button
             onClick={logout}

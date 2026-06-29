@@ -13,6 +13,7 @@ import { generateInspectionReport } from '../utils/generateInspectionReport.js'
 import { getChecklistReport } from '../api/reports.js'
 import { getDocuments, getDocumentFile } from '../api/documents.js'
 import { getPastInspections, getComplaints, getClaims } from '../api/itemHistory.js'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 import * as XLSX from 'xlsx'
 
 const STATUS_META = {
@@ -63,6 +64,7 @@ export default function JobDetailPage() {
   const { id } = useParams()
   const { user } = useAuth()
   const { t } = useLanguage()
+  const { formatAmount, currentCurrency } = useCurrency()
   const navigate = useNavigate()
 
   const [job, setJob] = useState(null)
@@ -887,7 +889,7 @@ export default function JobDetailPage() {
                       <div style={{ background: '#fff7ed', borderRadius: '8px', padding: '8px 12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '11px', color: '#92400e', fontWeight: '600' }}>Total claimed</span>
                         <span style={{ fontSize: '14px', fontWeight: '800', color: '#c2410c' }}>
-                          £{histClaims.reduce((sum, c) => sum + (Number(c.claim_amount) || 0), 0).toFixed(2)}
+                          {formatAmount(histClaims.reduce((sum, c) => sum + (Number(c.claim_amount) || 0), 0))}
                         </span>
                       </div>
                     )}
@@ -982,7 +984,7 @@ export default function JobDetailPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '700px' }}>
                 <thead style={{ position: 'sticky', top: 0, background: '#f8fafc' }}>
                   <tr>
-                    {['Ref No.','Date','Customer','Reason','Amount (£)','Status','Resolution'].map(h => (
+                    {['Ref No.','Date','Customer','Reason',`Amount (${currentCurrency.code})`,'Status','Resolution'].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap', background: '#f8fafc' }}>{h}</th>
                     ))}
                   </tr>
@@ -996,7 +998,7 @@ export default function JobDetailPage() {
                         <td style={{ padding: '10px 14px', color: '#64748b', whiteSpace: 'nowrap' }}>{row.claim_date ? row.claim_date.slice(0,10) : '—'}</td>
                         <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{row.customer_name || '—'}</td>
                         <td style={{ padding: '10px 14px', color: '#475569', maxWidth: '220px' }}>{row.reason || '—'}</td>
-                        <td style={{ padding: '10px 14px', color: '#c2410c', fontWeight: '700', textAlign: 'right' }}>{row.claim_amount ? `£${Number(row.claim_amount).toFixed(2)}` : '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#c2410c', fontWeight: '700', textAlign: 'right' }}>{row.claim_amount ? formatAmount(Number(row.claim_amount)) : '—'}</td>
                         <td style={{ padding: '10px 14px' }}>
                           <span style={{ background: sc.bg, color: sc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{row.status?.replace(/_/g,' ')}</span>
                         </td>
@@ -1010,7 +1012,7 @@ export default function JobDetailPage() {
                   <tr style={{ background: '#f8fafc', borderTop: '2px solid #e5e7eb' }}>
                     <td colSpan={4} style={{ padding: '10px 14px', fontSize: '12px', fontWeight: '700', color: '#374151' }}>Total</td>
                     <td style={{ padding: '10px 14px', color: '#c2410c', fontWeight: '800', fontSize: '13px', textAlign: 'right' }}>
-                      £{historyPanel.data.reduce((sum, c) => sum + (Number(c.claim_amount) || 0), 0).toFixed(2)}
+                      {formatAmount(historyPanel.data.reduce((sum, c) => sum + (Number(c.claim_amount) || 0), 0))}
                     </td>
                     <td colSpan={2} />
                   </tr>

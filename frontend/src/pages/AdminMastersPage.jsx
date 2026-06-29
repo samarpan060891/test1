@@ -14,6 +14,7 @@ import {
   getAllComplaints, createComplaint, bulkComplaints, deleteComplaint,
   getAllClaims, createClaim, bulkClaims, deleteClaim,
 } from '../api/itemHistory.js'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 
 const TABS = ['Suppliers', 'Agencies', 'Items', 'POs', 'Customer Complaints', 'Claims']
 
@@ -34,7 +35,7 @@ const CLAIM_FIELDS = [
   { key: 'claim_date',  label: 'Claim Date',   placeholder: '', type: 'date' },
   { key: 'customer_name',label: 'Customer',    placeholder: 'Customer A' },
   { key: 'reason',      label: 'Reason',       placeholder: 'Reason for claim…' },
-  { key: 'claim_amount',label: 'Amount (£)',   placeholder: '500.00', type: 'number' },
+  { key: 'claim_amount',label: 'Amount (AED)', placeholder: '500.00', type: 'number' },
   { key: 'status',      label: 'Status',       placeholder: 'open', type: 'select', options: ['open','under_review','approved','rejected','settled'] },
   { key: 'resolution',  label: 'Resolution',   placeholder: 'Resolution notes…' },
 ]
@@ -85,6 +86,7 @@ function emptyForm(fields) {
 }
 
 function HistoryMastersTab({ type }) {
+  const { formatAmount, currentCurrency } = useCurrency()
   const isComplaints = type === 'Customer Complaints'
   const fields = isComplaints ? COMPLAINT_FIELDS : CLAIM_FIELDS
   const getAll = isComplaints ? getAllComplaints : getAllClaims
@@ -244,7 +246,9 @@ function HistoryMastersTab({ type }) {
               <thead style={{ position: 'sticky', top: 0, background: '#f8fafc' }}>
                 <tr>
                   {['item_code', 'item_name', ...(isComplaints ? ['complaint_ref','complaint_date','customer_name','description','severity','status'] : ['claim_ref','claim_date','customer_name','reason','claim_amount','status'])].map(col => {
-                    const fld = fields.find(f => f.key === col) || { key: col, label: col }
+                    const fld = col === 'claim_amount'
+                      ? { key: col, label: `Amount (${currentCurrency.code})` }
+                      : fields.find(f => f.key === col) || { key: col, label: col }
                     return (
                       <th key={col} style={{ padding: '9px 12px', textAlign: 'left', fontWeight: '700', color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
@@ -278,7 +282,7 @@ function HistoryMastersTab({ type }) {
                         <td style={{ padding: '9px 12px', color: '#64748b' }}>{row.claim_date ? row.claim_date.slice(0,10) : '—'}</td>
                         <td style={{ padding: '9px 12px', color: '#334155' }}>{row.customer_name || '—'}</td>
                         <td style={{ padding: '9px 12px', color: '#64748b', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.reason || '—'}</td>
-                        <td style={{ padding: '9px 12px', color: '#334155', textAlign: 'right' }}>{row.claim_amount ? `£${Number(row.claim_amount).toFixed(2)}` : '—'}</td>
+                        <td style={{ padding: '9px 12px', color: '#334155', textAlign: 'right' }}>{row.claim_amount ? formatAmount(Number(row.claim_amount)) : '—'}</td>
                       </>}
                       <td style={{ padding: '9px 12px' }}>
                         {stat ? <span style={{ background: STAT_COLORS[stat]||'#f8fafc', color: STAT_TEXT[stat]||'#64748b', padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{stat.replace(/_/g,' ')}</span> : '—'}
