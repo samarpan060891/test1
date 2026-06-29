@@ -97,6 +97,7 @@ function PeriodBadge({ period }) {
 }
 
 function AgencyBreakdown({ advices, jobs, period, t }) {
+  const { formatFrom } = useCurrency()
   const filteredAdvices = period ? advices.filter(a => { const d = new Date(a.created_at); return d >= period.from && d <= period.to }) : advices
   const filteredJobs    = period ? jobs.filter(j => { const d = new Date(j.mapped_at || j.created_at); return d >= period.from && d <= period.to }) : jobs
 
@@ -364,7 +365,6 @@ function CountryBreakdown({ jobs, advices, period, t }) {
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const { formatFrom } = useCurrency()
   const { t } = useLanguage()
   const [jobs, setJobs] = useState([])
   const [advices, setAdvices] = useState([])
