@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 import { getJobs } from '../api/inspectionJobs.js'
 import { getAdvices } from '../api/inspectionCosts.js'
 import InspectionSummaryCard, { buildPresets, resolveActivePeriod } from '../components/InspectionSummaryCard.jsx'
@@ -64,6 +65,7 @@ function StageBadge({ stage, t }) {
   )
 }
 
+// kept for non-monetary uses; monetary calls replaced by formatFrom from context
 function fmt(num, currency = 'USD') {
   if (num == null) return '—'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(num)
@@ -167,7 +169,7 @@ function AgencyBreakdown({ advices, jobs, period, t }) {
                   <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>{t('costs_finished')}</div>
                 </div>
                 <div style={{ textAlign: 'center', background: '#FEF0EB', borderRadius: '6px', padding: '6px 4px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#E8470F' }}>{fmt(totalCharges, ag.currency)}</div>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#E8470F' }}>{formatFrom(totalCharges, ag.currency)}</div>
                   <div style={{ fontSize: '10px', color: '#E8470F', fontWeight: '600', textTransform: 'uppercase' }}>{t('costs_total_charges_col')}</div>
                 </div>
                 <div style={{ textAlign: 'center', background: pct != null ? (pct > 5 ? '#fef2f2' : pct > 3 ? '#fefce8' : '#f0fdf4') : '#f8fafc', borderRadius: '6px', padding: '6px 4px' }}>
@@ -188,7 +190,7 @@ function AgencyBreakdown({ advices, jobs, period, t }) {
                           {m.label}
                         </span>
                         <span style={{ fontSize: '11px', fontWeight: '800', color: m.color, flexShrink: 0 }}>
-                          {fmt(a.total_cost, a.currency)}
+                          {formatFrom(a.total_cost, a.currency)}
                         </span>
                       </div>
                     )
@@ -362,6 +364,7 @@ function CountryBreakdown({ jobs, advices, period, t }) {
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const { formatFrom } = useCurrency()
   const { t } = useLanguage()
   const [jobs, setJobs] = useState([])
   const [advices, setAdvices] = useState([])
