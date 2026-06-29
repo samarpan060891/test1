@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { getDocuments, uploadDocument, reviewDocument, getDocumentFile, markNotApplicable } from '../api/documents.js'
+import { getDocuments, uploadDocument, reviewDocument, getDocumentFile, markNotApplicable, internalUploadDocument } from '../api/documents.js'
 
 const DOC_TYPES = [
   { key: 'product_image',                label: 'Product Image' },
@@ -455,9 +455,13 @@ function ReviewerView({ groups, role, onRefresh }) {
   const [reviewRemarks, setReviewRemarks] = useState('')
   const [reviewing, setReviewing] = useState(false)
   const [actionMsg, setActionMsg] = useState('')
+  const [internalFile, setInternalFile] = useState(null)
+  const [internalUploading, setInternalUploading] = useState(false)
+  const internalFileRef = useRef(null)
 
   const canQAReview = ['qa', 'admin', 'imports', 'accounts'].includes(role)
   const canBuyingReview = role === 'buying'
+  const canInternalUpload = ['admin', 'qa', 'buying'].includes(role)
 
   const getGroupStats = (g) => {
     const docs = g.docs
@@ -527,6 +531,28 @@ function ReviewerView({ groups, role, onRefresh }) {
       setPanel(p => ({ ...p, doc: { ...p.doc, status: action === 'approve' ? (canQAReview ? 'qa_approved' : 'approved') : 'rejected', qa_remarks: canQAReview ? reviewRemarks : p.doc?.qa_remarks, buying_remarks: canBuyingReview ? reviewRemarks : p.doc?.buying_remarks } }))
     } catch (e) { setActionMsg(e?.response?.data?.error || 'Action failed') }
     finally { setReviewing(false) }
+  }
+
+  const handleInternalUpload = async () => {
+    if (!internalFile || !panel) return
+    setInternalUploading(true); setActionMsg('')
+    try {
+      const fd = new FormData()
+      fd.append('item_code', panel.group.item_code)
+      fd.append('supplier_code', panel.group.supplier_code)
+      fd.append('doc_type', panel.docTypeKey)
+      fd.append('file', internalFile)
+      await internalUploadDocument(fd)
+      setActionMsg('Document uploaded and marked Approved. Supplier has been notified.')
+      setInternalFile(null)
+      if (internalFileRef.current) internalFileRef.current.value = ''
+      onRefresh()
+      // Reload panel file preview
+      const newDoc = { ...panel.doc, status: 'approved', file_name: internalFile.name }
+      setPanel(p => ({ ...p, doc: newDoc }))
+    } catch (e) {
+      setActionMsg(e?.response?.data?.error || 'Upload failed')
+    } finally { setInternalUploading(false) }
   }
 
   const panelDoc = panel?.doc
@@ -605,11 +631,15 @@ function ReviewerView({ groups, role, onRefresh }) {
               const isExpanded = expandedKey === key
               const actionDocs = DOC_TYPES.filter(({ key: k }) => {
                 const st = docsMap[k]?.status
-                return st && st !== 'not_applicable' && st !== 'qa_approved' && st !== 'approved'
+                return st && st !== 'not_applicable' && st !== 'qa_approved' && st !== 'approved' && st !== 'pending_upload'
               })
               const resolvedDocs = DOC_TYPES.filter(({ key: k }) => {
                 const st = docsMap[k]?.status
                 return st === 'qa_approved' || st === 'approved'
+              })
+              const pendingUploadDocs = DOC_TYPES.filter(({ key: k }) => {
+                const st = docsMap[k]?.status
+                return !st || st === 'pending_upload'
               })
 
               return (
@@ -711,8 +741,31 @@ function ReviewerView({ groups, role, onRefresh }) {
                           </div>
                         )}
 
-                        {actionDocs.length === 0 && resolvedDocs.length === 0 && (
-                          <div style={{ padding: '16px', color: '#94a3b8', fontSize: '13px', textAlign: 'center' }}>No documents uploaded yet.</div>
+                        {/* Not yet uploaded by supplier */}
+                        {pendingUploadDocs.length > 0 && (
+                          <div style={{ marginTop: '14px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>Not Yet Uploaded by Supplier</span>
+                              {canInternalUpload && <span style={{ fontSize: '10px', fontWeight: '400', color: '#64748b', background: '#f1f5f9', padding: '1px 7px', borderRadius: '9999px' }}>Click to upload on behalf</span>}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '6px' }}>
+                              {pendingUploadDocs.map(({ key: k, label }) => (
+                                <button key={k} onClick={() => openPanel(group, k)} style={{
+                                  display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 11px',
+                                  borderRadius: '7px', cursor: canInternalUpload ? 'pointer' : 'default', textAlign: 'left',
+                                  border: '1px dashed #cbd5e1', background: '#f8fafc',
+                                }}>
+                                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#94a3b8', flexShrink: 0 }} />
+                                  <span style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', lineHeight: 1.3 }}>{label}</span>
+                                  {canInternalUpload && <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#94a3b8' }}>↑</span>}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {actionDocs.length === 0 && resolvedDocs.length === 0 && pendingUploadDocs.length === 0 && (
+                          <div style={{ padding: '16px', color: '#94a3b8', fontSize: '13px', textAlign: 'center' }}>No documents found.</div>
                         )}
                       </td>
                     </tr>
@@ -777,6 +830,32 @@ function ReviewerView({ groups, role, onRefresh }) {
                   <div style={{ fontSize: '13px', color: '#374151' }}>{panelDoc.buying_remarks}</div>
                 </div>
               )}
+              {/* Internal upload — for admin/qa/buying when doc not yet uploaded */}
+              {canInternalUpload && (panelStatus === 'pending_upload') && (
+                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '14px', marginBottom: '12px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#0369a1', marginBottom: '4px' }}>Upload on Supplier's Behalf</div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Document will be marked <strong>Approved</strong> immediately. Supplier will be notified.</div>
+                  <input ref={internalFileRef} type="file" id="internal-file-input" style={{ display: 'none' }}
+                    onChange={e => setInternalFile(e.target.files[0] || null)}
+                    accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx,.dwg,.ai,.eps,.zip,.csv" />
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <label htmlFor="internal-file-input" style={{ padding: '7px 14px', background: '#fff', color: '#0369a1', border: '1px dashed #93c5fd', borderRadius: '7px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                      {internalFile ? `📎 ${internalFile.name}` : '+ Choose File'}
+                    </label>
+                    {internalFile && (
+                      <>
+                        <button onClick={() => { setInternalFile(null); if (internalFileRef.current) internalFileRef.current.value = '' }}
+                          style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: 0 }}>×</button>
+                        <button onClick={handleInternalUpload} disabled={internalUploading}
+                          style={{ padding: '7px 16px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: '700', cursor: internalUploading ? 'not-allowed' : 'pointer' }}>
+                          {internalUploading ? 'Uploading...' : '↑ Upload & Approve'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {(showQAReview || showBuyingReview) && (
                 <div>
                   <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>

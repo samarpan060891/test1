@@ -70,30 +70,39 @@ router.get('/', async (req, res) => {
       );
       rows = r.rows;
     } else if (role === 'buying') {
+      // Buying sees all items from their assigned POs (even with zero uploads)
       const r = await db.query(
-        `SELECT d.id, d.item_code, im.name AS item_name, d.supplier_code, sm.name AS supplier_name,
+        `SELECT DISTINCT ON (im.item_code, sm.supplier_code, d.doc_type)
+                d.id, im.item_code, im.name AS item_name,
+                sm.supplier_code, sm.name AS supplier_name,
                 d.doc_type, d.status, d.file_name, d.uploaded_at,
                 d.qa_remarks, d.qa_reviewed_at, d.buying_remarks, d.buying_reviewed_at
-         FROM qc_inspection.item_documents d
-         JOIN qc_inspection.item_master im ON im.item_code = d.item_code
-         JOIN qc_inspection.supplier_master sm ON sm.supplier_code = d.supplier_code
-         WHERE d.item_code IN (
-           SELECT DISTINCT item_code FROM qc_inspection.po_master WHERE buyer_id = $1
-         )
-         ORDER BY im.name, d.doc_type`,
+         FROM qc_inspection.po_master p
+         LEFT JOIN qc_inspection.po_line_items pl ON pl.po_no = p.po_no
+         JOIN qc_inspection.item_master im ON im.item_code = COALESCE(pl.item_code, p.item_code)
+         JOIN qc_inspection.supplier_master sm ON sm.supplier_code = p.supplier_code
+         LEFT JOIN qc_inspection.item_documents d
+           ON d.item_code = im.item_code AND d.supplier_code = sm.supplier_code
+         WHERE p.buyer_id = $1
+         ORDER BY im.item_code, sm.supplier_code, d.doc_type, d.uploaded_at DESC NULLS LAST`,
         [user_id]
       );
       rows = r.rows;
     } else {
-      // qa, admin, imports, accounts — all
+      // qa, admin, imports, accounts — all items from all POs (even with zero uploads)
       const r = await db.query(
-        `SELECT d.id, d.item_code, im.name AS item_name, d.supplier_code, sm.name AS supplier_name,
+        `SELECT DISTINCT ON (im.item_code, sm.supplier_code, d.doc_type)
+                d.id, im.item_code, im.name AS item_name,
+                sm.supplier_code, sm.name AS supplier_name,
                 d.doc_type, d.status, d.file_name, d.uploaded_at,
                 d.qa_remarks, d.qa_reviewed_at, d.buying_remarks, d.buying_reviewed_at
-         FROM qc_inspection.item_documents d
-         JOIN qc_inspection.item_master im ON im.item_code = d.item_code
-         JOIN qc_inspection.supplier_master sm ON sm.supplier_code = d.supplier_code
-         ORDER BY im.name, d.doc_type`
+         FROM qc_inspection.po_master p
+         LEFT JOIN qc_inspection.po_line_items pl ON pl.po_no = p.po_no
+         JOIN qc_inspection.item_master im ON im.item_code = COALESCE(pl.item_code, p.item_code)
+         JOIN qc_inspection.supplier_master sm ON sm.supplier_code = p.supplier_code
+         LEFT JOIN qc_inspection.item_documents d
+           ON d.item_code = im.item_code AND d.supplier_code = sm.supplier_code
+         ORDER BY im.item_code, sm.supplier_code, d.doc_type, d.uploaded_at DESC NULLS LAST`
       );
       rows = r.rows;
     }
@@ -364,6 +373,66 @@ router.post('/mark-na', async (req, res) => {
     res.json({ status: newStatus });
   } catch (err) {
     console.error('POST /documents/mark-na error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /internal-upload — internal staff upload, no approval needed ─────────
+router.post('/internal-upload', upload.single('file'), async (req, res) => {
+  const { role, user_id } = req.user;
+  const { item_code, supplier_code, doc_type } = req.body;
+
+  if (!['admin', 'qa', 'buying', 'imports', 'accounts'].includes(role))
+    return res.status(403).json({ error: 'Only internal users can use this route' });
+
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  if (!item_code || !supplier_code || !doc_type)
+    return res.status(400).json({ error: 'item_code, supplier_code, and doc_type are required' });
+  if (!ALL_DOC_TYPES.includes(doc_type))
+    return res.status(400).json({ error: 'Invalid doc_type' });
+
+  try {
+    const r = await db.query(
+      `INSERT INTO qc_inspection.item_documents
+         (item_code, supplier_code, doc_type, file_name, file_data, file_type, file_size,
+          uploaded_by, uploaded_at, status, version)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),'approved',1)
+       ON CONFLICT (item_code, supplier_code, doc_type) DO UPDATE
+         SET file_name=$4, file_data=$5, file_type=$6, file_size=$7,
+             uploaded_by=$8, uploaded_at=NOW(), status='approved',
+             version = qc_inspection.item_documents.version + 1,
+             qa_reviewed_by=NULL, qa_reviewed_at=NULL, qa_remarks=NULL,
+             buying_reviewed_by=NULL, buying_reviewed_at=NULL, buying_remarks=NULL
+       RETURNING *`,
+      [item_code, supplier_code, doc_type,
+       req.file.originalname, req.file.buffer, req.file.mimetype, req.file.size, user_id]
+    );
+
+    // Notify supplier in background
+    (async () => {
+      try {
+        const [itemR, supplierR, uploaderR] = await Promise.all([
+          db.query('SELECT name FROM qc_inspection.item_master WHERE item_code=$1', [item_code]),
+          db.query('SELECT name, contact_email FROM qc_inspection.supplier_master WHERE supplier_code=$1', [supplier_code]),
+          db.query('SELECT name FROM qc_inspection.team_stakeholder WHERE user_id=$1', [user_id]),
+        ]);
+        const itemName = itemR.rows[0]?.name || item_code;
+        const supplierName = supplierR.rows[0]?.name || supplier_code;
+        const supplierEmail = supplierR.rows[0]?.contact_email;
+        const uploaderName = uploaderR.rows[0]?.name || req.user.email;
+        if (supplierEmail) {
+          await sendEmail({
+            to: [supplierEmail],
+            subject: `Document uploaded on your behalf – ${itemName}`,
+            html: `<p>Hi ${supplierName},</p><p><strong>${uploaderName}</strong> has uploaded the <strong>${doc_type.replace(/_/g,' ')}</strong> document for <strong>${itemName}</strong> on your behalf. This document has been marked as approved.</p><p>No action is required from you for this document.</p>`,
+          });
+        }
+      } catch (e) { console.error('Internal upload email error:', e.message); }
+    })();
+
+    res.status(201).json(r.rows[0]);
+  } catch (err) {
+    console.error('POST /documents/internal-upload error:', err);
     res.status(500).json({ error: err.message });
   }
 });
