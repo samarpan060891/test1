@@ -12,19 +12,60 @@ const criticalityColors = {
   minor: { backgroundColor: '#dbeafe', color: '#1d4ed8' }
 }
 
-// ISO 2859-1 sample size (General Inspection Level II)
+// ISO 2859-1 Normal Inspection Level II
+// [lotMin, lotMax, code, sampleSize]
 const ISO_LOT_TABLE = [
-  [2, 8, 'A', 2], [9, 15, 'B', 3], [16, 25, 'C', 5], [26, 50, 'D', 8],
-  [51, 90, 'E', 13], [91, 150, 'F', 20], [151, 280, 'G', 32],
-  [281, 500, 'H', 50], [501, 1200, 'J', 80], [1201, 3200, 'K', 125],
-  [3201, 10000, 'L', 200], [10001, 35000, 'M', 315],
-  [35001, 150000, 'N', 500], [150001, 500000, 'P', 800],
-  [500001, Infinity, 'Q', 1250],
+  [2,      8,       'A', 2],
+  [9,      15,      'B', 3],
+  [16,     25,      'C', 5],
+  [26,     50,      'D', 8],
+  [51,     90,      'E', 13],
+  [91,     150,     'F', 20],
+  [151,    280,     'G', 32],
+  [281,    500,     'H', 50],
+  [501,    1200,    'J', 80],
+  [1201,   3200,    'K', 125],
+  [3201,   10000,   'L', 200],
+  [10001,  35000,   'M', 315],
+  [35001,  150000,  'N', 500],
+  [150001, 500000,  'P', 800],
+  [500001, Infinity,'Q', 1250],
 ]
+
+// Ac/Re by code letter for AQL 0.65, 1.0, 1.5, 2.5, 4.0 (null = use arrow from table)
+// Format: [Ac, Re]  null = no accept at this AQL for this code
+const ISO_ACRE = {
+  //      0.65      1.0       1.5       2.5       4.0
+  A: [  null,     null,     null,     null,     null   ],
+  B: [  null,     null,     null,     null,     null   ],
+  C: [  null,     null,     null,    [0,1],    [0,1]   ],
+  D: [  null,     null,    [0,1],    [0,1],    [1,2]   ],
+  E: [  null,    [0,1],    [0,1],    [1,2],    [2,3]   ],
+  F: [ [0,1],    [0,1],    [1,2],    [2,3],    [3,4]   ],
+  G: [ [0,1],    [1,2],    [1,2],    [3,4],    [5,6]   ],
+  H: [ [0,1],    [1,2],    [2,3],    [5,6],    [7,8]   ],
+  J: [ [1,2],    [2,3],    [3,4],    [7,8],   [10,11]  ],
+  K: [ [2,3],    [3,4],    [5,6],   [10,11],  [14,15]  ],
+  L: [ [3,4],    [5,6],    [7,8],   [14,15],  [21,22]  ],
+  M: [ [5,6],    [7,8],   [10,11],  [21,22],   null    ],
+  N: [ [7,8],   [10,11],  [14,15],   null,      null   ],
+  P: [[10,11],  [14,15],  [21,22],   null,      null   ],
+  Q: [[14,15],  [21,22],   null,     null,      null   ],
+}
+const AQL_LABELS = ['0.65', '1.0', '1.5', '2.5', '4.0']
+
 function getISO2859Sample(lotSize) {
   if (!lotSize || lotSize < 2) return null
   const row = ISO_LOT_TABLE.find(([min, max]) => lotSize >= min && lotSize <= max)
-  return row ? { code: row[2], sampleSize: row[3] } : null
+  if (!row) return null
+  const code = row[2]
+  const sampleSize = row[3]
+  const acreRow = ISO_ACRE[code] || []
+  return {
+    code,
+    sampleSize,
+    acre: AQL_LABELS.map((aql, i) => ({ aql, acre: acreRow[i] || null })),
+  }
 }
 
 export default function ChecklistFillPage() {
@@ -267,13 +308,35 @@ export default function ChecklistFillPage() {
                 {showItemHeader && (() => {
                   const iso = getISO2859Sample(group.quantity)
                   return (
-                    <div style={{ background: '#1e3a5f', color: '#fff', padding: '10px 20px', borderRadius: '8px 8px 0 0', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 10px', borderRadius: '9999px', fontSize: '11px' }}>{group.itemCode}</span>
-                      <span style={{ flex: 1 }}>{group.itemName}</span>
+                    <div style={{ background: '#1e3a5f', color: '#fff', borderRadius: '8px 8px 0 0', overflow: 'hidden' }}>
+                      {/* Title row */}
+                      <div style={{ padding: '10px 20px', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 10px', borderRadius: '9999px', fontSize: '11px' }}>{group.itemCode}</span>
+                        <span style={{ flex: 1 }}>{group.itemName}</span>
+                        {iso && (
+                          <span style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', padding: '3px 12px', borderRadius: '9999px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            Lot: {group.quantity} pcs · Sample: <strong>{iso.sampleSize}</strong> pcs · Code {iso.code}
+                          </span>
+                        )}
+                      </div>
+                      {/* ISO 2859-1 Ac/Re table */}
                       {iso && (
-                        <span style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', padding: '3px 12px', borderRadius: '9999px', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                          Lot: {group.quantity} · Sample: <strong>{iso.sampleSize}</strong> pcs · Code {iso.code} (ISO 2859-1 Level II)
-                        </span>
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', padding: '8px 20px 10px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginRight: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ISO 2859-1 Normal · AQL →</span>
+                          {iso.acre.map(({ aql, acre }) => (
+                            <div key={aql} style={{ background: acre ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', padding: '4px 10px', textAlign: 'center', minWidth: '60px' }}>
+                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginBottom: '2px' }}>AQL {aql}</div>
+                              {acre
+                                ? <div style={{ fontSize: '12px', fontWeight: '700' }}>
+                                    <span style={{ color: '#86efac' }}>Ac {acre[0]}</span>
+                                    <span style={{ color: 'rgba(255,255,255,0.4)', margin: '0 3px' }}>/</span>
+                                    <span style={{ color: '#fca5a5' }}>Re {acre[1]}</span>
+                                  </div>
+                                : <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>—</div>
+                              }
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   )
