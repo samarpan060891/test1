@@ -6,6 +6,8 @@ import { useResizableColumns } from '../hooks/useResizableColumns.js'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
+import { useCurrency } from '../context/CurrencyContext.jsx'
+import CurrencyAmountInput from '../components/CurrencyAmountInput.jsx'
 import * as XLSX from 'xlsx'
 import { getAdvices, createAdvice, approveAdvice, rejectAdvice, getContracts, createContract, uploadInvoice, getInvoiceUrl } from '../api/inspectionCosts.js'
 import { getJobs } from '../api/inspectionJobs.js'
@@ -30,10 +32,6 @@ function StatusBadge({ status, t }) {
   )
 }
 
-function fmt(num, currency = 'USD') {
-  if (num == null) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(num)
-}
 
 const inputSt = { width: '100%', padding: '8px 12px', border: '1.5px solid #e2e8f0', borderRadius: '7px', fontSize: '13px', boxSizing: 'border-box', background: '#fff', fontFamily: 'inherit', outline: 'none' }
 const labelSt = { display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em' }
@@ -41,6 +39,7 @@ const labelSt = { display: 'block', fontSize: '12px', fontWeight: '600', color: 
 export default function InspectionCostPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
+  const { formatFrom } = useCurrency()
   const navigate = useNavigate()
   const role = user?.role
 
@@ -312,8 +311,8 @@ export default function InspectionCostPage() {
                       </div>
                       <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
                         Agency: <strong style={{ color: '#334155' }}>{a.agency_name}</strong> ·{' '}
-                        {a.rate_type === 'manday' ? `${a.num_mandays} mandays @ ${fmt(a.rate_value, a.currency)}/day` : `${a.rate_value}% of PO value`} ·{' '}
-                        <strong style={{ color: '#dc2626' }}>Total: {fmt(a.total_cost, a.currency)}</strong>
+                        {a.rate_type === 'manday' ? `${a.num_mandays} mandays @ ${formatFrom(a.rate_value, a.currency)}/day` : `${a.rate_value}% of PO value`} ·{' '}
+                        <strong style={{ color: '#dc2626' }}>Total: {formatFrom(a.total_cost, a.currency)}</strong>
                       </p>
                       <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>Raised on {new Date(a.created_at).toLocaleDateString()}</p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
@@ -552,9 +551,9 @@ export default function InspectionCostPage() {
                         </div>
                       </td>
                       <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>
-                        {a.rate_type === 'manday' ? `${a.num_mandays}d @ ${fmt(a.rate_value, a.currency)}/d` : `${a.rate_value}% of PO`}
+                        {a.rate_type === 'manday' ? `${a.num_mandays}d @ ${formatFrom(a.rate_value, a.currency)}/d` : `${a.rate_value}% of PO`}
                       </td>
-                      <td style={{ fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap' }}>{fmt(a.total_cost, a.currency)}</td>
+                      <td style={{ fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap' }}>{formatFrom(a.total_cost, a.currency)}</td>
                       <td>
                         <span style={{
                           background: a.cost_bearer === 'supplier' ? '#fefce8' : '#f5f3ff',
@@ -652,33 +651,33 @@ export default function InspectionCostPage() {
                         <option value="percentage">{t('costs_pct_po')}</option>
                       </select>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <div>
-                        <label style={labelSt}>
-                          {contractForm.rate_type === 'percentage' ? 'Percentage of PO Value (%) *' : t('costs_rate_value')}
-                        </label>
-                        <input
-                          type="number" min="0" step="0.01"
+                    <div>
+                      <label style={labelSt}>
+                        {contractForm.rate_type === 'percentage' ? 'Percentage of PO Value (%) *' : t('costs_rate_value')}
+                      </label>
+                      {contractForm.rate_type === 'manday' ? (
+                        <CurrencyAmountInput
                           value={contractForm.rate_value}
-                          onChange={e => setContractForm(p => ({ ...p, rate_value: e.target.value }))}
-                          required
-                          placeholder={contractForm.rate_type === 'percentage' ? 'e.g. 3.5 (means 3.5%)' : 'e.g. 250'}
-                          style={inputSt}
+                          onChange={v => setContractForm(p => ({ ...p, rate_value: v }))}
+                          currencyCode={contractForm.currency}
+                          onCurrencyChange={c => setContractForm(p => ({ ...p, currency: c }))}
+                          placeholder="e.g. 250" min="0" step="0.01"
                         />
-                        {contractForm.rate_type === 'percentage' && (
+                      ) : (
+                        <>
+                          <input
+                            type="number" min="0" step="0.01"
+                            value={contractForm.rate_value}
+                            onChange={e => setContractForm(p => ({ ...p, rate_value: e.target.value }))}
+                            required
+                            placeholder="e.g. 3.5 (means 3.5%)"
+                            style={inputSt}
+                          />
                           <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#64748b' }}>
                             Enter the % of the total PO value to charge as inspection fee
                           </p>
-                        )}
-                      </div>
-                      <div>
-                        <label style={{ ...labelSt, color: contractForm.rate_type === 'percentage' ? '#94a3b8' : undefined }}>
-                          {t('col_currency')}{contractForm.rate_type === 'percentage' ? ' (N/A for %)' : ''}
-                        </label>
-                        <select value={contractForm.currency} onChange={e => setContractForm(p => ({ ...p, currency: e.target.value }))} disabled={contractForm.rate_type === 'percentage'} style={{ ...inputSt, opacity: contractForm.rate_type === 'percentage' ? 0.4 : 1, cursor: contractForm.rate_type === 'percentage' ? 'not-allowed' : 'auto' }}>
-                          {['USD','AED','INR','EUR','GBP'].map(c => <option key={c}>{c}</option>)}
-                        </select>
-                      </div>
+                        </>
+                      )}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
@@ -805,7 +804,15 @@ export default function InspectionCostPage() {
               <div style={{ display: 'grid', gridTemplateColumns: rateType === 'manday' ? '1fr 1fr' : '1fr', gap: '12px' }}>
                 <div>
                   <label style={labelSt}>{rateType === 'manday' ? t('costs_rate_manday') : t('costs_percentage')}</label>
-                  <input type="number" min="0" step="0.01" value={rateValue} onChange={e => setRateValue(e.target.value)} required placeholder={rateType === 'manday' ? 'e.g. 250' : 'e.g. 3.5'} style={inputSt} />
+                  {rateType === 'manday' ? (
+                    <CurrencyAmountInput
+                      value={rateValue} onChange={setRateValue}
+                      currencyCode={currency} onCurrencyChange={setCurrency}
+                      placeholder="e.g. 250" min="0" step="0.01"
+                    />
+                  ) : (
+                    <input type="number" min="0" step="0.01" value={rateValue} onChange={e => setRateValue(e.target.value)} required placeholder="e.g. 3.5" style={inputSt} />
+                  )}
                 </div>
                 {rateType === 'manday' && (
                   <div>
@@ -815,33 +822,37 @@ export default function InspectionCostPage() {
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ ...labelSt, color: rateType === 'percentage' ? '#94a3b8' : undefined }}>{t('costs_travel_allowance')}</label>
-                  <input type="number" min="0" step="0.01" value={rateType === 'percentage' ? '' : travel} onChange={e => setTravel(e.target.value)} placeholder="0" style={{ ...inputSt, opacity: rateType === 'percentage' ? 0.4 : 1, cursor: rateType === 'percentage' ? 'not-allowed' : 'auto' }} disabled={rateType === 'percentage'} />
+                  <CurrencyAmountInput
+                    value={rateType === 'percentage' ? '' : travel} onChange={setTravel}
+                    currencyCode={currency} onCurrencyChange={setCurrency}
+                    placeholder="0" min="0" step="0.01"
+                    disabled={rateType === 'percentage'}
+                  />
                 </div>
                 <div>
                   <label style={{ ...labelSt, color: rateType === 'percentage' ? '#94a3b8' : undefined }}>{t('costs_stay_allowance')}</label>
-                  <input type="number" min="0" step="0.01" value={rateType === 'percentage' ? '' : stay} onChange={e => setStay(e.target.value)} placeholder="0" style={{ ...inputSt, opacity: rateType === 'percentage' ? 0.4 : 1, cursor: rateType === 'percentage' ? 'not-allowed' : 'auto' }} disabled={rateType === 'percentage'} />
-                </div>
-                <div>
-                  <label style={labelSt}>{t('col_currency')}</label>
-                  <select value={currency} onChange={e => setCurrency(e.target.value)} style={inputSt}>
-                    {['USD','AED','INR','EUR','GBP'].map(c => <option key={c}>{c}</option>)}
-                  </select>
+                  <CurrencyAmountInput
+                    value={rateType === 'percentage' ? '' : stay} onChange={setStay}
+                    currencyCode={currency} onCurrencyChange={setCurrency}
+                    placeholder="0" min="0" step="0.01"
+                    disabled={rateType === 'percentage'}
+                  />
                 </div>
               </div>
 
               {rateType === 'manday' && calcCost() !== null && (
                 <div className="alert alert-success">
-                  {t('costs_estimated_total')} <strong>{fmt(calcCost(), currency)}</strong>
+                  {t('costs_estimated_total')} <strong>{formatFrom(calcCost(), currency)}</strong>
                   <span style={{ fontSize: '12px', fontWeight: '400', marginLeft: '8px' }}>({rateValue} × {numMandays} days + {travel || 0} travel + {stay || 0} stay)</span>
                 </div>
               )}
               {rateType === 'percentage' && rateValue && (
                 <div className="alert alert-info">
                   {calcCost() !== null
-                    ? <><strong>{t('costs_estimated_total')} {fmt(calcCost(), currency)}</strong></>
+                    ? <><strong>{t('costs_estimated_total')} {formatFrom(calcCost(), currency)}</strong></>
                     : <>Cost: <strong>{rateValue}%</strong> of total PO value of selected jobs</>}
                 </div>
               )}
@@ -887,7 +898,7 @@ export default function InspectionCostPage() {
               {showApprove.action === 'approve' ? t('costs_confirm_approval') : t('costs_confirm_rejection')}
             </p>
             <p className="modal-subtitle">
-              {showApprove.advice.advice_ref} — <strong>{fmt(showApprove.advice.total_cost, showApprove.advice.currency)}</strong>
+              {showApprove.advice.advice_ref} — <strong>{formatFrom(showApprove.advice.total_cost, showApprove.advice.currency)}</strong>
             </p>
 
             {/* Invoice reference */}

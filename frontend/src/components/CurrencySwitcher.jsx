@@ -51,7 +51,6 @@ export default function CurrencySwitcher() {
           {/* AED first (local), then rest */}
           {CURRENCIES.map(c => {
             const isActive = c.code === currency
-            const isLocal = c.code === 'AED'
             return (
               <button
                 key={c.code}
@@ -73,7 +72,8 @@ export default function CurrencySwitcher() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ fontFamily: 'monospace', fontWeight: '700', fontSize: '12px', color: isActive ? '#1e40af' : '#374151' }}>{c.symbol}</span>
                     <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '400' }}>{c.code}</span>
-                    {isLocal && <span style={{ fontSize: '9px', background: '#fef9c3', color: '#92400e', padding: '1px 5px', borderRadius: '9999px', fontWeight: '700', textTransform: 'uppercase' }}>Local</span>}
+                    {c.local && <span style={{ fontSize: '9px', background: '#fef9c3', color: '#92400e', padding: '1px 5px', borderRadius: '9999px', fontWeight: '700', textTransform: 'uppercase' }}>Local</span>}
+                    {c.code === 'USD' && !isActive && <span style={{ fontSize: '9px', background: '#eff6ff', color: '#1e40af', padding: '1px 5px', borderRadius: '9999px', fontWeight: '700', textTransform: 'uppercase' }}>Primary</span>}
                   </div>
                   <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>{c.name}</div>
                 </div>
