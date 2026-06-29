@@ -922,9 +922,9 @@ export default function DocumentControlPage() {
   useEffect(() => { load() }, [load])
 
   return (
-    <div className="page" style={{ minHeight: '100vh', background: '#f8fafc' }}>
+    <div className="page">
       <Navbar />
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
+      <div className="page-content">
         {/* Header */}
         <div style={{ background: '#1C1208', borderRadius: '12px', padding: '24px 28px', marginBottom: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
