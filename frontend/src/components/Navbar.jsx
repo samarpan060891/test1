@@ -156,7 +156,8 @@ export default function Navbar() {
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.email}</div>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '1px' }}>{rm.label}</div>
+              {user.name && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>}
+              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '1px' }}>{rm.label}</div>
             </div>
           </div>
         )}
