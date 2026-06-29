@@ -464,6 +464,13 @@ function ReviewerView({ groups, role, onRefresh }) {
   const canBuyingReview = role === 'buying'
   const canInternalUpload = ['admin', 'qa', 'buying'].includes(role)
 
+  // Keep listGroup in sync with refreshed groups data
+  useEffect(() => {
+    if (!listGroup) return
+    const updated = groups.find(g => g.item_code === listGroup.item_code && g.supplier_code === listGroup.supplier_code)
+    if (updated) setListGroup(updated)
+  }, [groups])
+
   const getGroupStats = (g) => {
     const docs = g.docs
     return {
