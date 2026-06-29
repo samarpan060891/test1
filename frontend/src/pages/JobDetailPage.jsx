@@ -11,6 +11,7 @@ import SearchableDropdown from '../components/SearchableDropdown.jsx'
 import client from '../api/client.js'
 import { generateInspectionReport } from '../utils/generateInspectionReport.js'
 import { getChecklistReport } from '../api/reports.js'
+import { getDocuments, getDocumentFile } from '../api/documents.js'
 
 const STATUS_META = {
   mapped_awaiting_inspection: { key: 'status_awaiting_inspection', bg: '#FEF0EB', color: '#E8470F' },
@@ -86,6 +87,11 @@ export default function JobDetailPage() {
   const [reinspectError, setReinspectError] = useState('')
   const [logFocused, setLogFocused] = useState(false)
 
+  const [docs, setDocs] = useState([])
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [viewFile, setViewFile] = useState(null) // { url, type, name }
+  const [viewLoading, setViewLoading] = useState(null) // doc_id being loaded
+
   const fetchLogs = () => {
     setLogsLoading(true)
     getLogs({ job_id: id })
@@ -96,9 +102,51 @@ export default function JobDetailPage() {
 
   const fetchJob = () => {
     getJob(id)
-      .then(res => setJob(res.data?.job || res.data))
+      .then(res => {
+        const j = res.data?.job || res.data
+        setJob(j)
+        if (j?.item_code && j?.supplier_code) fetchDocs(j.item_code, j.supplier_code)
+      })
       .catch(() => setError('Failed to load job details.'))
       .finally(() => setJobLoading(false))
+  }
+
+  const fetchDocs = (item_code, supplier_code) => {
+    setDocsLoading(true)
+    getDocuments()
+      .then(res => {
+        const group = (res.data || []).find(g => g.item_code === item_code && g.supplier_code === supplier_code)
+        setDocs(group?.docs?.filter(d => d.file_name && d.status !== 'not_applicable') || [])
+      })
+      .catch(() => {})
+      .finally(() => setDocsLoading(false))
+  }
+
+  const handleViewDoc = async (doc) => {
+    if (viewLoading) return
+    setViewLoading(doc.id)
+    try {
+      const res = await getDocumentFile(doc.id)
+      const url = URL.createObjectURL(res.data)
+      setViewFile({ url, type: res.data.type, name: doc.file_name, docType: doc.doc_type })
+    } catch {}
+    finally { setViewLoading(null) }
+  }
+
+  const DOC_TYPE_LABELS = {
+    product_image: 'Product Image', bill_of_materials: 'Bill of Materials',
+    msds: 'MSDS', swatch_details: 'Swatch Details', test_reports: 'Test Reports',
+    cb_reports: 'CB Reports', line_drawings: 'Line Drawings',
+    assembly_instruction_manual: 'Assembly Instruction', user_care_manual: 'User Care Manual',
+    packing_details: 'Packing Details', label_artwork: 'Label Artwork',
+    certificate_of_conformity: 'Certificate of Conformity', inspection_checklist: 'Inspection Checklist',
+  }
+
+  const STATUS_COLORS = {
+    approved: { bg: '#f0fdf4', color: '#15803d', label: 'Approved' },
+    qa_approved: { bg: '#eff6ff', color: '#1d4ed8', label: 'QA Approved' },
+    pending_approval: { bg: '#fef9c3', color: '#92400e', label: 'Pending QA' },
+    rejected: { bg: '#fef2f2', color: '#991b1b', label: 'Rejected' },
   }
 
   useEffect(() => {
@@ -499,6 +547,86 @@ export default function JobDetailPage() {
             })()}
           </div>
         </div>
+
+        {/* Documents */}
+        <div className="card mb-6" style={{ overflow: 'hidden' }}>
+          <div className="card-header">
+            <h2 className="section-title">📁 Documents</h2>
+            <span style={{ fontSize: '12px', color: '#94a3b8' }}>{docs.length} uploaded</span>
+          </div>
+          <div style={{ padding: '16px 24px' }}>
+            {docsLoading ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>Loading documents...</div>
+            ) : docs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '13px' }}>No documents uploaded for this item/supplier yet.</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                    <th style={{ padding: '8px 14px', textAlign: 'left', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Document</th>
+                    <th style={{ padding: '8px 14px', textAlign: 'left', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>File</th>
+                    <th style={{ padding: '8px 14px', textAlign: 'left', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Status</th>
+                    <th style={{ padding: '8px 14px', textAlign: 'right', color: '#64748b', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {docs.map(doc => {
+                    const sc = STATUS_COLORS[doc.status] || { bg: '#f8fafc', color: '#64748b', label: doc.status }
+                    const isLoading = viewLoading === doc.id
+                    return (
+                      <tr key={doc.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '10px 14px', fontWeight: '600', color: '#1e293b' }}>{DOC_TYPE_LABELS[doc.doc_type] || doc.doc_type}</td>
+                        <td style={{ padding: '10px 14px', color: '#64748b', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.file_name}</td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ background: sc.bg, color: sc.color, padding: '2px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700' }}>{sc.label}</span>
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => handleViewDoc(doc)} disabled={isLoading}
+                              style={{ padding: '4px 12px', background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: isLoading ? 'not-allowed' : 'pointer' }}>
+                              {isLoading ? '...' : '👁 View'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        {/* File viewer modal */}
+        {viewFile && (
+          <>
+            <div onClick={() => { URL.revokeObjectURL(viewFile.url); setViewFile(null) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000 }} />
+            <div style={{ position: 'fixed', top: '52px', right: 0, width: '480px', height: 'calc(100vh - 52px)', background: '#fff', zIndex: 2100, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 24px rgba(0,0,0,0.15)' }}>
+              <div style={{ background: '#1C1208', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#d4c5a0' }}>{DOC_TYPE_LABELS[viewFile.docType] || viewFile.docType}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff', marginTop: '2px' }}>{viewFile.name}</div>
+                </div>
+                <button onClick={() => { URL.revokeObjectURL(viewFile.url); setViewFile(null) }} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer' }}>×</button>
+              </div>
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {viewFile.type?.startsWith('image/') ? (
+                  <img src={viewFile.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                ) : viewFile.type === 'application/pdf' ? (
+                  <iframe src={viewFile.url} style={{ flex: 1, border: 'none', width: '100%', height: '100%' }} title="doc" />
+                ) : (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>📄 {viewFile.name}</div>
+                )}
+              </div>
+              <div style={{ padding: '12px 20px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+                <button onClick={() => { const a = document.createElement('a'); a.href = viewFile.url; a.download = viewFile.name; a.click() }}
+                  style={{ padding: '7px 18px', background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', borderRadius: '7px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                  ⬇ Download
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Activity Log */}
         <div className="card" style={{ overflow: 'hidden' }}>
