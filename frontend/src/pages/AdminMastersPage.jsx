@@ -10,8 +10,34 @@ import {
   getPOs, saveSinglePO, bulkPOs,
   getBuyers
 } from '../api/admin.js'
+import {
+  getAllComplaints, createComplaint, bulkComplaints, deleteComplaint,
+  getAllClaims, createClaim, bulkClaims, deleteClaim,
+} from '../api/itemHistory.js'
 
-const TABS = ['Suppliers', 'Agencies', 'Items', 'POs']
+const TABS = ['Suppliers', 'Agencies', 'Items', 'POs', 'Customer Complaints', 'Claims']
+
+const COMPLAINT_FIELDS = [
+  { key: 'item_code',      label: 'Item Code',      placeholder: 'ITEM-001', required: true },
+  { key: 'complaint_ref',  label: 'Reference No.',  placeholder: 'CMP-001' },
+  { key: 'complaint_date', label: 'Complaint Date', placeholder: '', type: 'date' },
+  { key: 'customer_name',  label: 'Customer',       placeholder: 'Customer A' },
+  { key: 'description',    label: 'Description',    placeholder: 'Describe the complaint…' },
+  { key: 'severity',       label: 'Severity',       placeholder: 'medium', type: 'select', options: ['low','medium','high','critical'] },
+  { key: 'status',         label: 'Status',         placeholder: 'open', type: 'select', options: ['open','investigating','resolved','closed'] },
+  { key: 'resolution',     label: 'Resolution',     placeholder: 'Resolution notes…' },
+]
+
+const CLAIM_FIELDS = [
+  { key: 'item_code',    label: 'Item Code',    placeholder: 'ITEM-001', required: true },
+  { key: 'claim_ref',   label: 'Reference No.',placeholder: 'CLM-001' },
+  { key: 'claim_date',  label: 'Claim Date',   placeholder: '', type: 'date' },
+  { key: 'customer_name',label: 'Customer',    placeholder: 'Customer A' },
+  { key: 'reason',      label: 'Reason',       placeholder: 'Reason for claim…' },
+  { key: 'claim_amount',label: 'Amount (£)',   placeholder: '500.00', type: 'number' },
+  { key: 'status',      label: 'Status',       placeholder: 'open', type: 'select', options: ['open','under_review','approved','rejected','settled'] },
+  { key: 'resolution',  label: 'Resolution',   placeholder: 'Resolution notes…' },
+]
 
 const SUPPLIER_FIELDS = [
   { key: 'supplier_code', label: 'Supplier Code', placeholder: 'SUP-001', required: true },
@@ -56,6 +82,223 @@ const CONFIG = {
 
 function emptyForm(fields) {
   return Object.fromEntries(fields.map(f => [f.key, '']))
+}
+
+function HistoryMastersTab({ type }) {
+  const isComplaints = type === 'Customer Complaints'
+  const fields = isComplaints ? COMPLAINT_FIELDS : CLAIM_FIELDS
+  const getAll = isComplaints ? getAllComplaints : getAllClaims
+  const createFn = isComplaints ? createComplaint : createClaim
+  const bulkFn = isComplaints ? bulkComplaints : bulkClaims
+  const deleteFn = isComplaints ? deleteComplaint : deleteClaim
+
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [form, setForm] = useState(emptyForm(fields))
+  const [saving, setSaving] = useState(false)
+  const [formMsg, setFormMsg] = useState('')
+  const [bulkMsg, setBulkMsg] = useState('')
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [deleting, setDeleting] = useState(null)
+  const fileRef = useRef()
+  const [colFilters, setColFilters] = useState({})
+
+  const load = () => {
+    setLoading(true)
+    getAll().then(r => setRows(r.data || [])).catch(() => setRows([])).finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, [type])
+
+  const filteredRows = rows.filter(row =>
+    fields.every(f => {
+      const fv = colFilters[f.key]
+      if (!fv || fv.length === 0) return true
+      return fv.includes(String(row[f.key] ?? ''))
+    })
+  )
+
+  const handleSingle = async (e) => {
+    e.preventDefault()
+    setSaving(true); setFormMsg('')
+    try {
+      await createFn(form)
+      setFormMsg('Saved successfully!')
+      setForm(emptyForm(fields))
+      load()
+    } catch (err) {
+      setFormMsg(err?.response?.data?.error || 'Failed to save')
+    } finally { setSaving(false) }
+  }
+
+  const handleBulk = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setBulkLoading(true); setBulkMsg('')
+    try {
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(buffer, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const parsed = XLSX.utils.sheet_to_json(ws, { defval: '' })
+      if (parsed.length === 0) { setBulkMsg('No data rows found'); setBulkLoading(false); return }
+      const res = await bulkFn(parsed)
+      setBulkMsg(`Inserted ${res.data.inserted} record(s).`)
+      load()
+    } catch (err) {
+      setBulkMsg(err?.response?.data?.error || 'Bulk upload failed')
+    } finally {
+      setBulkLoading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this record?')) return
+    setDeleting(id)
+    try { await deleteFn(id); load() } catch {}
+    finally { setDeleting(null) }
+  }
+
+  const downloadTemplate = () => {
+    const headers = Object.fromEntries(fields.map(f => [f.key, f.placeholder || '']))
+    const ws = XLSX.utils.json_to_sheet([headers])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Template')
+    XLSX.writeFile(wb, `${type.replace(' ', '_')}_template.xlsx`)
+  }
+
+  const downloadData = () => {
+    const data = filteredRows.map(row => Object.fromEntries(fields.map(f => [f.label, row[f.key] ?? ''])))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, type)
+    XLSX.writeFile(wb, `${type.replace(' ', '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const SEV_COLORS = { critical: '#fef2f2', high: '#fff7ed', medium: '#fefce8', low: '#f0fdf4' }
+  const SEV_TEXT = { critical: '#991b1b', high: '#c2410c', medium: '#92400e', low: '#15803d' }
+  const STAT_COLORS = { open: '#fef2f2', investigating: '#fff7ed', resolved: '#f0fdf4', closed: '#f8fafc', under_review: '#fff7ed', approved: '#f0fdf4', rejected: '#fef2f2', settled: '#eff6ff' }
+  const STAT_TEXT = { open: '#991b1b', investigating: '#c2410c', resolved: '#15803d', closed: '#64748b', under_review: '#c2410c', approved: '#15803d', rejected: '#991b1b', settled: '#1d4ed8' }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '24px' }}>
+      {/* Left: Form */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: '700', color: '#111827' }}>Add New Entry</h3>
+          <form onSubmit={handleSingle}>
+            {fields.map(f => (
+              <div key={f.key} style={{ marginBottom: '10px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '3px' }}>
+                  {f.label}{f.required ? ' *' : ''}
+                </label>
+                {f.type === 'select' ? (
+                  <select value={form[f.key] || ''} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                    style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box', background: '#fff' }}>
+                    <option value=''>— Select —</option>
+                    {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input type={f.type || 'text'} value={form[f.key] || ''} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder} required={f.required}
+                    style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
+                )}
+              </div>
+            ))}
+            {formMsg && <p style={{ margin: '0 0 10px', fontSize: '13px', color: formMsg.includes('success') ? '#059669' : '#dc2626' }}>{formMsg}</p>}
+            <button type="submit" disabled={saving} style={{ width: '100%', backgroundColor: saving ? '#93c5fd' : '#1C1208', color: '#fff', border: 'none', padding: '9px', borderRadius: '7px', fontSize: '14px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}>
+              {saving ? 'Saving…' : 'Save Record'}
+            </button>
+          </form>
+        </div>
+
+        <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: '700', color: '#111827' }}>Bulk Upload</h3>
+          <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#6b7280' }}>Upload Excel with columns: <code style={{ fontSize: '11px' }}>{fields.map(f => f.key).join(', ')}</code></p>
+          <button onClick={downloadTemplate} style={{ display: 'flex', alignItems: 'center', gap: '5px', width: '100%', justifyContent: 'center', padding: '7px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', cursor: 'pointer', marginBottom: '8px' }}>
+            📄 Download Blank Template
+          </button>
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleBulk} disabled={bulkLoading} style={{ display: 'none' }} id={`bulk-file-${type}`} />
+          <label htmlFor={`bulk-file-${type}`} style={{ display: 'block', textAlign: 'center', padding: '10px', borderRadius: '7px', border: '2px dashed #d1d5db', cursor: bulkLoading ? 'not-allowed' : 'pointer', fontSize: '13px', color: '#6b7280' }}>
+            {bulkLoading ? 'Uploading…' : 'Click to select CSV / Excel file'}
+          </label>
+          {bulkMsg && <p style={{ margin: '10px 0 0', fontSize: '13px', color: bulkMsg.includes('Inserted') ? '#059669' : '#dc2626' }}>{bulkMsg}</p>}
+        </div>
+      </div>
+
+      {/* Right: Table */}
+      <div style={{ backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>{type} <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '400' }}>{filteredRows.length} records</span></span>
+          <button onClick={downloadData} disabled={rows.length === 0} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', backgroundColor: rows.length === 0 ? '#f1f5f9' : '#f0fdf4', color: rows.length === 0 ? '#94a3b8' : '#15803d', border: `1px solid ${rows.length === 0 ? '#e2e8f0' : '#86efac'}`, cursor: rows.length === 0 ? 'not-allowed' : 'pointer' }}>
+            ⬇ Download Excel
+          </button>
+        </div>
+        {loading ? (
+          <p style={{ padding: '24px', color: '#6b7280' }}>Loading…</p>
+        ) : rows.length === 0 ? (
+          <p style={{ padding: '24px', color: '#9ca3af', textAlign: 'center' }}>No records yet. Add one or upload Excel.</p>
+        ) : (
+          <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+              <thead style={{ position: 'sticky', top: 0, background: '#f8fafc' }}>
+                <tr>
+                  {['item_code', 'item_name', ...(isComplaints ? ['complaint_ref','complaint_date','customer_name','description','severity','status'] : ['claim_ref','claim_date','customer_name','reason','claim_amount','status'])].map(col => {
+                    const fld = fields.find(f => f.key === col) || { key: col, label: col }
+                    return (
+                      <th key={col} style={{ padding: '9px 12px', textAlign: 'left', fontWeight: '700', color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                          {fld.label || col}
+                          <ColumnFilterDropdown colKey={col} data={rows} value={colFilters[col] || []} onChange={v => setColFilters(p => ({ ...p, [col]: v }))} label={fld.label || col} />
+                        </span>
+                      </th>
+                    )
+                  })}
+                  <th style={{ padding: '9px 12px', borderBottom: '1px solid #e5e7eb' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRows.map(row => {
+                  const sev = row.severity
+                  const stat = row.status
+                  return (
+                    <tr key={row.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      <td style={{ padding: '9px 12px', fontWeight: '600', color: '#334155' }}>{row.item_code}</td>
+                      <td style={{ padding: '9px 12px', color: '#64748b' }}>{row.item_name || '—'}</td>
+                      {isComplaints ? <>
+                        <td style={{ padding: '9px 12px', color: '#334155' }}>{row.complaint_ref || '—'}</td>
+                        <td style={{ padding: '9px 12px', color: '#64748b' }}>{row.complaint_date ? row.complaint_date.slice(0,10) : '—'}</td>
+                        <td style={{ padding: '9px 12px', color: '#334155' }}>{row.customer_name || '—'}</td>
+                        <td style={{ padding: '9px 12px', color: '#64748b', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.description || '—'}</td>
+                        <td style={{ padding: '9px 12px' }}>
+                          {sev ? <span style={{ background: SEV_COLORS[sev]||'#f8fafc', color: SEV_TEXT[sev]||'#64748b', padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{sev}</span> : '—'}
+                        </td>
+                      </> : <>
+                        <td style={{ padding: '9px 12px', color: '#334155' }}>{row.claim_ref || '—'}</td>
+                        <td style={{ padding: '9px 12px', color: '#64748b' }}>{row.claim_date ? row.claim_date.slice(0,10) : '—'}</td>
+                        <td style={{ padding: '9px 12px', color: '#334155' }}>{row.customer_name || '—'}</td>
+                        <td style={{ padding: '9px 12px', color: '#64748b', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.reason || '—'}</td>
+                        <td style={{ padding: '9px 12px', color: '#334155', textAlign: 'right' }}>{row.claim_amount ? `£${Number(row.claim_amount).toFixed(2)}` : '—'}</td>
+                      </>}
+                      <td style={{ padding: '9px 12px' }}>
+                        {stat ? <span style={{ background: STAT_COLORS[stat]||'#f8fafc', color: STAT_TEXT[stat]||'#64748b', padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{stat.replace(/_/g,' ')}</span> : '—'}
+                      </td>
+                      <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
+                        <button onClick={() => handleDelete(row.id)} disabled={deleting === row.id}
+                          style={{ padding: '4px 10px', fontSize: '11px', fontWeight: '600', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}>
+                          {deleting === row.id ? '…' : 'Delete'}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export default function AdminMastersPage() {
@@ -201,17 +444,21 @@ export default function AdminMastersPage() {
         <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: '14px' }}>{t('admin_masters_subtitle') || 'Manage reference data used across the system'}</p>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '2px solid #e5e7eb' }}>
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '2px solid #e5e7eb', flexWrap: 'wrap' }}>
           {TABS.map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               padding: '10px 20px', fontSize: '14px', fontWeight: activeTab === tab ? '700' : '500',
               color: activeTab === tab ? '#1C1208' : '#6b7280',
               backgroundColor: 'transparent', border: 'none', cursor: 'pointer',
               borderBottom: activeTab === tab ? '2px solid #1C1208' : '2px solid transparent',
-              marginBottom: '-2px'
+              marginBottom: '-2px', whiteSpace: 'nowrap'
             }}>{tab}</button>
           ))}
         </div>
+
+        {(activeTab === 'Customer Complaints' || activeTab === 'Claims') ? (
+          <HistoryMastersTab type={activeTab} />
+        ) : (
 
         <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '24px' }}>
           {/* Left: Forms */}
@@ -449,6 +696,8 @@ export default function AdminMastersPage() {
             )}
           </div>
         </div>
+
+        )} {/* end standard tabs */}
       </div>
     </div>
   )

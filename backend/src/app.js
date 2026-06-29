@@ -13,6 +13,7 @@ const reportsRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
 const inspectionCostRoutes = require('./routes/inspectionCosts');
 const documentRoutes = require('./routes/documents');
+const itemHistoryRoutes = require('./routes/itemHistory');
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/inspection-costs', inspectionCostRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/item-history', itemHistoryRoutes);
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

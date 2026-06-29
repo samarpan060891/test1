@@ -12,6 +12,8 @@ import client from '../api/client.js'
 import { generateInspectionReport } from '../utils/generateInspectionReport.js'
 import { getChecklistReport } from '../api/reports.js'
 import { getDocuments, getDocumentFile } from '../api/documents.js'
+import { getPastInspections, getComplaints, getClaims } from '../api/itemHistory.js'
+import * as XLSX from 'xlsx'
 
 const STATUS_META = {
   mapped_awaiting_inspection: { key: 'status_awaiting_inspection', bg: '#FEF0EB', color: '#E8470F' },
@@ -92,6 +94,13 @@ export default function JobDetailPage() {
   const [viewFile, setViewFile] = useState(null) // { url, type, name }
   const [viewLoading, setViewLoading] = useState(null) // doc_id being loaded
 
+  // History panel state
+  const [historyPanel, setHistoryPanel] = useState(null) // { type: 'complaints'|'claims', item_code, data[] }
+  const [histPastInspections, setHistPastInspections] = useState([])
+  const [histComplaints, setHistComplaints] = useState([])
+  const [histClaims, setHistClaims] = useState([])
+  const [histLoading, setHistLoading] = useState(false)
+
   const fetchLogs = () => {
     setLogsLoading(true)
     getLogs({ job_id: id })
@@ -105,10 +114,19 @@ export default function JobDetailPage() {
       .then(res => {
         const j = res.data?.job || res.data
         setJob(j)
-        if (j?.item_code && j?.supplier_code) fetchDocs(j.item_code, j.supplier_code)
+        if (j?.item_code && j?.supplier_code) { fetchDocs(j.item_code, j.supplier_code); fetchHistory(j.item_code) }
       })
       .catch(() => setError('Failed to load job details.'))
       .finally(() => setJobLoading(false))
+  }
+
+  const fetchHistory = (item_code) => {
+    setHistLoading(true)
+    Promise.all([
+      getPastInspections(item_code).then(r => setHistPastInspections(r.data || [])).catch(() => {}),
+      getComplaints(item_code).then(r => setHistComplaints(r.data || [])).catch(() => {}),
+      getClaims(item_code).then(r => setHistClaims(r.data || [])).catch(() => {}),
+    ]).finally(() => setHistLoading(false))
   }
 
   const fetchDocs = (item_code, supplier_code) => {
@@ -257,11 +275,29 @@ export default function JobDetailPage() {
   const jobId = job.job_id || job.id
   const stageMeta = STAGE_META[job.inspection_stage]
 
+  // History Excel export
+  const exportHistoryExcel = (type, data) => {
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, type)
+    XLSX.writeFile(wb, `${type}_${job?.item_code}_${new Date().toISOString().slice(0,10)}.xlsx`)
+  }
+
+  const STAGE_COLORS = { pre_production: '#92400e', inline: '#E8470F', final: '#15803d', loading: '#7e22ce' }
+  const OUTCOME_COLORS = { approved: { bg: '#f0fdf4', color: '#15803d' }, rejected: { bg: '#fef2f2', color: '#dc2626' } }
+  const SEV_COLORS = { critical: { bg: '#fef2f2', color: '#991b1b' }, high: { bg: '#fff7ed', color: '#c2410c' }, medium: { bg: '#fefce8', color: '#92400e' }, low: { bg: '#f0fdf4', color: '#15803d' } }
+  const CLAIM_STAT_COLORS = { open: { bg: '#fef2f2', color: '#991b1b' }, under_review: { bg: '#fff7ed', color: '#c2410c' }, approved: { bg: '#f0fdf4', color: '#15803d' }, rejected: { bg: '#fef2f2', color: '#dc2626' }, settled: { bg: '#eff6ff', color: '#1d4ed8' } }
+
   return (
     <div className="page">
       <Navbar />
 
-      <div className="page-content-narrow">
+      {/* Two-column layout: main content + history panel */}
+      <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '20px 24px', display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+
+      {/* Left: main content */}
+      <div style={{ flex: '1 1 0', minWidth: 0 }}>
+      <div>
         {/* Breadcrumb */}
         <div className="breadcrumb">
           <Link to="/dashboard">{t('nav_dashboard')}</Link>
@@ -703,7 +739,288 @@ export default function JobDetailPage() {
             </form>
           </div>
         </div>
+
+      </div> {/* end left inner */}
+      </div> {/* end left column */}
+
+      {/* ── RIGHT: History Panel ──────────────────────────────────────────── */}
+      <div style={{ width: '380px', flexShrink: 0, position: 'sticky', top: '72px', maxHeight: 'calc(100vh - 90px)', overflowY: 'auto' }}>
+        <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', borderRadius: '12px 12px 0 0', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '18px' }}>📊</span>
+          <div>
+            <div style={{ fontWeight: '800', fontSize: '14px', color: '#fff', letterSpacing: '-0.2px' }}>QC History Panel</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '1px' }}>Item: {job?.item_code}</div>
+          </div>
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+          {histLoading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading history…</div>
+          ) : (
+            <>
+              {/* ─ Section 1: Past Inspections ─ */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Past Inspections
+                  </div>
+                  <span style={{ background: '#f1f5f9', color: '#64748b', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
+                    {histPastInspections.length}
+                  </span>
+                </div>
+
+                {histPastInspections.length === 0 ? (
+                  <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No past inspection records found.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {histPastInspections.slice(0, 5).map((insp, i) => {
+                      const outColor = OUTCOME_COLORS[insp.final_outcome] || { bg: '#fefce8', color: '#92400e' }
+                      const stageColor = STAGE_COLORS[insp.inspection_stage] || '#64748b'
+                      return (
+                        <div key={insp.job_id || i} style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', borderLeft: `3px solid ${stageColor}` }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                            <div>
+                              <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{insp.job_ref || String(insp.job_id).slice(0,8)}</div>
+                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                                {insp.inspection_stage?.replace(/_/g,' ')} · {insp.po_no}
+                              </div>
+                              {insp.agency_name && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>{insp.agency_name}</div>}
+                            </div>
+                            {insp.final_outcome && (
+                              <span style={{ background: outColor.bg, color: outColor.color, fontSize: '10px', fontWeight: '800', padding: '2px 8px', borderRadius: '9999px', flexShrink: 0, textTransform: 'uppercase' }}>
+                                {insp.final_outcome}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ marginTop: '6px', display: 'flex', gap: '12px', fontSize: '11px', color: '#64748b' }}>
+                            <span>{insp.decided_at ? new Date(insp.decided_at).toLocaleDateString() : (insp.inspection_date ? new Date(insp.inspection_date).toLocaleDateString() : '—')}</span>
+                            {Number(insp.total_responses) > 0 && (
+                              <span style={{ color: Number(insp.fail_count) > 0 ? '#dc2626' : '#15803d', fontWeight: '600' }}>
+                                {insp.fail_count}/{insp.total_responses} fails
+                              </span>
+                            )}
+                          </div>
+                          {insp.qa_remarks && (
+                            <div style={{ marginTop: '5px', fontSize: '11px', color: '#475569', fontStyle: 'italic', lineHeight: 1.4, borderTop: '1px solid #e2e8f0', paddingTop: '5px' }}>
+                              "{insp.qa_remarks}"
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    {histPastInspections.length > 5 && (
+                      <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0, textAlign: 'center' }}>
+                        +{histPastInspections.length - 5} more inspection(s)
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ─ Section 2: Customer Complaints ─ */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Customer Complaints
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <span style={{ background: histComplaints.length > 0 ? '#fef2f2' : '#f1f5f9', color: histComplaints.length > 0 ? '#dc2626' : '#64748b', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
+                      {histComplaints.length}
+                    </span>
+                    {histComplaints.length > 0 && (
+                      <button onClick={() => setHistoryPanel({ type: 'complaints', data: histComplaints })}
+                        style={{ fontSize: '11px', fontWeight: '600', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer' }}>
+                        View Details
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {histComplaints.length === 0 ? (
+                  <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No customer complaints on record.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {/* Severity summary */}
+                    {['critical','high','medium','low'].map(sev => {
+                      const cnt = histComplaints.filter(c => c.severity === sev).length
+                      if (cnt === 0) return null
+                      const sc = SEV_COLORS[sev] || { bg: '#f8fafc', color: '#64748b' }
+                      return (
+                        <div key={sev} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                          <span style={{ background: sc.bg, color: sc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{sev}</span>
+                          <span style={{ color: '#374151', fontWeight: '600' }}>{cnt} complaint{cnt > 1 ? 's' : ''}</span>
+                        </div>
+                      )
+                    })}
+                    <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+                      {histComplaints.filter(c => c.status === 'open' || c.status === 'investigating').length} open · {histComplaints.filter(c => c.status === 'resolved' || c.status === 'closed').length} resolved
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ─ Section 3: Claims ─ */}
+              <div style={{ padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Claims
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <span style={{ background: histClaims.length > 0 ? '#fff7ed' : '#f1f5f9', color: histClaims.length > 0 ? '#c2410c' : '#64748b', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
+                      {histClaims.length}
+                    </span>
+                    {histClaims.length > 0 && (
+                      <button onClick={() => setHistoryPanel({ type: 'claims', data: histClaims })}
+                        style={{ fontSize: '11px', fontWeight: '600', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer' }}>
+                        View Details
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {histClaims.length === 0 ? (
+                  <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No claims on record for this item.</p>
+                ) : (
+                  <div>
+                    {/* Total claim amount */}
+                    {histClaims.some(c => c.claim_amount) && (
+                      <div style={{ background: '#fff7ed', borderRadius: '8px', padding: '8px 12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', color: '#92400e', fontWeight: '600' }}>Total claimed</span>
+                        <span style={{ fontSize: '14px', fontWeight: '800', color: '#c2410c' }}>
+                          £{histClaims.reduce((sum, c) => sum + (Number(c.claim_amount) || 0), 0).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      {['open','under_review','approved','rejected','settled'].map(st => {
+                        const cnt = histClaims.filter(c => c.status === st).length
+                        if (cnt === 0) return null
+                        const sc = CLAIM_STAT_COLORS[st] || { bg: '#f8fafc', color: '#64748b' }
+                        return (
+                          <div key={st} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                            <span style={{ background: sc.bg, color: sc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{st.replace(/_/g,' ')}</span>
+                            <span style={{ color: '#374151', fontWeight: '600' }}>{cnt}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
+      </div> {/* end two-column flex */}
+
+      {/* ── History Detail Slide Panel ──────────────────────────────────── */}
+      {historyPanel && (
+        <div onClick={() => setHistoryPanel(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1500 }} />
+      )}
+      <div style={{
+        position: 'fixed', top: '52px', right: 0, width: '780px', maxWidth: '96vw',
+        height: 'calc(100vh - 52px)', background: '#fff', zIndex: 1600,
+        display: 'flex', flexDirection: 'column', boxShadow: '-6px 0 30px rgba(0,0,0,0.18)',
+        transform: historyPanel ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+      }}>
+        {historyPanel && (<>
+          {/* Panel header */}
+          <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div>
+              <div style={{ fontWeight: '800', fontSize: '15px', color: '#fff' }}>
+                {historyPanel.type === 'complaints' ? '⚠️ Customer Complaints' : '📋 Claims'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', marginTop: '2px' }}>
+                Item: {job?.item_code} · {historyPanel.data.length} record{historyPanel.data.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button onClick={() => exportHistoryExcel(historyPanel.type, historyPanel.data)}
+                style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', borderRadius: '7px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                ⬇ Export Excel
+              </button>
+              <button onClick={() => setHistoryPanel(null)}
+                style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+            </div>
+          </div>
+
+          {/* Panel body: Excel-style table */}
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+            {historyPanel.type === 'complaints' ? (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '700px' }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#f8fafc' }}>
+                  <tr>
+                    {['Ref No.','Date','Customer','Description','Severity','Status','Resolution'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap', background: '#f8fafc' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyPanel.data.map((row, i) => {
+                    const sc = SEV_COLORS[row.severity] || { bg: '#f8fafc', color: '#64748b' }
+                    const stc = { open: { bg: '#fef2f2', color: '#991b1b' }, investigating: { bg: '#fff7ed', color: '#c2410c' }, resolved: { bg: '#f0fdf4', color: '#15803d' }, closed: { bg: '#f8fafc', color: '#64748b' } }[row.status] || { bg: '#f8fafc', color: '#64748b' }
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                        <td style={{ padding: '10px 14px', color: '#334155', fontWeight: '600', whiteSpace: 'nowrap' }}>{row.complaint_ref || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#64748b', whiteSpace: 'nowrap' }}>{row.complaint_date ? row.complaint_date.slice(0,10) : '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{row.customer_name || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#475569', maxWidth: '240px' }}>{row.description || '—'}</td>
+                        <td style={{ padding: '10px 14px' }}>
+                          {row.severity ? <span style={{ background: sc.bg, color: sc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{row.severity}</span> : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ background: stc.bg, color: stc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{row.status?.replace(/_/g,' ')}</span>
+                        </td>
+                        <td style={{ padding: '10px 14px', color: '#64748b', maxWidth: '180px' }}>{row.resolution || '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '700px' }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#f8fafc' }}>
+                  <tr>
+                    {['Ref No.','Date','Customer','Reason','Amount (£)','Status','Resolution'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap', background: '#f8fafc' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyPanel.data.map((row, i) => {
+                    const sc = CLAIM_STAT_COLORS[row.status] || { bg: '#f8fafc', color: '#64748b' }
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                        <td style={{ padding: '10px 14px', color: '#334155', fontWeight: '600', whiteSpace: 'nowrap' }}>{row.claim_ref || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#64748b', whiteSpace: 'nowrap' }}>{row.claim_date ? row.claim_date.slice(0,10) : '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{row.customer_name || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#475569', maxWidth: '220px' }}>{row.reason || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#c2410c', fontWeight: '700', textAlign: 'right' }}>{row.claim_amount ? `£${Number(row.claim_amount).toFixed(2)}` : '—'}</td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ background: sc.bg, color: sc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{row.status?.replace(/_/g,' ')}</span>
+                        </td>
+                        <td style={{ padding: '10px 14px', color: '#64748b', maxWidth: '180px' }}>{row.resolution || '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                {/* Footer: total */}
+                <tfoot>
+                  <tr style={{ background: '#f8fafc', borderTop: '2px solid #e5e7eb' }}>
+                    <td colSpan={4} style={{ padding: '10px 14px', fontSize: '12px', fontWeight: '700', color: '#374151' }}>Total</td>
+                    <td style={{ padding: '10px 14px', color: '#c2410c', fontWeight: '800', fontSize: '13px', textAlign: 'right' }}>
+                      £{historyPanel.data.reduce((sum, c) => sum + (Number(c.claim_amount) || 0), 0).toFixed(2)}
+                    </td>
+                    <td colSpan={2} />
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+        </>)}
+      </div>
+
     </div>
   )
 }
