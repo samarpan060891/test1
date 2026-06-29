@@ -84,6 +84,9 @@ export default function ChecklistFillPage() {
   const [submitError, setSubmitError] = useState('')
   const [success, setSuccess] = useState(false)
   const [actualDate, setActualDate] = useState(new Date().toISOString().split('T')[0])
+  const [draftSaved, setDraftSaved] = useState(false)
+
+  const DRAFT_KEY = `checklist_draft_${id}`
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -130,6 +133,14 @@ export default function ChecklistFillPage() {
             responseMap[r.checklist_item_id] = { result: r.result, remark: r.remark || '' }
           })
         }
+        // Merge locally saved draft on top of server data
+        try {
+          const draft = localStorage.getItem(`checklist_draft_${id}`)
+          if (draft) {
+            const parsed = JSON.parse(draft)
+            Object.assign(responseMap, parsed)
+          }
+        } catch {}
         setResponses(responseMap)
 
         // Build sections grouped by item then by section
@@ -162,7 +173,12 @@ export default function ChecklistFillPage() {
   }, [id])
 
   const handleResponseChange = (itemId, field, value) => {
-    setResponses(prev => ({ ...prev, [itemId]: { ...prev[itemId], [field]: value } }))
+    setResponses(prev => {
+      const next = { ...prev, [itemId]: { ...prev[itemId], [field]: value } }
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(next)) } catch {}
+      setDraftSaved(true)
+      return next
+    })
   }
 
   const filledCount = allSections.reduce((acc, s) =>
@@ -207,6 +223,7 @@ export default function ChecklistFillPage() {
       })
       await submitResponses(id, responsePayload)
       await submitJob(id, { actual_inspection_date: actualDate })
+      try { localStorage.removeItem(DRAFT_KEY) } catch {}
       setSuccess(true)
     } catch (err) {
       const msg = err?.response?.data?.message || err?.response?.data?.error || 'Failed to submit checklist. Please try again.'
@@ -269,10 +286,22 @@ export default function ChecklistFillPage() {
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 24px' }}>
         {/* Header */}
         <div style={{ marginBottom: '24px' }}>
-          <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>
-            <Link to={`/jobs/${id}`} style={{ color: '#1e40af', textDecoration: 'none' }}>{t('job_detail_title')}</Link>
-            <span style={{ margin: '0 8px' }}>/</span>
-            <span>{t('checklist_title')}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ fontSize: '13px', color: '#6b7280' }}>
+              <Link to={`/jobs/${id}`} style={{ color: '#1e40af', textDecoration: 'none' }}>{t('job_detail_title')}</Link>
+              <span style={{ margin: '0 8px' }}>/</span>
+              <span>{t('checklist_title')}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {draftSaved && (
+                <span style={{ fontSize: '11px', color: '#15803d', background: '#f0fdf4', border: '1px solid #86efac', padding: '3px 10px', borderRadius: '9999px', fontWeight: '600' }}>
+                  ✓ Draft auto-saved
+                </span>
+              )}
+              <Link to={`/jobs/${id}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#1C1208', color: '#fff', borderRadius: '7px', textDecoration: 'none', fontSize: '13px', fontWeight: '600' }}>
+                ← Back to Job Details
+              </Link>
+            </div>
           </div>
           <h1 style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '700', color: '#111827' }}>
             {t('checklist_fill_title') || 'Fill Inspection Checklist'}
