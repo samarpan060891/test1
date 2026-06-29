@@ -1,10 +1,6 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-
-function fmt(num, currency = 'USD') {
-  if (num == null || isNaN(num)) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(num)
-}
+import { useCurrency } from '../context/CurrencyContext.jsx'
 function fmtPct(n) {
   if (n == null || isNaN(n)) return '—'
   return n.toFixed(1) + '%'
@@ -90,6 +86,8 @@ export default function InspectionSummaryCard({
   customTo: customToProp,     onCustomTo: onCustomToProp,
   presets: presetsProp,
 }) {
+  const { formatFrom } = useCurrency()
+
   // Allow the card to be self-contained when period props are not passed from parent
   const [internalId,   setInternalId]   = useState('ytd')
   const [internalFrom, setInternalFrom] = useState('')
@@ -202,9 +200,9 @@ export default function InspectionSummaryCard({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '24px' }}>
           <Tile
             label="Total Approved Charges"
-            curVal={fmt(cur.totalCharges, cur.currency)}
+            curVal={formatFrom(cur.totalCharges, cur.currency)}
             curSub={`${cur.approvedCount} approved advice${cur.approvedCount !== 1 ? 's' : ''}`}
-            prevVal={fmt(prev.totalCharges, prev.currency)}
+            prevVal={formatFrom(prev.totalCharges, prev.currency)}
             prevSub={`${prev.approvedCount} approved`}
             delta={<Delta cur={cur.totalCharges} prev={prev.totalCharges} isPercent={false} lowerIsBetter={true} />}
           />
@@ -215,9 +213,9 @@ export default function InspectionSummaryCard({
                 ? <span style={{ color: cur.pctToPo > 5 ? '#f87171' : cur.pctToPo > 3 ? '#fbbf24' : '#4ade80' }}>{fmtPct(cur.pctToPo)}</span>
                 : <span style={{ color: 'rgba(255,255,255,0.3)' }}>—</span>
             }
-            curSub={cur.totalPO > 0 ? `of ${fmt(cur.totalPO, cur.currency)} PO value` : undefined}
+            curSub={cur.totalPO > 0 ? `of ${formatFrom(cur.totalPO, cur.currency)} PO value` : undefined}
             prevVal={fmtPct(prev.pctToPo)}
-            prevSub={prev.totalPO > 0 ? `of ${fmt(prev.totalPO, prev.currency)}` : undefined}
+            prevSub={prev.totalPO > 0 ? `of ${formatFrom(prev.totalPO, prev.currency)}` : undefined}
             delta={<Delta cur={cur.pctToPo} prev={prev.pctToPo} isPercent={true} lowerIsBetter={true} />}
           />
           <Tile
