@@ -186,6 +186,15 @@ export default function ChecklistFillPage() {
       return
     }
 
+    const failWithoutRemark = allItems.filter(item => {
+      const itemId = item.item_id || item.checklist_item_id || item.id
+      return responses[itemId]?.result === 'fail' && !responses[itemId]?.remark?.trim()
+    })
+    if (failWithoutRemark.length > 0) {
+      setSubmitError(`Remarks are mandatory for failed items. Please add remarks for ${failWithoutRemark.length} failed item(s).`)
+      return
+    }
+
     setSubmitting(true)
     try {
       const responsePayload = allItems.map(item => {
@@ -387,12 +396,17 @@ export default function ChecklistFillPage() {
                             </label>
                           ))}
                         </div>
+                        {resp.result === 'fail' && !resp.remark?.trim() && (
+                          <p style={{ margin: '0 0 4px', fontSize: '12px', color: '#dc2626', fontWeight: '600' }}>
+                            ⚠ Remarks are mandatory for failed items
+                          </p>
+                        )}
                         <textarea
                           value={resp.remark || ''}
                           onChange={e => handleResponseChange(itemId, 'remark', e.target.value)}
-                          placeholder={`${t('checklist_remarks')} (optional)...`}
+                          placeholder={resp.result === 'fail' ? 'Describe the defect / failure reason...' : `${t('checklist_remarks')} (optional)...`}
                           rows={2}
-                          style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: '5px', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box', outline: 'none', color: '#374151', fontFamily: 'inherit', backgroundColor: '#fafafa' }}
+                          style={{ width: '100%', padding: '8px 12px', borderRadius: '5px', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box', outline: 'none', color: '#374151', fontFamily: 'inherit', backgroundColor: resp.result === 'fail' && !resp.remark?.trim() ? '#fff5f5' : '#fafafa', border: resp.result === 'fail' && !resp.remark?.trim() ? '1px solid #fca5a5' : '1px solid #e5e7eb' }}
                         />
                       </div>
                     )
