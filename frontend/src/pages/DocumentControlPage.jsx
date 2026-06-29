@@ -460,9 +460,17 @@ function ReviewerView({ groups, role, onRefresh }) {
   const [internalUploading, setInternalUploading] = useState(false)
   const internalFileRef = useRef(null)
 
+  const [sortCol, setSortCol] = useState(null)  // 'item' | 'supplier' | 'pendingQA' | 'pendingBuying' | 'approved' | 'rejected' | 'na'
+  const [sortDir, setSortDir] = useState('asc')
+
   const canQAReview = ['qa', 'admin', 'imports', 'accounts'].includes(role)
   const canBuyingReview = role === 'buying'
   const canInternalUpload = ['admin', 'qa', 'buying'].includes(role)
+
+  const handleSort = (col) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
 
   // Keep listGroup in sync with refreshed groups data
   useEffect(() => {
@@ -511,6 +519,21 @@ function ReviewerView({ groups, role, onRefresh }) {
     if (activeFilter === 'approved')        return s.approved > 0
     if (activeFilter === 'rejected')        return s.rejected > 0
     return true
+  }).sort((a, b) => {
+    if (!sortCol) return 0
+    const sa = getGroupStats(a), sb = getGroupStats(b)
+    let va, vb
+    if (sortCol === 'item')         { va = a.item_name?.toLowerCase() || ''; vb = b.item_name?.toLowerCase() || '' }
+    else if (sortCol === 'supplier'){ va = a.supplier_name?.toLowerCase() || ''; vb = b.supplier_name?.toLowerCase() || '' }
+    else if (sortCol === 'pendingQA')     { va = sa.pendingApproval; vb = sb.pendingApproval }
+    else if (sortCol === 'pendingBuying') { va = sa.pendingBuying;   vb = sb.pendingBuying }
+    else if (sortCol === 'approved')      { va = sa.approved;        vb = sb.approved }
+    else if (sortCol === 'rejected')      { va = sa.rejected;        vb = sb.rejected }
+    else if (sortCol === 'na')            { va = sa.na;              vb = sb.na }
+    else return 0
+    if (va < vb) return sortDir === 'asc' ? -1 : 1
+    if (va > vb) return sortDir === 'asc' ? 1 : -1
+    return 0
   })
 
   const openListPanel = (group) => {
@@ -654,13 +677,25 @@ function ReviewerView({ groups, role, onRefresh }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
-              <th style={{ padding: '10px 16px', textAlign: 'left', color: '#64748b', fontWeight: '600' }}>ITEM</th>
-              <th style={{ padding: '10px 16px', textAlign: 'left', color: '#64748b', fontWeight: '600' }}>SUPPLIER</th>
-              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#d97706', fontWeight: '600' }}>PENDING QA</th>
-              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#0284c7', fontWeight: '600' }}>PENDING BUYING</th>
-              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#15803d', fontWeight: '600' }}>APPROVED</th>
-              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#dc2626', fontWeight: '600' }}>REJECTED</th>
-              <th style={{ padding: '10px 16px', textAlign: 'center', color: '#64748b', fontWeight: '600' }}>N/A</th>
+              {[
+                { col: 'item',         label: 'ITEM',          align: 'left',   color: '#64748b' },
+                { col: 'supplier',     label: 'SUPPLIER',      align: 'left',   color: '#64748b' },
+                { col: 'pendingQA',    label: 'PENDING QA',    align: 'center', color: '#d97706' },
+                { col: 'pendingBuying',label: 'PENDING BUYING',align: 'center', color: '#0284c7' },
+                { col: 'approved',     label: 'APPROVED',      align: 'center', color: '#15803d' },
+                { col: 'rejected',     label: 'REJECTED',      align: 'center', color: '#dc2626' },
+                { col: 'na',           label: 'N/A',           align: 'center', color: '#64748b' },
+              ].map(({ col, label, align, color }) => {
+                const active = sortCol === col
+                return (
+                  <th key={col} onClick={() => handleSort(col)} style={{ padding: '10px 16px', textAlign: align, color: active ? color : '#64748b', fontWeight: '600', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                    {label}
+                    <span style={{ marginLeft: '4px', fontSize: '10px', opacity: active ? 1 : 0.3 }}>
+                      {active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                    </span>
+                  </th>
+                )
+              })}
               <th style={{ padding: '10px 16px', textAlign: 'right', color: '#64748b', fontWeight: '600' }}>ACTIONS</th>
             </tr>
           </thead>
