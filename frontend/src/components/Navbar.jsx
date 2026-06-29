@@ -111,14 +111,15 @@ export default function Navbar() {
           <button
             onClick={logout}
             title="Logout"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.7)', transition: 'color 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.color = '#ff6b6b'}
-            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
+            <svg width="26" height="26" viewBox="0 0 26 26">
+              <circle cx="13" cy="13" r="13" fill="#cc1111" />
+              <circle cx="13" cy="13" r="11" fill="#dd1a1a" />
+              {/* power arc */}
+              <path d="M8.5 7.8 A7 7 0 1 0 17.5 7.8" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+              {/* vertical stem */}
+              <line x1="13" y1="5.5" x2="13" y2="13" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
             </svg>
           </button>
         </div>
