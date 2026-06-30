@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const db = require('../db');
-const { sendEmail, emailInspectionOverdueDigest } = require('./email');
+const { sendEmail, emailInspectionOverdueDigest, emailPaymentOverdueDigest } = require('./email');
 
 // Run every minute; actual send is gated by the configured send_time from DB
 const POLL_SCHEDULE = '* * * * *';
@@ -125,9 +125,138 @@ async function sendOverdueReminders() {
   }
 }
 
+async function sendPaymentOverdueReminders() {
+  let config;
+  try {
+    const { rows } = await db.query('SELECT * FROM qc_inspection.overdue_reminder_config WHERE id = 1');
+    config = rows[0];
+  } catch (err) {
+    console.error('[SCHEDULER] Failed to read reminder config (payment):', err.message);
+    return;
+  }
+
+  if (!config || !config.enabled) return;
+
+  const configuredRoles = (config.recipient_roles || []).filter(r => r !== 'admin');
+  const wantsImports  = configuredRoles.includes('imports');
+  const wantsAccounts = configuredRoles.includes('accounts');
+  if (!wantsImports && !wantsAccounts) return;
+
+  const freqDays = config.frequency_days || 1;
+
+  try {
+    // Fetch pending_imports advices if imports role is configured
+    if (wantsImports) {
+      const { rows: advices } = await db.query(`
+        SELECT
+          ca.advice_id,
+          ca.status,
+          ca.buying_approved_at,
+          ca.imports_approved_at,
+          j.job_ref,
+          j.po_no,
+          i.name  AS item_name,
+          s.name  AS supplier_name,
+          a.name  AS agency_name,
+          MAX(l.sent_at) AS last_reminded_at
+        FROM qc_inspection.inspection_charges_advice ca
+        JOIN qc_inspection.ica_jobs ij ON ij.advice_id = ca.advice_id
+        JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
+        JOIN qc_inspection.item_master i ON i.item_code = j.item_code
+        JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+        LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+        LEFT JOIN qc_inspection.payment_overdue_reminder_log l
+          ON l.advice_id = ca.advice_id AND l.target_role = 'imports'
+        WHERE ca.status = 'pending_imports'
+          AND ca.buying_approved_at IS NOT NULL
+        GROUP BY ca.advice_id, j.job_ref, j.po_no, i.name, s.name, a.name
+        HAVING MAX(l.sent_at) IS NULL
+            OR MAX(l.sent_at) < NOW() - $1 * INTERVAL '1 day'
+      `, [freqDays]);
+
+      if (advices.length > 0) {
+        const { rows: staff } = await db.query(
+          `SELECT DISTINCT email FROM qc_inspection.team_stakeholder WHERE role = 'imports' AND email IS NOT NULL AND email <> ''`
+        );
+        let recipients = staff.map(r => r.email);
+        if (process.env.TEST_EMAIL_TO) recipients = [process.env.TEST_EMAIL_TO];
+
+        if (recipients.length > 0) {
+          const { subject, html } = emailPaymentOverdueDigest({ advices, targetRole: 'imports' });
+          await sendEmail({ to: recipients, subject, html });
+          console.log(`[SCHEDULER] Payment reminder (imports) sent for ${advices.length} advice(s).`);
+        }
+
+        for (const a of advices) {
+          await db.query(
+            `INSERT INTO qc_inspection.payment_overdue_reminder_log (advice_id, target_role) VALUES ($1, 'imports')`,
+            [a.advice_id]
+          ).catch(err => console.error('[SCHEDULER] Payment log insert failed:', err.message));
+        }
+      }
+    }
+
+    // Fetch pending_accounts advices if accounts role is configured
+    if (wantsAccounts) {
+      const { rows: advices } = await db.query(`
+        SELECT
+          ca.advice_id,
+          ca.status,
+          ca.buying_approved_at,
+          ca.imports_approved_at,
+          j.job_ref,
+          j.po_no,
+          i.name  AS item_name,
+          s.name  AS supplier_name,
+          a.name  AS agency_name,
+          MAX(l.sent_at) AS last_reminded_at
+        FROM qc_inspection.inspection_charges_advice ca
+        JOIN qc_inspection.ica_jobs ij ON ij.advice_id = ca.advice_id
+        JOIN qc_inspection.inspection_job j ON j.job_id = ij.job_id
+        JOIN qc_inspection.item_master i ON i.item_code = j.item_code
+        JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+        LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+        LEFT JOIN qc_inspection.payment_overdue_reminder_log l
+          ON l.advice_id = ca.advice_id AND l.target_role = 'accounts'
+        WHERE ca.status = 'pending_accounts'
+          AND ca.imports_approved_at IS NOT NULL
+        GROUP BY ca.advice_id, j.job_ref, j.po_no, i.name, s.name, a.name
+        HAVING MAX(l.sent_at) IS NULL
+            OR MAX(l.sent_at) < NOW() - $1 * INTERVAL '1 day'
+      `, [freqDays]);
+
+      if (advices.length > 0) {
+        const { rows: staff } = await db.query(
+          `SELECT DISTINCT email FROM qc_inspection.team_stakeholder WHERE role = 'accounts' AND email IS NOT NULL AND email <> ''`
+        );
+        let recipients = staff.map(r => r.email);
+        if (process.env.TEST_EMAIL_TO) recipients = [process.env.TEST_EMAIL_TO];
+
+        if (recipients.length > 0) {
+          const { subject, html } = emailPaymentOverdueDigest({ advices, targetRole: 'accounts' });
+          await sendEmail({ to: recipients, subject, html });
+          console.log(`[SCHEDULER] Payment reminder (accounts) sent for ${advices.length} advice(s).`);
+        }
+
+        for (const a of advices) {
+          await db.query(
+            `INSERT INTO qc_inspection.payment_overdue_reminder_log (advice_id, target_role) VALUES ($1, 'accounts')`,
+            [a.advice_id]
+          ).catch(err => console.error('[SCHEDULER] Payment log insert failed:', err.message));
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[SCHEDULER] Payment overdue reminder run failed:', err.message);
+  }
+}
+
 function startScheduler() {
-  cron.schedule(POLL_SCHEDULE, sendOverdueReminders);
+  cron.schedule(POLL_SCHEDULE, async () => {
+    await sendOverdueReminders();
+    await sendPaymentOverdueReminders();
+  });
   console.log('[SCHEDULER] Overdue reminder scheduler started (polls every minute, fires at configured send_time)');
 }
 
-module.exports = { startScheduler, sendOverdueReminders };
+module.exports = { startScheduler, sendOverdueReminders, sendPaymentOverdueReminders };

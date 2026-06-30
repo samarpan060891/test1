@@ -577,6 +577,16 @@ async function runMigrations() {
     )
   `, 'overdue_reminder_log table');
 
+  // 021: payment overdue reminder log
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.payment_overdue_reminder_log (
+      log_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      advice_id   UUID NOT NULL,
+      target_role TEXT NOT NULL,
+      sent_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `, 'payment_overdue_reminder_log table');
+
   console.log('✅ Migrations applied');
 }
 

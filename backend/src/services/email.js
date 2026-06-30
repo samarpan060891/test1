@@ -464,6 +464,60 @@ function emailInspectionOverdueDigest({ jobs }) {
   }
 }
 
+function emailPaymentOverdueDigest({ advices, targetRole }) {
+  const roleLabel = targetRole === 'imports' ? 'Imports Approval' : 'Accounts Payment'
+  const accentColor = targetRole === 'imports' ? '#7e22ce' : '#0f766e'
+  const accentBg    = targetRole === 'imports' ? '#faf5ff' : '#f0fdfa'
+  const borderColor = targetRole === 'imports' ? '#c4b5fd' : '#99f6e4'
+
+  const rows = advices.map(a => {
+    const pendingSince = a.status === 'pending_imports' ? a.buying_approved_at : a.imports_approved_at
+    const daysOverdue = pendingSince
+      ? Math.floor((Date.now() - new Date(pendingSince)) / (1000 * 60 * 60 * 24))
+      : null
+    const color = daysOverdue >= 14 ? '#dc2626' : daysOverdue >= 7 ? '#d97706' : '#15803d'
+    const bg    = daysOverdue >= 14 ? '#fef2f2' : daysOverdue >= 7 ? '#fef3c7' : '#dcfce7'
+    return `<tr style="border-bottom:1px solid #e2e8f0;">
+      <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#E8470F;">${a.job_ref || '—'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#374151;">${a.po_no || '—'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#374151;">${a.item_name || '—'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#374151;">${a.supplier_name || '—'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#374151;">${a.agency_name || 'Self'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#374151;">${pendingSince ? new Date(pendingSince).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'}</td>
+      <td style="padding:10px 14px;">
+        ${daysOverdue !== null ? `<span style="background:${bg};color:${color};padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:700;">${daysOverdue}d pending</span>` : '—'}
+      </td>
+    </tr>`
+  }).join('')
+
+  return {
+    subject: `💰 Payment Action Required — ${advices.length} advice${advices.length > 1 ? 's' : ''} pending ${roleLabel}`,
+    html: layout(`💰 ${advices.length} Advice${advices.length > 1 ? 's' : ''} Pending ${roleLabel}`, `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">
+        The following inspection charge advice${advices.length > 1 ? 's are' : ' is'} awaiting
+        <strong style="color:${accentColor};">${roleLabel}</strong>.
+        Please review and take action.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin:16px 0;">
+        <tr style="background:${accentBg};">
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:${accentColor};text-transform:uppercase;border-bottom:1px solid ${borderColor};">Job Ref</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:${accentColor};text-transform:uppercase;border-bottom:1px solid ${borderColor};">PO No</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:${accentColor};text-transform:uppercase;border-bottom:1px solid ${borderColor};">Item</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:${accentColor};text-transform:uppercase;border-bottom:1px solid ${borderColor};">Supplier</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:${accentColor};text-transform:uppercase;border-bottom:1px solid ${borderColor};">Agency</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:${accentColor};text-transform:uppercase;border-bottom:1px solid ${borderColor};">Pending Since</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:${accentColor};text-transform:uppercase;border-bottom:1px solid ${borderColor};">Waiting</th>
+        </tr>
+        ${rows}
+      </table>
+      ${ctaButton('Review Pending Payments →', APP_URL + '/inspection-costs')}
+      <p style="color:#94a3b8;font-size:11px;text-align:center;margin-top:8px;">
+        This reminder is sent daily until the payment advice is processed.
+      </p>
+    `),
+  }
+}
+
 module.exports = {
   sendEmail,
   emailJobMapped,
@@ -478,4 +532,5 @@ module.exports = {
   emailDocUploaded,
   emailDocReviewed,
   emailInspectionOverdueDigest,
+  emailPaymentOverdueDigest,
 };
