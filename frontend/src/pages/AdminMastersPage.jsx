@@ -347,298 +347,293 @@ const REMINDER_ROLES = [
   { value: 'supplier_user',label: 'Supplier',        hint: "Supplier user for the job's supplier" },
 ]
 
-function RemindersTab() {
-  const [cfg, setCfg] = useState(null)
+const BLANK_SCHEDULE = { name: '', enabled: true, timezone: 'Asia/Dubai', send_time: '08:00', min_days_overdue: 1, frequency_days: 1, recipient_roles: [] }
+
+function ScheduleForm({ initial, onSave, onCancel }) {
+  const [form, setForm] = useState(initial || BLANK_SCHEDULE)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const [log, setLog] = useState([])
+  const [nowInTz, setNowInTz] = useState(() => localTimeInTz(initial?.timezone || 'Asia/Dubai'))
 
   useEffect(() => {
-    client.get('/admin/reminder-config').then(r => setCfg(r.data)).catch(() => setError('Failed to load config'))
-    client.get('/admin/reminder-log').then(r => setLog(r.data)).catch(() => {})
-  }, [])
+    setNowInTz(localTimeInTz(form.timezone))
+    const t = setInterval(() => setNowInTz(localTimeInTz(form.timezone)), 10000)
+    return () => clearInterval(t)
+  }, [form.timezone])
 
   function toggleRole(role) {
-    const current = cfg.recipient_roles || []
-    const next = current.includes(role) ? current.filter(r => r !== role) : [...current, role]
-    setCfg(c => ({ ...c, recipient_roles: next }))
+    const cur = form.recipient_roles || []
+    setForm(f => ({ ...f, recipient_roles: cur.includes(role) ? cur.filter(r => r !== role) : [...cur, role] }))
   }
 
-  async function handleSave(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    if (cfg.enabled && (!cfg.recipient_roles || cfg.recipient_roles.length === 0)) {
-      setError('Select at least one recipient group before enabling reminders.')
-      return
-    }
-    setSaving(true); setSaved(false); setError('')
+    if (!form.name?.trim()) { setError('Give this schedule a name.'); return }
+    if ((form.recipient_roles || []).length === 0) { setError('Select at least one recipient group.'); return }
+    setSaving(true); setError('')
     try {
-      const r = await client.put('/admin/reminder-config', cfg)
-      setCfg(r.data); setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+      await onSave(form)
     } catch (err) {
       setError(err.response?.data?.error || 'Save failed')
     } finally { setSaving(false) }
   }
 
-  const [nowInTz, setNowInTz] = React.useState('')
-  React.useEffect(() => {
-    if (!cfg?.timezone) return
-    setNowInTz(localTimeInTz(cfg.timezone))
-    const t = setInterval(() => setNowInTz(localTimeInTz(cfg.timezone)), 10000)
-    return () => clearInterval(t)
-  }, [cfg?.timezone])
-
-  const panelStyle = { background: '#fff', borderRadius: '10px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '20px' }
+  const panelStyle = { background: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '16px' }
   const labelStyle = { fontSize: '12px', fontWeight: '700', color: '#374151', display: 'block', marginBottom: '6px' }
   const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: '7px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }
-  const hintStyle  = { fontSize: '11px', color: '#6b7280', marginTop: '4px' }
-
-  const [savedCfg, setSavedCfg] = useState(null) // last confirmed-saved snapshot
-
-  if (!cfg) return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading…</div>
-
-  const selectedRoles = cfg.recipient_roles || []
-  const selectedLabels = REMINDER_ROLES.filter(r => selectedRoles.includes(r.value)).map(r => r.label)
-  const selectedTzOption = TIMEZONE_OPTIONS.find(o => o.tz === cfg.timezone) || TIMEZONE_OPTIONS.find(o => o.tz === 'UTC')
-
-  // show saved snapshot after save; otherwise show loaded config if it has any meaningful setting
-  const activeCfg = savedCfg || (cfg.enabled || cfg.recipient_roles?.length > 0 ? cfg : null)
-  const activeTzOption = activeCfg ? (TIMEZONE_OPTIONS.find(o => o.tz === activeCfg.timezone) || TIMEZONE_OPTIONS.find(o => o.tz === 'UTC')) : null
-  const activeLabels = activeCfg ? REMINDER_ROLES.filter(r => (activeCfg.recipient_roles || []).includes(r.value)).map(r => r.label) : []
-
-  async function handleDisable() {
-    const updated = { ...activeCfg, enabled: false }
-    try {
-      const r = await client.put('/admin/reminder-config', updated)
-      setCfg(r.data); setSavedCfg(r.data)
-    } catch {}
-  }
-
-  async function handleDelete() {
-    if (!window.confirm('Remove this schedule? This will disable the reminder and clear all settings.')) return
-    const reset = { enabled: false, min_days_overdue: 1, frequency_days: 1, send_time: '08:00', recipient_roles: [], timezone: 'UTC' }
-    try {
-      const r = await client.put('/admin/reminder-config', reset)
-      setCfg(r.data); setSavedCfg(null)
-    } catch {}
-  }
+  const tzOption   = TIMEZONE_OPTIONS.find(o => o.tz === form.timezone) || TIMEZONE_OPTIONS.find(o => o.tz === 'UTC')
 
   return (
-    <div style={{ padding: '28px 0', display: 'grid', gridTemplateColumns: '1fr 340px', gap: '28px', alignItems: 'start' }}>
+    <form onSubmit={handleSubmit}>
+      {/* Name */}
+      <div style={panelStyle}>
+        <label style={labelStyle}>Schedule Name</label>
+        <input value={form.name || ''} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+          placeholder="e.g. QA Daily Reminder" style={inputStyle} required />
+        <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>Give this schedule a descriptive name so you can tell them apart.</div>
+      </div>
 
-      {/* LEFT — configuration form */}
-      <div>
-      <form onSubmit={async (e) => {
-        e.preventDefault()
-        if (cfg.enabled && (!cfg.recipient_roles || cfg.recipient_roles.length === 0)) {
-          setError('Select at least one recipient group before enabling reminders.')
-          return
-        }
-        setSaving(true); setSaved(false); setError('')
-        try {
-          const r = await client.put('/admin/reminder-config', cfg)
-          setCfg(r.data); setSavedCfg(r.data); setSaved(true)
-          setTimeout(() => setSaved(false), 2500)
-        } catch (err) {
-          setError(err.response?.data?.error || 'Save failed')
-        } finally { setSaving(false) }
-      }}>
-
-        {/* Timezone selector */}
-        <div style={panelStyle}>
-          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Your Timezone</div>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '14px' }}>Select your country so all reminder times are in your local time.</div>
-          <select
-            value={cfg.timezone || 'UTC'}
-            onChange={e => setCfg(c => ({ ...c, timezone: e.target.value }))}
-            style={{ ...inputStyle, maxWidth: '380px' }}
-          >
-            {TIMEZONE_OPTIONS.map(o => (
-              <option key={o.tz} value={o.tz}>{o.label} ({o.offset})</option>
-            ))}
-          </select>
-          {nowInTz && (
-            <div style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '7px', padding: '6px 14px' }}>
-              <span style={{ fontSize: '18px', fontWeight: '800', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{nowInTz}</span>
-              <span style={{ fontSize: '11px', color: '#16a34a' }}>current time in {selectedTzOption?.label}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Recipient selection */}
-        <div style={panelStyle}>
-          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Who receives reminders?</div>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px' }}>Select one or more stakeholder groups.</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {REMINDER_ROLES.map(opt => {
-              const checked = selectedRoles.includes(opt.value)
-              return (
-                <label key={opt.value} onClick={() => toggleRole(opt.value)} style={{
-                  display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
-                  borderRadius: '8px', border: `1.5px solid ${checked ? '#E8470F' : '#e5e7eb'}`,
-                  background: checked ? '#fff7f5' : '#fafafa', cursor: 'pointer', transition: 'all 0.15s',
-                }}>
-                  <div style={{
-                    width: '18px', height: '18px', borderRadius: '4px', border: `2px solid ${checked ? '#E8470F' : '#d1d5db'}`,
-                    background: checked ? '#E8470F' : '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {checked && <span style={{ color: '#fff', fontSize: '11px', fontWeight: '900', lineHeight: 1 }}>✓</span>}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: checked ? '#E8470F' : '#374151' }}>{opt.label}</div>
-                    <div style={{ fontSize: '11px', color: '#6b7280' }}>{opt.hint}</div>
-                  </div>
-                </label>
-              )
-            })}
+      {/* Timezone */}
+      <div style={panelStyle}>
+        <label style={labelStyle}>Timezone</label>
+        <select value={form.timezone || 'UTC'} onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))} style={{ ...inputStyle, maxWidth: '340px' }}>
+          {TIMEZONE_OPTIONS.map(o => <option key={o.tz} value={o.tz}>{o.label} ({o.offset})</option>)}
+        </select>
+        {nowInTz && (
+          <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '7px', padding: '5px 12px' }}>
+            <span style={{ fontSize: '16px', fontWeight: '800', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{nowInTz}</span>
+            <span style={{ fontSize: '11px', color: '#16a34a' }}>current time in {tzOption?.label}</span>
           </div>
-          {selectedRoles.length === 0 && (
-            <div style={{ marginTop: '12px', fontSize: '12px', color: '#dc2626' }}>⚠ No recipients selected.</div>
-          )}
-        </div>
+        )}
+      </div>
 
-        {/* Timing settings */}
-        <div style={panelStyle}>
-          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '18px' }}>Timing &amp; Frequency</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
-            <div>
-              <label style={labelStyle}>Send Time</label>
-              <input type="time" value={(cfg.send_time || '08:00').slice(0, 5)}
-                onChange={e => setCfg(c => ({ ...c, send_time: e.target.value }))}
-                style={inputStyle} required />
-              <div style={hintStyle}>{selectedTzOption?.label} ({selectedTzOption?.offset})</div>
-            </div>
-            <div>
-              <label style={labelStyle}>First reminder after</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input type="number" min="1" max="30" value={cfg.min_days_overdue || 1}
-                  onChange={e => setCfg(c => ({ ...c, min_days_overdue: parseInt(e.target.value) || 1 }))}
-                  style={{ ...inputStyle, width: '70px' }} required />
-                <span style={{ fontSize: '13px', color: '#374151' }}>day(s) overdue</span>
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Repeat every</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input type="number" min="1" max="30" value={cfg.frequency_days || 1}
-                  onChange={e => setCfg(c => ({ ...c, frequency_days: parseInt(e.target.value) || 1 }))}
-                  style={{ ...inputStyle, width: '70px' }} required />
-                <span style={{ fontSize: '13px', color: '#374151' }}>day(s)</span>
-              </div>
-            </div>
-          </div>
+      {/* Recipients */}
+      <div style={panelStyle}>
+        <label style={labelStyle}>Who receives this reminder?</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+          {REMINDER_ROLES.map(opt => {
+            const checked = (form.recipient_roles || []).includes(opt.value)
+            return (
+              <label key={opt.value} onClick={() => toggleRole(opt.value)} style={{
+                display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px',
+                borderRadius: '8px', border: `1.5px solid ${checked ? '#E8470F' : '#e5e7eb'}`,
+                background: checked ? '#fff7f5' : '#fafafa', cursor: 'pointer',
+              }}>
+                <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `2px solid ${checked ? '#E8470F' : '#d1d5db'}`, background: checked ? '#E8470F' : '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {checked && <span style={{ color: '#fff', fontSize: '10px', fontWeight: '900' }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: checked ? '#E8470F' : '#374151' }}>{opt.label}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>{opt.hint}</div>
+                </div>
+              </label>
+            )
+          })}
         </div>
+      </div>
 
-        {/* Enable toggle inside form */}
-        <div style={{ ...panelStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Timing */}
+      <div style={panelStyle}>
+        <label style={labelStyle}>Timing &amp; Frequency</label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827' }}>Enable this reminder</div>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Admin is never included in reminder emails.</div>
+            <label style={{ ...labelStyle, fontSize: '11px' }}>Send Time</label>
+            <input type="time" value={(form.send_time || '08:00').slice(0,5)}
+              onChange={e => setForm(f => ({ ...f, send_time: e.target.value }))} style={inputStyle} required />
+            <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '3px' }}>{tzOption?.label}</div>
           </div>
-          <div onClick={() => setCfg(c => ({ ...c, enabled: !c.enabled }))}
-            style={{ width: '44px', height: '24px', borderRadius: '9999px', cursor: 'pointer', transition: 'background 0.2s',
-              background: cfg.enabled ? '#E8470F' : '#d1d5db', position: 'relative', flexShrink: 0 }}>
-            <div style={{ position: 'absolute', top: '3px', left: cfg.enabled ? '22px' : '3px',
-              width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
-              transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+          <div>
+            <label style={{ ...labelStyle, fontSize: '11px' }}>First reminder after</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input type="number" min="1" max="30" value={form.min_days_overdue || 1}
+                onChange={e => setForm(f => ({ ...f, min_days_overdue: parseInt(e.target.value) || 1 }))}
+                style={{ ...inputStyle, width: '60px' }} required />
+              <span style={{ fontSize: '12px', color: '#374151' }}>day(s)</span>
+            </div>
+          </div>
+          <div>
+            <label style={{ ...labelStyle, fontSize: '11px' }}>Repeat every</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input type="number" min="1" max="30" value={form.frequency_days || 1}
+                onChange={e => setForm(f => ({ ...f, frequency_days: parseInt(e.target.value) || 1 }))}
+                style={{ ...inputStyle, width: '60px' }} required />
+              <span style={{ fontSize: '12px', color: '#374151' }}>day(s)</span>
+            </div>
           </div>
         </div>
-
-        {error && <div style={{ background: '#fef2f2', color: '#dc2626', padding: '10px 14px', borderRadius: '7px', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
-
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <button type="submit" disabled={saving} style={{
-            background: '#1C1208', color: '#fff', padding: '10px 24px', borderRadius: '8px',
-            border: 'none', fontWeight: '700', fontSize: '13px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
-          }}>{saving ? 'Saving…' : 'Save & Schedule'}</button>
-          {saved && <span style={{ fontSize: '13px', color: '#15803d', fontWeight: '700' }}>✓ Schedule saved</span>}
-        </div>
-      </form>
       </div>
 
-      {/* RIGHT — Scheduled Tasks panel */}
-      <div>
-        <div style={{ fontSize: '13px', fontWeight: '800', color: '#111827', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '14px' }}>
-          Scheduled Tasks
+      {/* Enable toggle */}
+      <div style={{ ...panelStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827' }}>Enable immediately</div>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>Admin is never included in reminder emails.</div>
         </div>
-
-        {activeCfg && activeCfg.recipient_roles?.length > 0 ? (
-          <div style={{
-            background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-            border: `2px solid ${activeCfg.enabled ? '#E8470F' : '#e5e7eb'}`, overflow: 'hidden',
-          }}>
-            {/* Status bar */}
-            <div style={{ background: activeCfg.enabled ? '#E8470F' : '#f1f5f9', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: activeCfg.enabled ? '#fff' : '#9ca3af', display: 'inline-block', flexShrink: 0 }} />
-              <span style={{ fontSize: '11px', fontWeight: '800', color: activeCfg.enabled ? '#fff' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                {activeCfg.enabled ? 'Active' : 'Disabled'}
-              </span>
-            </div>
-
-            {/* Details */}
-            <div style={{ padding: '16px' }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '12px' }}>
-                Overdue Inspection Reminder
-              </div>
-
-              {[
-                ['🕐 Send time', `${(activeCfg.send_time || '08:00').slice(0,5)} — ${activeTzOption?.label}`],
-                ['📅 First reminder', `After ${activeCfg.min_days_overdue} day(s) overdue`],
-                ['🔁 Repeats', `Every ${activeCfg.frequency_days} day(s)`],
-                ['👥 Recipients', activeLabels.join(', ') || '—'],
-              ].map(([k, v]) => (
-                <div key={k} style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '12px' }}>
-                  <span style={{ color: '#6b7280', minWidth: '100px' }}>{k}</span>
-                  <span style={{ color: '#111827', fontWeight: '600' }}>{v}</span>
-                </div>
-              ))}
-
-              {/* Last sent */}
-              {log.length > 0 && (
-                <div style={{ marginTop: '10px', padding: '8px 10px', background: '#f8fafc', borderRadius: '6px', fontSize: '11px', color: '#6b7280' }}>
-                  Last sent: {new Date(log[0].sent_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-                <button onClick={handleDisable} disabled={!activeCfg.enabled} style={{
-                  flex: 1, padding: '7px 0', borderRadius: '6px', border: '1.5px solid #d1d5db',
-                  background: '#fff', fontSize: '12px', fontWeight: '700', color: '#374151',
-                  cursor: activeCfg.enabled ? 'pointer' : 'not-allowed', opacity: activeCfg.enabled ? 1 : 0.4,
-                }}>⏸ Disable</button>
-                <button onClick={handleDelete} style={{
-                  flex: 1, padding: '7px 0', borderRadius: '6px', border: '1.5px solid #fca5a5',
-                  background: '#fff', fontSize: '12px', fontWeight: '700', color: '#dc2626', cursor: 'pointer',
-                }}>🗑 Delete</button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div style={{ background: '#f8fafc', borderRadius: '12px', border: '2px dashed #e2e8f0', padding: '32px 20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '28px', marginBottom: '8px' }}>📭</div>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>No active schedules</div>
-            <div style={{ fontSize: '11px', color: '#cbd5e1' }}>Configure and save a reminder on the left</div>
-          </div>
-        )}
-
-        {/* Recent log */}
-        {log.length > 0 && (
-          <div style={{ marginTop: '20px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Recent Sends</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {log.slice(0, 5).map(l => (
-                <div key={l.log_id} style={{ background: '#fff', borderRadius: '8px', padding: '9px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', fontSize: '11px' }}>
-                  <div style={{ fontWeight: '700', color: '#E8470F' }}>{l.job_ref}</div>
-                  <div style={{ color: '#6b7280', marginTop: '2px' }}>{l.supplier_name} · {new Date(l.sent_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <div onClick={() => setForm(f => ({ ...f, enabled: !f.enabled }))}
+          style={{ width: '40px', height: '22px', borderRadius: '9999px', cursor: 'pointer', transition: 'background 0.2s',
+            background: form.enabled ? '#E8470F' : '#d1d5db', position: 'relative', flexShrink: 0 }}>
+          <div style={{ position: 'absolute', top: '2px', left: form.enabled ? '20px' : '2px',
+            width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+            transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+        </div>
       </div>
 
+      {error && <div style={{ background: '#fef2f2', color: '#dc2626', padding: '10px 14px', borderRadius: '7px', fontSize: '13px', marginBottom: '12px' }}>{error}</div>}
+
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <button type="submit" disabled={saving} style={{
+          background: '#1C1208', color: '#fff', padding: '10px 22px', borderRadius: '8px',
+          border: 'none', fontWeight: '700', fontSize: '13px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
+        }}>{saving ? 'Saving…' : 'Save Schedule'}</button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} style={{
+            background: '#fff', color: '#374151', padding: '10px 22px', borderRadius: '8px',
+            border: '1.5px solid #d1d5db', fontWeight: '600', fontSize: '13px', cursor: 'pointer',
+          }}>Cancel</button>
+        )}
+      </div>
+    </form>
+  )
+}
+
+function RemindersTab() {
+  const [schedules, setSchedules] = useState(null)
+  const [mode, setMode] = useState('list') // 'list' | 'new' | 'edit'
+  const [editTarget, setEditTarget] = useState(null)
+
+  function loadSchedules() {
+    client.get('/admin/reminder-schedules').then(r => setSchedules(r.data)).catch(() => setSchedules([]))
+  }
+
+  useEffect(() => { loadSchedules() }, [])
+
+  async function handleCreate(form) {
+    await client.post('/admin/reminder-schedules', form)
+    loadSchedules()
+    setMode('list')
+  }
+
+  async function handleUpdate(form) {
+    await client.put(`/admin/reminder-schedules/${editTarget.schedule_id}`, form)
+    loadSchedules()
+    setMode('list')
+    setEditTarget(null)
+  }
+
+  async function handleToggle(s) {
+    await client.patch(`/admin/reminder-schedules/${s.schedule_id}/toggle`)
+    loadSchedules()
+  }
+
+  async function handleDelete(s) {
+    if (!window.confirm(`Delete schedule "${s.name}"? This cannot be undone.`)) return
+    await client.delete(`/admin/reminder-schedules/${s.schedule_id}`)
+    loadSchedules()
+  }
+
+  if (schedules === null) return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading…</div>
+
+  if (mode === 'new') return (
+    <div style={{ maxWidth: '680px', paddingTop: '20px' }}>
+      <div style={{ fontSize: '15px', fontWeight: '700', color: '#111827', marginBottom: '20px' }}>New Reminder Schedule</div>
+      <ScheduleForm onSave={handleCreate} onCancel={() => setMode('list')} />
+    </div>
+  )
+
+  if (mode === 'edit' && editTarget) return (
+    <div style={{ maxWidth: '680px', paddingTop: '20px' }}>
+      <div style={{ fontSize: '15px', fontWeight: '700', color: '#111827', marginBottom: '20px' }}>Edit — {editTarget.name}</div>
+      <ScheduleForm initial={editTarget} onSave={handleUpdate} onCancel={() => { setMode('list'); setEditTarget(null) }} />
+    </div>
+  )
+
+  // LIST view
+  return (
+    <div style={{ paddingTop: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div>
+          <div style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>Scheduled Tasks</div>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Each schedule runs independently with its own recipients and timing.</div>
+        </div>
+        <button onClick={() => setMode('new')} style={{
+          background: '#1C1208', color: '#fff', padding: '9px 18px', borderRadius: '8px',
+          border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
+        }}>+ Add Schedule</button>
+      </div>
+
+      {schedules.length === 0 ? (
+        <div style={{ background: '#f8fafc', borderRadius: '12px', border: '2px dashed #e2e8f0', padding: '48px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: '32px', marginBottom: '10px' }}>📭</div>
+          <div style={{ fontSize: '14px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px' }}>No schedules yet</div>
+          <div style={{ fontSize: '12px', color: '#cbd5e1', marginBottom: '16px' }}>Create your first reminder schedule to get started.</div>
+          <button onClick={() => setMode('new')} style={{
+            background: '#E8470F', color: '#fff', padding: '9px 20px', borderRadius: '8px',
+            border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
+          }}>+ Create First Schedule</button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+          {schedules.map(s => {
+            const tzOpt = TIMEZONE_OPTIONS.find(o => o.tz === s.timezone) || { label: s.timezone, offset: '' }
+            const roleLabels = REMINDER_ROLES.filter(r => (s.recipient_roles || []).includes(r.value)).map(r => r.label)
+            return (
+              <div key={s.schedule_id} style={{
+                background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                border: `2px solid ${s.enabled ? '#E8470F' : '#e5e7eb'}`, overflow: 'hidden',
+              }}>
+                {/* Status bar */}
+                <div style={{ background: s.enabled ? '#E8470F' : '#f1f5f9', padding: '7px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: s.enabled ? '#fff' : '#9ca3af', display: 'inline-block' }} />
+                    <span style={{ fontSize: '11px', fontWeight: '800', color: s.enabled ? '#fff' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {s.enabled ? 'Active' : 'Disabled'}
+                    </span>
+                  </div>
+                  <button onClick={() => handleToggle(s)} style={{
+                    background: s.enabled ? 'rgba(255,255,255,0.2)' : '#e5e7eb',
+                    border: 'none', borderRadius: '5px', padding: '3px 8px',
+                    fontSize: '11px', fontWeight: '700', color: s.enabled ? '#fff' : '#6b7280', cursor: 'pointer',
+                  }}>{s.enabled ? '⏸ Disable' : '▶ Enable'}</button>
+                </div>
+
+                {/* Body */}
+                <div style={{ padding: '14px 16px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#111827', marginBottom: '10px' }}>{s.name}</div>
+
+                  {[
+                    ['🕐 Send time', `${(s.send_time || '08:00').slice(0,5)} — ${tzOpt.label}`],
+                    ['📅 First reminder', `After ${s.min_days_overdue} day(s) overdue`],
+                    ['🔁 Repeats', `Every ${s.frequency_days} day(s)`],
+                    ['👥 Recipients', roleLabels.join(', ') || '—'],
+                  ].map(([k, v]) => (
+                    <div key={k} style={{ display: 'flex', gap: '8px', marginBottom: '6px', fontSize: '12px' }}>
+                      <span style={{ color: '#6b7280', minWidth: '110px', flexShrink: 0 }}>{k}</span>
+                      <span style={{ color: '#111827', fontWeight: '600' }}>{v}</span>
+                    </div>
+                  ))}
+
+                  {s.last_sent_at && (
+                    <div style={{ marginTop: '8px', padding: '6px 10px', background: '#f8fafc', borderRadius: '6px', fontSize: '11px', color: '#6b7280' }}>
+                      Last sent: {new Date(s.last_sent_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <button onClick={() => { setEditTarget(s); setMode('edit') }} style={{
+                      flex: 1, padding: '6px 0', borderRadius: '6px', border: '1.5px solid #d1d5db',
+                      background: '#fff', fontSize: '12px', fontWeight: '700', color: '#374151', cursor: 'pointer',
+                    }}>✏ Edit</button>
+                    <button onClick={() => handleDelete(s)} style={{
+                      flex: 1, padding: '6px 0', borderRadius: '6px', border: '1.5px solid #fca5a5',
+                      background: '#fff', fontSize: '12px', fontWeight: '700', color: '#dc2626', cursor: 'pointer',
+                    }}>🗑 Delete</button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

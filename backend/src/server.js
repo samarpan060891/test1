@@ -587,6 +587,27 @@ async function runMigrations() {
     )
   `, 'payment_overdue_reminder_log table');
 
+  // 022: multi-schedule reminder system
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.reminder_schedules (
+      schedule_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name             TEXT NOT NULL DEFAULT 'Reminder',
+      enabled          BOOLEAN NOT NULL DEFAULT false,
+      min_days_overdue INT NOT NULL DEFAULT 1,
+      frequency_days   INT NOT NULL DEFAULT 1,
+      send_time        TIME NOT NULL DEFAULT '08:00:00',
+      recipient_roles  TEXT[] NOT NULL DEFAULT '{}',
+      timezone         TEXT NOT NULL DEFAULT 'UTC',
+      created_at       TIMESTAMPTZ DEFAULT NOW(),
+      updated_at       TIMESTAMPTZ DEFAULT NOW()
+    )
+  `, 'reminder_schedules table');
+
+  await safeQuery(`
+    ALTER TABLE qc_inspection.overdue_reminder_log
+    ADD COLUMN IF NOT EXISTS schedule_id UUID REFERENCES qc_inspection.reminder_schedules(schedule_id) ON DELETE SET NULL
+  `, 'overdue_reminder_log schedule_id col');
+
   console.log('✅ Migrations applied');
 }
 

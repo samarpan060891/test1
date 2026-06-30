@@ -359,7 +359,102 @@ router.post('/masters/po/bulk', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── OVERDUE REMINDER CONFIG ───────────────────────────────────────────────────
+// ── REMINDER SCHEDULES (multi-schedule) ──────────────────────────────────────
+
+const ALLOWED_RECIPIENT_ROLES = ['qa', 'buying', 'imports', 'accounts', 'agency_user', 'supplier_user'];
+
+// GET all schedules
+router.get('/reminder-schedules', async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT s.*,
+        (SELECT MAX(l.sent_at) FROM qc_inspection.overdue_reminder_log l WHERE l.schedule_id = s.schedule_id) AS last_sent_at
+      FROM qc_inspection.reminder_schedules s
+      ORDER BY s.created_at ASC
+    `);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST create schedule
+router.post('/reminder-schedules', async (req, res) => {
+  const { name, enabled, min_days_overdue, frequency_days, send_time, recipient_roles, timezone } = req.body;
+  if ((frequency_days || 1) < 1 || (min_days_overdue || 1) < 1)
+    return res.status(400).json({ error: 'Days values must be at least 1' });
+  if (!/^\d{2}:\d{2}$/.test(send_time || ''))
+    return res.status(400).json({ error: 'send_time must be HH:MM format' });
+  const roles = Array.isArray(recipient_roles) ? recipient_roles.filter(r => ALLOWED_RECIPIENT_ROLES.includes(r)) : [];
+  try {
+    const { rows } = await db.query(`
+      INSERT INTO qc_inspection.reminder_schedules
+        (name, enabled, min_days_overdue, frequency_days, send_time, recipient_roles, timezone)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
+      RETURNING *
+    `, [name || 'Reminder', !!enabled, min_days_overdue || 1, frequency_days || 1, send_time, roles, timezone || 'UTC']);
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PUT update schedule
+router.put('/reminder-schedules/:id', async (req, res) => {
+  const { name, enabled, min_days_overdue, frequency_days, send_time, recipient_roles, timezone } = req.body;
+  if ((frequency_days || 1) < 1 || (min_days_overdue || 1) < 1)
+    return res.status(400).json({ error: 'Days values must be at least 1' });
+  if (!/^\d{2}:\d{2}$/.test(send_time || ''))
+    return res.status(400).json({ error: 'send_time must be HH:MM format' });
+  const roles = Array.isArray(recipient_roles) ? recipient_roles.filter(r => ALLOWED_RECIPIENT_ROLES.includes(r)) : [];
+  try {
+    const { rows } = await db.query(`
+      UPDATE qc_inspection.reminder_schedules
+      SET name=$1, enabled=$2, min_days_overdue=$3, frequency_days=$4,
+          send_time=$5, recipient_roles=$6, timezone=$7, updated_at=NOW()
+      WHERE schedule_id=$8
+      RETURNING *
+    `, [name || 'Reminder', !!enabled, min_days_overdue || 1, frequency_days || 1, send_time, roles, timezone || 'UTC', req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Schedule not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PATCH toggle enabled
+router.patch('/reminder-schedules/:id/toggle', async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      UPDATE qc_inspection.reminder_schedules
+      SET enabled = NOT enabled, updated_at = NOW()
+      WHERE schedule_id = $1 RETURNING *
+    `, [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Schedule not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// DELETE schedule
+router.delete('/reminder-schedules/:id', async (req, res) => {
+  try {
+    await db.query(`DELETE FROM qc_inspection.reminder_schedules WHERE schedule_id = $1`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET log for a schedule
+router.get('/reminder-schedules/:id/log', async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT l.log_id, l.job_id, l.sent_at,
+             j.job_ref, j.inspection_date, j.po_no,
+             s.name AS supplier_name
+      FROM qc_inspection.overdue_reminder_log l
+      JOIN qc_inspection.inspection_job j ON j.job_id = l.job_id
+      JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+      WHERE l.schedule_id = $1
+      ORDER BY l.sent_at DESC LIMIT 20
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── LEGACY single-config endpoints (kept for backward compat) ─────────────────
 
 router.get('/reminder-config', async (req, res) => {
   try {
@@ -368,32 +463,19 @@ router.get('/reminder-config', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-const ALLOWED_RECIPIENT_ROLES = ['qa', 'buying', 'imports', 'accounts', 'agency_user', 'supplier_user'];
-
 router.put('/reminder-config', async (req, res) => {
   const { enabled, min_days_overdue, frequency_days, send_time, recipient_roles, timezone } = req.body;
-  if (frequency_days < 1 || min_days_overdue < 1) {
-    return res.status(400).json({ error: 'Days values must be at least 1' });
-  }
-  if (!/^\d{2}:\d{2}$/.test(send_time || '')) {
-    return res.status(400).json({ error: 'send_time must be HH:MM format' });
-  }
-  const roles = Array.isArray(recipient_roles)
-    ? recipient_roles.filter(r => ALLOWED_RECIPIENT_ROLES.includes(r))
-    : [];
+  const roles = Array.isArray(recipient_roles) ? recipient_roles.filter(r => ALLOWED_RECIPIENT_ROLES.includes(r)) : [];
   try {
     const { rows } = await db.query(`
       UPDATE qc_inspection.overdue_reminder_config
-      SET enabled = $1, min_days_overdue = $2, frequency_days = $3, send_time = $4,
-          recipient_roles = $5, timezone = $6, updated_at = NOW()
-      WHERE id = 1
-      RETURNING *
-    `, [!!enabled, min_days_overdue, frequency_days, send_time, roles, timezone || 'UTC']);
+      SET enabled=$1, min_days_overdue=$2, frequency_days=$3, send_time=$4,
+          recipient_roles=$5, timezone=$6, updated_at=NOW()
+      WHERE id=1 RETURNING *
+    `, [!!enabled, min_days_overdue||1, frequency_days||1, send_time||'08:00', roles, timezone||'UTC']);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
-// ── REMINDER LOG (for debugging/audit) ───────────────────────────────────────
 
 router.get('/reminder-log', async (req, res) => {
   try {
@@ -404,8 +486,7 @@ router.get('/reminder-log', async (req, res) => {
       FROM qc_inspection.overdue_reminder_log l
       JOIN qc_inspection.inspection_job j ON j.job_id = l.job_id
       JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
-      ORDER BY l.sent_at DESC
-      LIMIT 200
+      ORDER BY l.sent_at DESC LIMIT 200
     `);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
