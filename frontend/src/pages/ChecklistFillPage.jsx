@@ -100,6 +100,13 @@ function ImageUploader({ jobId, sectionKey, readOnly }) {
       {images.length === 0 && !readOnly && (
         <div style={{ fontSize: '11px', color: '#9ca3af' }}>No photos yet. Tap "+ Add Photos" to attach images.</div>
       )}
+      {images.length === 0 && readOnly && (
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {[0,1,2,3].map(i => (
+            <div key={i} style={{ width: '80px', height: '80px', borderRadius: '6px', border: '1.5px dashed #d1d5db', background: '#f3f4f6', flexShrink: 0 }} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
