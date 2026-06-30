@@ -1,7 +1,93 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-export async function generateInspectionReport(job, responses = [], logs = []) {
+const apiBase = import.meta.env.VITE_API_URL || ''
+
+async function fetchImageAsBase64(url) {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result) // data:image/...;base64,...
+      reader.readAsDataURL(blob)
+    })
+  } catch { return null }
+}
+
+// Draw a grid of images (up to 4 per row). Returns new y after the grid.
+function drawImageGrid(doc, images, startY, margin, pageW) {
+  if (!images.length) return startY
+  const pageH = doc.internal.pageSize.getHeight()
+  const cols = Math.min(images.length, 4)
+  const gap = 3
+  const totalGap = gap * (cols - 1)
+  const cellW = (pageW - margin * 2 - totalGap) / cols
+  const cellH = cellW * 0.75 // 4:3 aspect
+
+  let x = margin
+  let y = startY
+
+  images.forEach((img, i) => {
+    if (i > 0 && i % cols === 0) {
+      x = margin
+      y += cellH + gap + 5 // row gap
+    }
+    // page break
+    if (y + cellH > pageH - 16) {
+      doc.addPage()
+      y = 20
+    }
+    try {
+      // Determine image format from data URL
+      const fmt = img.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+      doc.addImage(img, fmt, x, y, cellW, cellH, undefined, 'MEDIUM')
+    } catch {}
+    // thin border
+    doc.setDrawColor(220, 220, 220)
+    doc.setLineWidth(0.2)
+    doc.rect(x, y, cellW, cellH)
+    x += cellW + gap
+  })
+
+  return y + cellH + 6
+}
+
+export async function generateInspectionReport(job, responses = [], logs = [], jobId = null) {
+  const resolvedJobId = jobId || job?.job_id || job?.id
+  const token = localStorage.getItem('token')
+
+  // Fetch images and video links in parallel
+  let allImages = []
+  let videoLinks = []
+  if (resolvedJobId) {
+    try {
+      const [imgRes, vidRes] = await Promise.all([
+        fetch(`${apiBase}/api/checklist-images/${resolvedJobId}/images`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${apiBase}/api/checklist-images/${resolvedJobId}/video-links`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ])
+      if (imgRes.ok) allImages = await imgRes.json()
+      if (vidRes.ok) videoLinks = await vidRes.json()
+    } catch {}
+  }
+
+  // Pre-load all images as base64 in parallel
+  const base64Map = {}
+  await Promise.all(
+    allImages.map(async (img) => {
+      const b64 = await fetchImageAsBase64(
+        `${apiBase}/api/checklist-images/${resolvedJobId}/images/${img.image_id}/file`
+      )
+      if (b64) base64Map[img.image_id] = b64
+    })
+  )
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.getWidth()
   const margin = 16
@@ -148,7 +234,7 @@ export async function generateInspectionReport(job, responses = [], logs = []) {
           r.checkpoint_text || '—',
           r.criticality || '—',
           (r.result || '—').toUpperCase(),
-          r.remarks || '',
+          r.remark || r.remarks || '',
         ]),
         didParseCell(data) {
           if (data.column.index === 2 && data.section === 'body') {
@@ -160,8 +246,68 @@ export async function generateInspectionReport(job, responses = [], logs = []) {
         },
       })
       y = doc.lastAutoTable.finalY + 4
+
+      // Section images — look for images whose section_key matches itemCode__section
+      // We match by the section name portion (after the last __)
+      const sectionImgs = allImages.filter(img => {
+        const key = img.section_key || ''
+        const parts = key.split('__')
+        const sectionPart = parts.slice(1).join('__')
+        return sectionPart === section && key !== '__defects__'
+      })
+      const sectionB64 = sectionImgs.map(img => base64Map[img.image_id]).filter(Boolean)
+
+      if (sectionB64.length > 0) {
+        if (y + 10 > doc.internal.pageSize.getHeight() - 20) { doc.addPage(); y = 20 }
+        doc.setFontSize(8)
+        doc.setTextColor(...gray)
+        doc.setFont('helvetica', 'bold')
+        doc.text(`Photos — ${section} (${sectionB64.length})`, margin, y + 4)
+        y += 8
+        y = drawImageGrid(doc, sectionB64, y, margin, pageW)
+        y += 4
+      }
     }
     y += 4
+  }
+
+  // ── Defect Images ───────────────────────────────────────────────────────────
+  const defectImgs = allImages.filter(img => img.section_key === '__defects__')
+  const defectB64 = defectImgs.map(img => base64Map[img.image_id]).filter(Boolean)
+
+  if (defectB64.length > 0) {
+    if (y + 14 > doc.internal.pageSize.getHeight() - 20) { doc.addPage(); y = 20 }
+    doc.setFillColor(127, 29, 29)
+    doc.rect(margin, y, pageW - margin * 2, 8, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`Defect Images (${defectB64.length})`, margin + 4, y + 5.5)
+    y += 12
+    y = drawImageGrid(doc, defectB64, y, margin, pageW)
+    y += 6
+  }
+
+  // ── Video Links ─────────────────────────────────────────────────────────────
+  if (videoLinks.length > 0) {
+    if (y + 14 > doc.internal.pageSize.getHeight() - 20) { doc.addPage(); y = 20 }
+    doc.setTextColor(...dark)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Video Links', margin, y)
+    y += 5
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 8.5, cellPadding: 2.5 },
+      headStyles: { fillColor: blue, textColor: 255, fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 40, textColor: gray }, 1: { textColor: [29, 78, 216] } },
+      head: [['Label', 'Link']],
+      body: videoLinks.map(l => [l.label || '—', l.url]),
+    })
+    y = doc.lastAutoTable.finalY + 8
   }
 
   // ── Activity Log ─────────────────────────────────────────────────────────────

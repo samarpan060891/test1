@@ -227,7 +227,7 @@ export default function JobDetailPage() {
         getResponses(jobId).catch(() => ({ data: [] })),
         getLogs({ job_id: jobId }).catch(() => ({ data: [] })),
       ])
-      await generateInspectionReport(job, responsesRes.data || [], Array.isArray(logsRes.data) ? logsRes.data : logsRes.data?.logs || [])
+      await generateInspectionReport(job, responsesRes.data || [], Array.isArray(logsRes.data) ? logsRes.data : logsRes.data?.logs || [], jobId)
     } catch (err) {
       console.error('PDF generation failed:', err)
     } finally {
