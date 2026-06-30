@@ -18,7 +18,7 @@ import {
 } from '../api/itemHistory.js'
 import { useCurrency } from '../context/CurrencyContext.jsx'
 
-const TABS = ['Suppliers', 'Agencies', 'Items', 'POs', 'Customer Complaints', 'Claims', 'Scorecard Config']
+const TABS = ['Suppliers', 'Agencies', 'Items', 'POs', 'Customer Complaints', 'Claims', 'Scorecard Config', 'Reminders']
 
 const COMPLAINT_FIELDS = [
   { key: 'item_code',      label: 'Item Code',      placeholder: 'ITEM-001', required: true },
@@ -307,6 +307,172 @@ function HistoryMastersTab({ type }) {
   )
 }
 
+function RemindersTab() {
+  const [cfg, setCfg] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+  const [log, setLog] = useState([])
+
+  useEffect(() => {
+    client.get('/admin/reminder-config').then(r => setCfg(r.data)).catch(() => setError('Failed to load config'))
+    client.get('/admin/reminder-log').then(r => setLog(r.data)).catch(() => {})
+  }, [])
+
+  async function handleSave(e) {
+    e.preventDefault()
+    setSaving(true); setSaved(false); setError('')
+    try {
+      const r = await client.put('/admin/reminder-config', cfg)
+      setCfg(r.data); setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Save failed')
+    } finally { setSaving(false) }
+  }
+
+  const panelStyle = { background: '#fff', borderRadius: '10px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '20px' }
+  const labelStyle = { fontSize: '12px', fontWeight: '700', color: '#374151', display: 'block', marginBottom: '6px' }
+  const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: '7px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }
+  const hintStyle  = { fontSize: '11px', color: '#6b7280', marginTop: '4px' }
+
+  if (!cfg) return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading…</div>
+
+  return (
+    <div style={{ maxWidth: '680px', padding: '28px 0' }}>
+      {/* Enable toggle */}
+      <div style={panelStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Overdue Inspection Reminders</div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>Automatically email QA, Buying and Agency teams when inspection jobs are overdue.</div>
+          </div>
+          <label style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer', gap: '10px' }}>
+            <div
+              onClick={() => setCfg(c => ({ ...c, enabled: !c.enabled }))}
+              style={{
+                width: '44px', height: '24px', borderRadius: '9999px', cursor: 'pointer', transition: 'background 0.2s',
+                background: cfg.enabled ? '#E8470F' : '#d1d5db', position: 'relative', flexShrink: 0,
+              }}
+            >
+              <div style={{
+                position: 'absolute', top: '3px', left: cfg.enabled ? '22px' : '3px',
+                width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+                transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }} />
+            </div>
+            <span style={{ fontSize: '13px', fontWeight: '700', color: cfg.enabled ? '#E8470F' : '#9ca3af' }}>
+              {cfg.enabled ? 'Enabled' : 'Disabled'}
+            </span>
+          </label>
+        </div>
+      </div>
+
+      {/* Config form */}
+      <form onSubmit={handleSave}>
+        <div style={panelStyle}>
+          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '18px' }}>Reminder Settings</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+
+            <div>
+              <label style={labelStyle}>Send Time (HH:MM)</label>
+              <input
+                type="time"
+                value={(cfg.send_time || '08:00').slice(0, 5)}
+                onChange={e => setCfg(c => ({ ...c, send_time: e.target.value }))}
+                style={inputStyle}
+                required
+              />
+              <div style={hintStyle}>Daily send time in server timezone (UTC by default)</div>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Send first reminder after</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={cfg.min_days_overdue || 1}
+                  onChange={e => setCfg(c => ({ ...c, min_days_overdue: parseInt(e.target.value) || 1 }))}
+                  style={{ ...inputStyle, width: '70px' }}
+                  required
+                />
+                <span style={{ fontSize: '13px', color: '#374151' }}>day(s) overdue</span>
+              </div>
+              <div style={hintStyle}>Minimum days past inspection date before first email</div>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Repeat every</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={cfg.frequency_days || 1}
+                  onChange={e => setCfg(c => ({ ...c, frequency_days: parseInt(e.target.value) || 1 }))}
+                  style={{ ...inputStyle, width: '70px' }}
+                  required
+                />
+                <span style={{ fontSize: '13px', color: '#374151' }}>day(s)</span>
+              </div>
+              <div style={hintStyle}>Frequency of repeat reminders after the first one</div>
+            </div>
+          </div>
+
+          {/* Preview */}
+          {cfg.enabled && (
+            <div style={{ marginTop: '20px', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px', padding: '12px 16px', fontSize: '12px', color: '#92400e' }}>
+              <strong>Preview: </strong>
+              First reminder sent <strong>{cfg.min_days_overdue} day(s)</strong> after the inspection date is missed,
+              then repeated every <strong>{cfg.frequency_days} day(s)</strong> at <strong>{(cfg.send_time || '08:00').slice(0, 5)}</strong> until the job is completed.
+            </div>
+          )}
+        </div>
+
+        {error && <div style={{ background: '#fef2f2', color: '#dc2626', padding: '10px 14px', borderRadius: '7px', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button type="submit" disabled={saving} style={{
+            background: '#1C1208', color: '#fff', padding: '10px 24px', borderRadius: '8px',
+            border: 'none', fontWeight: '700', fontSize: '13px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
+          }}>
+            {saving ? 'Saving…' : 'Save Settings'}
+          </button>
+          {saved && <span style={{ fontSize: '13px', color: '#15803d', fontWeight: '700' }}>✓ Saved</span>}
+        </div>
+      </form>
+
+      {/* Recent log */}
+      {log.length > 0 && (
+        <div style={{ ...panelStyle, marginTop: '24px' }}>
+          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '14px' }}>Recent Reminder Log</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc' }}>
+                {['Job Ref', 'Supplier', 'Inspection Date', 'Reminder Sent At'].map(h => (
+                  <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '700', color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '11px', textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {log.slice(0, 20).map(l => (
+                <tr key={l.log_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '8px 12px', fontWeight: '700', color: '#E8470F' }}>{l.job_ref}</td>
+                  <td style={{ padding: '8px 12px', color: '#374151' }}>{l.supplier_name}</td>
+                  <td style={{ padding: '8px 12px', color: '#374151' }}>{l.inspection_date ? new Date(l.inspection_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                  <td style={{ padding: '8px 12px', color: '#6b7280' }}>{new Date(l.sent_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ScorecardConfigTab() {
   const [cfg, setCfg] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -582,7 +748,9 @@ export default function AdminMastersPage() {
           ))}
         </div>
 
-        {activeTab === 'Scorecard Config' ? (
+        {activeTab === 'Reminders' ? (
+          <RemindersTab />
+        ) : activeTab === 'Scorecard Config' ? (
           <ScorecardConfigTab />
         ) : (activeTab === 'Customer Complaints' || activeTab === 'Claims') ? (
           <HistoryMastersTab type={activeTab} />

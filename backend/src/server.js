@@ -540,6 +540,32 @@ async function runMigrations() {
     WHERE status_updated_at IS NULL
   `, 'backfill status_updated_at');
 
+  // 020: overdue reminder config + log tables
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.overdue_reminder_config (
+      id              INT PRIMARY KEY DEFAULT 1,
+      enabled         BOOLEAN NOT NULL DEFAULT false,
+      min_days_overdue INT NOT NULL DEFAULT 1,
+      frequency_days  INT NOT NULL DEFAULT 1,
+      send_time       TIME NOT NULL DEFAULT '08:00:00',
+      updated_at      TIMESTAMPTZ DEFAULT NOW(),
+      CONSTRAINT single_row CHECK (id = 1)
+    )
+  `, 'overdue_reminder_config table');
+
+  await safeQuery(`
+    INSERT INTO qc_inspection.overdue_reminder_config (id) VALUES (1)
+    ON CONFLICT (id) DO NOTHING
+  `, 'overdue_reminder_config seed row');
+
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.overdue_reminder_log (
+      log_id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      job_id     UUID NOT NULL,
+      sent_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `, 'overdue_reminder_log table');
+
   console.log('✅ Migrations applied');
 }
 
