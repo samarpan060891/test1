@@ -102,6 +102,7 @@ export default function JobDetailPage() {
   const [histComplaints, setHistComplaints] = useState([])
   const [histClaims, setHistClaims] = useState([])
   const [histLoading, setHistLoading] = useState(false)
+  const [supplierScore, setSupplierScore] = useState(null)
 
   const fetchLogs = () => {
     setLogsLoading(true)
@@ -116,7 +117,14 @@ export default function JobDetailPage() {
       .then(res => {
         const j = res.data?.job || res.data
         setJob(j)
-        if (j?.item_code && j?.supplier_code) { fetchDocs(j.item_code, j.supplier_code); fetchHistory(j.item_code) }
+        if (j?.item_code && j?.supplier_code) {
+          fetchDocs(j.item_code, j.supplier_code)
+          fetchHistory(j.item_code)
+          client.get('/scorecard/suppliers').then(r => {
+            const s = r.data?.suppliers?.find(sup => sup.supplier_code === j.supplier_code)
+            if (s) setSupplierScore(s)
+          }).catch(() => {})
+        }
       })
       .catch(() => setError('Failed to load job details.'))
       .finally(() => setJobLoading(false))
@@ -747,12 +755,42 @@ export default function JobDetailPage() {
 
       {/* ── RIGHT: History Panel ──────────────────────────────────────────── */}
       <div style={{ width: '380px', flexShrink: 0, position: 'sticky', top: '52px', height: 'calc(100vh - 52px)', overflowY: 'auto', borderLeft: '1px solid #e5e7eb', background: '#f8fafc' }}>
-        <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '10px', position: 'sticky', top: 0, zIndex: 10 }}>
-          <span style={{ fontSize: '18px' }}>📊</span>
-          <div>
-            <div style={{ fontWeight: '800', fontSize: '14px', color: '#fff', letterSpacing: '-0.2px' }}>{t('hist_panel_title')}</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '1px' }}>{t('hist_panel_item')}: {job?.item_code}</div>
+        <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', padding: '14px 18px', position: 'sticky', top: 0, zIndex: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '18px' }}>📊</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: '800', fontSize: '14px', color: '#fff', letterSpacing: '-0.2px' }}>{t('hist_panel_title')}</div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '1px' }}>{t('hist_panel_item')}: {job?.item_code}</div>
+            </div>
           </div>
+          {supplierScore && (
+            <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Score ring */}
+              <div style={{
+                width: '52px', height: '52px', borderRadius: '50%', flexShrink: 0,
+                background: supplierScore.score >= 85 ? '#dcfce7' : supplierScore.score >= 70 ? '#dbeafe' : supplierScore.score >= 50 ? '#fef3c7' : '#fee2e2',
+                border: `3px solid ${supplierScore.score >= 85 ? '#15803d' : supplierScore.score >= 70 ? '#1d4ed8' : supplierScore.score >= 50 ? '#b45309' : '#b91c1c'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: supplierScore.score >= 85 ? '#15803d' : supplierScore.score >= 70 ? '#1d4ed8' : supplierScore.score >= 50 ? '#b45309' : '#b91c1c' }}>
+                  {supplierScore.score ?? 'N/A'}{supplierScore.score !== null ? '%' : ''}
+                </span>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: '2px' }}>🏆 Supplier Score</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {(() => {
+                    const g = supplierScore.grade
+                    const meta = { Excellent: { bg: '#dcfce7', c: '#15803d' }, Good: { bg: '#dbeafe', c: '#1d4ed8' }, Average: { bg: '#fef3c7', c: '#b45309' }, 'Needs Improvement': { bg: '#fee2e2', c: '#b91c1c' } }[g]
+                    return g ? (
+                      <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '12px', background: meta?.bg, color: meta?.c }}>{g}</span>
+                    ) : <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Insufficient data</span>
+                  })()}
+                </div>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>{supplierScore.name}</div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ background: '#fff' }}>
