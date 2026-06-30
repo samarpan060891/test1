@@ -680,7 +680,7 @@ export default function DashboardPage() {
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.agency_name || '—'}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>
                           <StatusBadge status={job.status} t={t} />
-                          {job.status && job.status.startsWith('pending') && (
+                          {job.status && !['qa_approved','qa_rejected'].includes(job.status) && (
                             <DaysTag days={daysSince(job.status_updated_at)} />
                           )}
                         </td>
