@@ -394,47 +394,61 @@ function RemindersTab() {
   const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: '7px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }
   const hintStyle  = { fontSize: '11px', color: '#6b7280', marginTop: '4px' }
 
+  const [savedCfg, setSavedCfg] = useState(null) // last confirmed-saved snapshot
+
   if (!cfg) return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading…</div>
 
   const selectedRoles = cfg.recipient_roles || []
   const selectedLabels = REMINDER_ROLES.filter(r => selectedRoles.includes(r.value)).map(r => r.label)
   const selectedTzOption = TIMEZONE_OPTIONS.find(o => o.tz === cfg.timezone) || TIMEZONE_OPTIONS.find(o => o.tz === 'UTC')
 
+  // savedCfg is set after first successful save; before that use cfg itself if it has data
+  const activeCfg = savedCfg || (cfg.recipient_roles?.length > 0 ? cfg : null)
+  const activeTzOption = activeCfg ? (TIMEZONE_OPTIONS.find(o => o.tz === activeCfg.timezone) || TIMEZONE_OPTIONS.find(o => o.tz === 'UTC')) : null
+  const activeLabels = activeCfg ? REMINDER_ROLES.filter(r => (activeCfg.recipient_roles || []).includes(r.value)).map(r => r.label) : []
+
+  async function handleDisable() {
+    const updated = { ...activeCfg, enabled: false }
+    try {
+      const r = await client.put('/admin/reminder-config', updated)
+      setCfg(r.data); setSavedCfg(r.data)
+    } catch {}
+  }
+
+  async function handleDelete() {
+    if (!window.confirm('Remove this schedule? This will disable the reminder and clear all settings.')) return
+    const reset = { enabled: false, min_days_overdue: 1, frequency_days: 1, send_time: '08:00', recipient_roles: [], timezone: 'UTC' }
+    try {
+      const r = await client.put('/admin/reminder-config', reset)
+      setCfg(r.data); setSavedCfg(null)
+    } catch {}
+  }
+
   return (
-    <div style={{ maxWidth: '700px', padding: '28px 0' }}>
+    <div style={{ padding: '28px 0', display: 'grid', gridTemplateColumns: '1fr 340px', gap: '28px', alignItems: 'start' }}>
 
-      {/* Enable toggle */}
-      <div style={panelStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: '15px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Overdue Inspection Reminders</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Automatically notify selected stakeholders when inspection jobs are overdue. Admin is excluded from all reminders.</div>
-          </div>
-          <div
-            onClick={() => setCfg(c => ({ ...c, enabled: !c.enabled }))}
-            style={{
-              width: '44px', height: '24px', borderRadius: '9999px', cursor: 'pointer', transition: 'background 0.2s',
-              background: cfg.enabled ? '#E8470F' : '#d1d5db', position: 'relative', flexShrink: 0,
-            }}
-          >
-            <div style={{
-              position: 'absolute', top: '3px', left: cfg.enabled ? '22px' : '3px',
-              width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
-              transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            }} />
-          </div>
-        </div>
-        <div style={{ marginTop: '10px', fontSize: '12px', fontWeight: '700', color: cfg.enabled ? '#E8470F' : '#9ca3af' }}>
-          {cfg.enabled ? '● Active' : '○ Inactive'}
-        </div>
-      </div>
-
-      <form onSubmit={handleSave}>
+      {/* LEFT — configuration form */}
+      <div>
+      <form onSubmit={async (e) => {
+        e.preventDefault()
+        if (cfg.enabled && (!cfg.recipient_roles || cfg.recipient_roles.length === 0)) {
+          setError('Select at least one recipient group before enabling reminders.')
+          return
+        }
+        setSaving(true); setSaved(false); setError('')
+        try {
+          const r = await client.put('/admin/reminder-config', cfg)
+          setCfg(r.data); setSavedCfg(r.data); setSaved(true)
+          setTimeout(() => setSaved(false), 2500)
+        } catch (err) {
+          setError(err.response?.data?.error || 'Save failed')
+        } finally { setSaving(false) }
+      }}>
 
         {/* Timezone selector */}
         <div style={panelStyle}>
           <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Your Timezone</div>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '14px' }}>Select your country so all reminder times are set in your local time.</div>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '14px' }}>Select your country so all reminder times are in your local time.</div>
           <select
             value={cfg.timezone || 'UTC'}
             onChange={e => setCfg(c => ({ ...c, timezone: e.target.value }))}
@@ -455,7 +469,7 @@ function RemindersTab() {
         {/* Recipient selection */}
         <div style={panelStyle}>
           <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Who receives reminders?</div>
-          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px' }}>Select one or more stakeholder groups. Each group will receive a consolidated email listing all overdue jobs.</div>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px' }}>Select one or more stakeholder groups.</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {REMINDER_ROLES.map(opt => {
               const checked = selectedRoles.includes(opt.value)
@@ -480,7 +494,7 @@ function RemindersTab() {
             })}
           </div>
           {selectedRoles.length === 0 && (
-            <div style={{ marginTop: '12px', fontSize: '12px', color: '#dc2626' }}>⚠ No recipients selected — reminders will not be sent even if enabled.</div>
+            <div style={{ marginTop: '12px', fontSize: '12px', color: '#dc2626' }}>⚠ No recipients selected.</div>
           )}
         </div>
 
@@ -488,60 +502,47 @@ function RemindersTab() {
         <div style={panelStyle}>
           <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '18px' }}>Timing &amp; Frequency</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
-
             <div>
-              <label style={labelStyle}>Send Time (HH:MM)</label>
-              <input
-                type="time"
-                value={(cfg.send_time || '08:00').slice(0, 5)}
+              <label style={labelStyle}>Send Time</label>
+              <input type="time" value={(cfg.send_time || '08:00').slice(0, 5)}
                 onChange={e => setCfg(c => ({ ...c, send_time: e.target.value }))}
-                style={inputStyle}
-                required
-              />
-              <div style={hintStyle}>In your selected timezone ({selectedTzOption?.offset})</div>
+                style={inputStyle} required />
+              <div style={hintStyle}>{selectedTzOption?.label} ({selectedTzOption?.offset})</div>
             </div>
-
             <div>
               <label style={labelStyle}>First reminder after</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input
-                  type="number" min="1" max="30"
-                  value={cfg.min_days_overdue || 1}
+                <input type="number" min="1" max="30" value={cfg.min_days_overdue || 1}
                   onChange={e => setCfg(c => ({ ...c, min_days_overdue: parseInt(e.target.value) || 1 }))}
-                  style={{ ...inputStyle, width: '70px' }}
-                  required
-                />
+                  style={{ ...inputStyle, width: '70px' }} required />
                 <span style={{ fontSize: '13px', color: '#374151' }}>day(s) overdue</span>
               </div>
-              <div style={hintStyle}>Days past inspection date before the first email</div>
             </div>
-
             <div>
               <label style={labelStyle}>Repeat every</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input
-                  type="number" min="1" max="30"
-                  value={cfg.frequency_days || 1}
+                <input type="number" min="1" max="30" value={cfg.frequency_days || 1}
                   onChange={e => setCfg(c => ({ ...c, frequency_days: parseInt(e.target.value) || 1 }))}
-                  style={{ ...inputStyle, width: '70px' }}
-                  required
-                />
+                  style={{ ...inputStyle, width: '70px' }} required />
                 <span style={{ fontSize: '13px', color: '#374151' }}>day(s)</span>
               </div>
-              <div style={hintStyle}>Interval between repeat reminders</div>
             </div>
           </div>
+        </div>
 
-          {/* Live preview */}
-          {cfg.enabled && selectedRoles.length > 0 && (
-            <div style={{ marginTop: '20px', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px', padding: '12px 16px', fontSize: '12px', color: '#92400e' }}>
-              <strong>Preview: </strong>
-              First reminder at <strong>{(cfg.send_time || '08:00').slice(0, 5)} {selectedTzOption?.label}</strong>,
-              sent <strong>{cfg.min_days_overdue} day(s)</strong> after inspection date is missed,
-              then repeated every <strong>{cfg.frequency_days} day(s)</strong>.
-              Recipients: <strong>{selectedLabels.join(', ')}</strong>.
-            </div>
-          )}
+        {/* Enable toggle inside form */}
+        <div style={{ ...panelStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827' }}>Enable this reminder</div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Admin is never included in reminder emails.</div>
+          </div>
+          <div onClick={() => setCfg(c => ({ ...c, enabled: !c.enabled }))}
+            style={{ width: '44px', height: '24px', borderRadius: '9999px', cursor: 'pointer', transition: 'background 0.2s',
+              background: cfg.enabled ? '#E8470F' : '#d1d5db', position: 'relative', flexShrink: 0 }}>
+            <div style={{ position: 'absolute', top: '3px', left: cfg.enabled ? '22px' : '3px',
+              width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+              transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+          </div>
         </div>
 
         {error && <div style={{ background: '#fef2f2', color: '#dc2626', padding: '10px 14px', borderRadius: '7px', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
@@ -550,33 +551,107 @@ function RemindersTab() {
           <button type="submit" disabled={saving} style={{
             background: '#1C1208', color: '#fff', padding: '10px 24px', borderRadius: '8px',
             border: 'none', fontWeight: '700', fontSize: '13px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
-          }}>
-            {saving ? 'Saving…' : 'Save Settings'}
-          </button>
-          {saved && <span style={{ fontSize: '13px', color: '#15803d', fontWeight: '700' }}>✓ Saved</span>}
+          }}>{saving ? 'Saving…' : 'Save & Schedule'}</button>
+          {saved && <span style={{ fontSize: '13px', color: '#15803d', fontWeight: '700' }}>✓ Schedule saved</span>}
         </div>
       </form>
+      </div>
 
-      {/* Recent reminder log */}
-      {log.length > 0 && (
-        <div style={{ ...panelStyle, marginTop: '24px' }}>
-          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '14px' }}>Recent Reminder Log</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc' }}>
-                {['Job Ref', 'Supplier', 'Inspection Date', 'Reminder Sent At'].map(h => (
-                  <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '700', color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: '11px', textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {log.slice(0, 20).map(l => (
-                <tr key={l.log_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '8px 12px', fontWeight: '700', color: '#E8470F' }}>{l.job_ref}</td>
-                  <td style={{ padding: '8px 12px', color: '#374151' }}>{l.supplier_name}</td>
-                  <td style={{ padding: '8px 12px', color: '#374151' }}>{l.inspection_date ? new Date(l.inspection_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-                  <td style={{ padding: '8px 12px', color: '#6b7280' }}>{new Date(l.sent_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                </tr>
+      {/* RIGHT — Scheduled Tasks panel */}
+      <div>
+        <div style={{ fontSize: '13px', fontWeight: '800', color: '#111827', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '14px' }}>
+          Scheduled Tasks
+        </div>
+
+        {activeCfg && activeCfg.recipient_roles?.length > 0 ? (
+          <div style={{
+            background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+            border: `2px solid ${activeCfg.enabled ? '#E8470F' : '#e5e7eb'}`, overflow: 'hidden',
+          }}>
+            {/* Status bar */}
+            <div style={{ background: activeCfg.enabled ? '#E8470F' : '#f1f5f9', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: activeCfg.enabled ? '#fff' : '#9ca3af', display: 'inline-block', flexShrink: 0 }} />
+              <span style={{ fontSize: '11px', fontWeight: '800', color: activeCfg.enabled ? '#fff' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {activeCfg.enabled ? 'Active' : 'Disabled'}
+              </span>
+            </div>
+
+            {/* Details */}
+            <div style={{ padding: '16px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '12px' }}>
+                Overdue Inspection Reminder
+              </div>
+
+              {[
+                ['🕐 Send time', `${(activeCfg.send_time || '08:00').slice(0,5)} — ${activeTzOption?.label}`],
+                ['📅 First reminder', `After ${activeCfg.min_days_overdue} day(s) overdue`],
+                ['🔁 Repeats', `Every ${activeCfg.frequency_days} day(s)`],
+                ['👥 Recipients', activeLabels.join(', ') || '—'],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '12px' }}>
+                  <span style={{ color: '#6b7280', minWidth: '100px' }}>{k}</span>
+                  <span style={{ color: '#111827', fontWeight: '600' }}>{v}</span>
+                </div>
+              ))}
+
+              {/* Last sent */}
+              {log.length > 0 && (
+                <div style={{ marginTop: '10px', padding: '8px 10px', background: '#f8fafc', borderRadius: '6px', fontSize: '11px', color: '#6b7280' }}>
+                  Last sent: {new Date(log[0].sent_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+                <button onClick={handleDisable} disabled={!activeCfg.enabled} style={{
+                  flex: 1, padding: '7px 0', borderRadius: '6px', border: '1.5px solid #d1d5db',
+                  background: '#fff', fontSize: '12px', fontWeight: '700', color: '#374151',
+                  cursor: activeCfg.enabled ? 'pointer' : 'not-allowed', opacity: activeCfg.enabled ? 1 : 0.4,
+                }}>⏸ Disable</button>
+                <button onClick={handleDelete} style={{
+                  flex: 1, padding: '7px 0', borderRadius: '6px', border: '1.5px solid #fca5a5',
+                  background: '#fff', fontSize: '12px', fontWeight: '700', color: '#dc2626', cursor: 'pointer',
+                }}>🗑 Delete</button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: '#f8fafc', borderRadius: '12px', border: '2px dashed #e2e8f0', padding: '32px 20px', textAlign: 'center' }}>
+            <div style={{ fontSize: '28px', marginBottom: '8px' }}>📭</div>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>No active schedules</div>
+            <div style={{ fontSize: '11px', color: '#cbd5e1' }}>Configure and save a reminder on the left</div>
+          </div>
+        )}
+
+        {/* Recent log */}
+        {log.length > 0 && (
+          <div style={{ marginTop: '20px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Recent Sends</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {log.slice(0, 5).map(l => (
+                <div key={l.log_id} style={{ background: '#fff', borderRadius: '8px', padding: '9px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', fontSize: '11px' }}>
+                  <div style={{ fontWeight: '700', color: '#E8470F' }}>{l.job_ref}</div>
+                  <div style={{ color: '#6b7280', marginTop: '2px' }}>{l.supplier_name} · {new Date(l.sent_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+    </div>
+  )
+}
+
+// ─── stub to satisfy old log table rows still in JSX below (now unused) ──────
+function _OldLogRows({ log }) {
+  return log.slice(0, 20).map(l => (
+    <tr key={l.log_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+      <td style={{ padding: '8px 12px', fontWeight: '700', color: '#E8470F' }}>{l.job_ref}</td>
+      <td style={{ padding: '8px 12px', color: '#374151' }}>{l.supplier_name}</td>
+      <td style={{ padding: '8px 12px', color: '#374151' }}>{l.inspection_date ? new Date(l.inspection_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+      <td style={{ padding: '8px 12px', color: '#6b7280' }}>{new Date(l.sent_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+    </tr>
               ))}
             </tbody>
           </table>
