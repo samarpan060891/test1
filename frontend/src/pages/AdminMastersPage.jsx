@@ -354,6 +354,11 @@ function ScheduleForm({ initial, onSave, onCancel }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [nowInTz, setNowInTz] = useState(() => localTimeInTz(initial?.timezone || 'Asia/Dubai'))
+  const [takenRoles, setTakenRoles] = useState({}) // role → { name, schedule_id }
+
+  useEffect(() => {
+    client.get('/admin/reminder-schedules/taken-roles').then(r => setTakenRoles(r.data)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     setNowInTz(localTimeInTz(form.timezone))
@@ -413,19 +418,26 @@ function ScheduleForm({ initial, onSave, onCancel }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
           {REMINDER_ROLES.map(opt => {
             const checked = (form.recipient_roles || []).includes(opt.value)
+            // A role is taken if another schedule owns it (not the one being edited)
+            const takenBy = takenRoles[opt.value]
+            const isTaken = takenBy && takenBy.schedule_id !== initial?.schedule_id
             return (
-              <label key={opt.value} onClick={() => toggleRole(opt.value)} style={{
+              <label key={opt.value} onClick={() => !isTaken && toggleRole(opt.value)} style={{
                 display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px',
-                borderRadius: '8px', border: `1.5px solid ${checked ? '#E8470F' : '#e5e7eb'}`,
-                background: checked ? '#fff7f5' : '#fafafa', cursor: 'pointer',
+                borderRadius: '8px', border: `1.5px solid ${checked ? '#E8470F' : isTaken ? '#f3f4f6' : '#e5e7eb'}`,
+                background: checked ? '#fff7f5' : isTaken ? '#f9fafb' : '#fafafa',
+                cursor: isTaken ? 'not-allowed' : 'pointer', opacity: isTaken ? 0.55 : 1,
               }}>
                 <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `2px solid ${checked ? '#E8470F' : '#d1d5db'}`, background: checked ? '#E8470F' : '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {checked && <span style={{ color: '#fff', fontSize: '10px', fontWeight: '900' }}>✓</span>}
                 </div>
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: checked ? '#E8470F' : '#374151' }}>{opt.label}</div>
-                  <div style={{ fontSize: '11px', color: '#6b7280' }}>{opt.hint}</div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: checked ? '#E8470F' : isTaken ? '#9ca3af' : '#374151' }}>{opt.label}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                    {isTaken ? `Already in "${takenBy.name}"` : opt.hint}
+                  </div>
                 </div>
+                {isTaken && <span style={{ marginLeft: 'auto', fontSize: '10px', fontWeight: '700', color: '#9ca3af', background: '#f3f4f6', padding: '2px 7px', borderRadius: '9999px' }}>IN USE</span>}
               </label>
             )
           })}

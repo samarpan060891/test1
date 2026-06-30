@@ -363,6 +363,20 @@ router.post('/masters/po/bulk', async (req, res) => {
 
 const ALLOWED_RECIPIENT_ROLES = ['qa', 'buying', 'imports', 'accounts', 'agency_user', 'supplier_user'];
 
+// GET taken roles (roles already assigned across all schedules, keyed by role → schedule name)
+router.get('/reminder-schedules/taken-roles', async (req, res) => {
+  try {
+    const { rows } = await db.query(`SELECT schedule_id, name, recipient_roles FROM qc_inspection.reminder_schedules`);
+    const map = {};
+    for (const s of rows) {
+      for (const role of (s.recipient_roles || [])) {
+        map[role] = { schedule_id: s.schedule_id, name: s.name };
+      }
+    }
+    res.json(map);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // GET all schedules
 router.get('/reminder-schedules', async (req, res) => {
   try {
@@ -376,6 +390,19 @@ router.get('/reminder-schedules', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+async function checkRoleConflicts(roles, excludeId = null) {
+  const { rows } = await db.query(
+    `SELECT name, recipient_roles FROM qc_inspection.reminder_schedules WHERE ($1::uuid IS NULL OR schedule_id <> $1)`,
+    [excludeId]
+  );
+  const conflicts = [];
+  for (const existing of rows) {
+    const overlap = (existing.recipient_roles || []).filter(r => roles.includes(r));
+    if (overlap.length > 0) conflicts.push({ schedule: existing.name, roles: overlap });
+  }
+  return conflicts;
+}
+
 // POST create schedule
 router.post('/reminder-schedules', async (req, res) => {
   const { name, enabled, min_days_overdue, frequency_days, send_time, recipient_roles, timezone } = req.body;
@@ -385,6 +412,11 @@ router.post('/reminder-schedules', async (req, res) => {
     return res.status(400).json({ error: 'send_time must be HH:MM format' });
   const roles = Array.isArray(recipient_roles) ? recipient_roles.filter(r => ALLOWED_RECIPIENT_ROLES.includes(r)) : [];
   try {
+    const conflicts = await checkRoleConflicts(roles);
+    if (conflicts.length > 0) {
+      const detail = conflicts.map(c => `"${c.schedule}" already has: ${c.roles.join(', ')}`).join('; ');
+      return res.status(400).json({ error: `Role conflict — ${detail}` });
+    }
     const { rows } = await db.query(`
       INSERT INTO qc_inspection.reminder_schedules
         (name, enabled, min_days_overdue, frequency_days, send_time, recipient_roles, timezone)
@@ -404,6 +436,11 @@ router.put('/reminder-schedules/:id', async (req, res) => {
     return res.status(400).json({ error: 'send_time must be HH:MM format' });
   const roles = Array.isArray(recipient_roles) ? recipient_roles.filter(r => ALLOWED_RECIPIENT_ROLES.includes(r)) : [];
   try {
+    const conflicts = await checkRoleConflicts(roles, req.params.id);
+    if (conflicts.length > 0) {
+      const detail = conflicts.map(c => `"${c.schedule}" already has: ${c.roles.join(', ')}`).join('; ');
+      return res.status(400).json({ error: `Role conflict — ${detail}` });
+    }
     const { rows } = await db.query(`
       UPDATE qc_inspection.reminder_schedules
       SET name=$1, enabled=$2, min_days_overdue=$3, frequency_days=$4,
