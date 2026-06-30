@@ -1,19 +1,25 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-let resendClient = null;
+let transporter = null;
 
-function getResend() {
-  if (resendClient) return resendClient;
-  if (!process.env.RESEND_API_KEY) return null;
-  resendClient = new Resend(process.env.RESEND_API_KEY);
-  return resendClient;
+function getTransporter() {
+  if (transporter) return transporter;
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return null;
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+  return transporter;
 }
 
 async function sendEmail({ to, subject, html }) {
   console.log(`📧 [EMAIL ATTEMPT] To: ${to} | Subject: ${subject}`);
-  const client = getResend();
-  if (!client) {
-    console.log(`📧 [EMAIL SKIPPED — no RESEND_API_KEY]`);
+  const transport = getTransporter();
+  if (!transport) {
+    console.log(`📧 [EMAIL SKIPPED — GMAIL_USER or GMAIL_APP_PASSWORD not set]`);
     return;
   }
 
@@ -28,19 +34,15 @@ async function sendEmail({ to, subject, html }) {
     : '';
 
   try {
-    const { data, error } = await client.emails.send({
-      from: 'QC Inspection Portal <onboarding@resend.dev>',
+    const info = await transport.sendMail({
+      from: `QC Inspection Portal <${process.env.GMAIL_USER}>`,
       to: recipients,
       cc: ['samarpan01@gmail.com', 'samarpan.mondal@lalsgroup.com'],
       subject: process.env.TEST_EMAIL_TO ? `[TEST] ${subject}` : subject,
       html: testBanner + html,
     });
-    if (error) {
-      console.error(`📧 [EMAIL FAILED] ${subject} | Error: ${JSON.stringify(error)}`);
-      throw new Error(error.message);
-    }
-    console.log(`📧 [EMAIL SENT] To: ${recipients.join(',')} | Subject: ${subject} | Id: ${data?.id}`);
-    return data;
+    console.log(`📧 [EMAIL SENT] To: ${recipients.join(',')} | Subject: ${subject} | MessageId: ${info.messageId}`);
+    return info;
   } catch (err) {
     console.error(`📧 [EMAIL FAILED] ${subject} | ${err.message}`);
     throw err;
