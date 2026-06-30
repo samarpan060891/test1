@@ -402,8 +402,8 @@ function RemindersTab() {
   const selectedLabels = REMINDER_ROLES.filter(r => selectedRoles.includes(r.value)).map(r => r.label)
   const selectedTzOption = TIMEZONE_OPTIONS.find(o => o.tz === cfg.timezone) || TIMEZONE_OPTIONS.find(o => o.tz === 'UTC')
 
-  // savedCfg is set after first successful save; before that use cfg itself if it has data
-  const activeCfg = savedCfg || (cfg.recipient_roles?.length > 0 ? cfg : null)
+  // show saved snapshot after save; otherwise show loaded config if it has any meaningful setting
+  const activeCfg = savedCfg || (cfg.enabled || cfg.recipient_roles?.length > 0 ? cfg : null)
   const activeTzOption = activeCfg ? (TIMEZONE_OPTIONS.find(o => o.tz === activeCfg.timezone) || TIMEZONE_OPTIONS.find(o => o.tz === 'UTC')) : null
   const activeLabels = activeCfg ? REMINDER_ROLES.filter(r => (activeCfg.recipient_roles || []).includes(r.value)).map(r => r.label) : []
 
@@ -643,23 +643,6 @@ function RemindersTab() {
   )
 }
 
-// ─── stub to satisfy old log table rows still in JSX below (now unused) ──────
-function _OldLogRows({ log }) {
-  return log.slice(0, 20).map(l => (
-    <tr key={l.log_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-      <td style={{ padding: '8px 12px', fontWeight: '700', color: '#E8470F' }}>{l.job_ref}</td>
-      <td style={{ padding: '8px 12px', color: '#374151' }}>{l.supplier_name}</td>
-      <td style={{ padding: '8px 12px', color: '#374151' }}>{l.inspection_date ? new Date(l.inspection_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-      <td style={{ padding: '8px 12px', color: '#6b7280' }}>{new Date(l.sent_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-    </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
 
 function ScorecardConfigTab() {
   const [cfg, setCfg] = useState(null)
