@@ -681,7 +681,7 @@ export default function DashboardPage() {
                         <td style={{ whiteSpace: 'nowrap' }}>
                           <StatusBadge status={job.status} t={t} />
                           {job.status && !['qa_approved','qa_rejected'].includes(job.status) && (
-                            <DaysTag days={daysSince(job.status_updated_at)} />
+                            <DaysTag days={daysSince(job.status_updated_at || job.submitted_at || job.mapped_at || job.created_at)} />
                           )}
                         </td>
                         <td style={{ whiteSpace: 'nowrap' }}>
