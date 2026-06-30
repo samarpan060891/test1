@@ -21,9 +21,20 @@ function inRange(dateStr, from, to) {
   return d >= from && d <= to
 }
 
-function computeMetrics(advices, jobs, from, to) {
+export const DATE_FIELD_OPTIONS = [
+  { value: 'mapped_at',        label: 'Mapped Date' },
+  { value: 'inspection_date',  label: 'Inspection Date' },
+  { value: 'submitted_at',     label: 'Submitted Date' },
+  { value: 'created_at',       label: 'Created Date' },
+]
+
+function getJobDate(job, field) {
+  return job[field] || job.mapped_at || job.created_at
+}
+
+function computeMetrics(advices, jobs, from, to, jobDateField = 'mapped_at') {
   const pa = advices.filter(a => inRange(a.created_at, from, to))
-  const pj = jobs.filter(j => inRange(j.mapped_at || j.created_at, from, to))
+  const pj = jobs.filter(j => inRange(getJobDate(j, jobDateField), from, to))
 
   const approved     = pa.filter(a => ['paid','pending_imports','pending_accounts','approved'].includes(a.status))
   const totalCharges = approved.reduce((s, a) => s + parseFloat(a.total_cost || 0), 0)
@@ -78,6 +89,7 @@ function Tile({ label, curVal, prevVal, curSub, prevSub, delta }) {
  *   selectedId, onSelectId
  *   customFrom, onCustomFrom
  *   customTo,   onCustomTo
+ *   jobDateField, onJobDateField   — which date column jobs are filtered by
  */
 export default function InspectionSummaryCard({
   advices = [], jobs = [], showLink = false,
@@ -85,22 +97,26 @@ export default function InspectionSummaryCard({
   customFrom: customFromProp, onCustomFrom: onCustomFromProp,
   customTo: customToProp,     onCustomTo: onCustomToProp,
   presets: presetsProp,
+  jobDateField: jobDateFieldProp, onJobDateField: onJobDateFieldProp,
 }) {
   const { formatFrom } = useCurrency()
 
   // Allow the card to be self-contained when period props are not passed from parent
-  const [internalId,   setInternalId]   = useState('ytd')
-  const [internalFrom, setInternalFrom] = useState('')
-  const [internalTo,   setInternalTo]   = useState('')
+  const [internalId,        setInternalId]        = useState('ytd')
+  const [internalFrom,      setInternalFrom]      = useState('')
+  const [internalTo,        setInternalTo]        = useState('')
+  const [internalDateField, setInternalDateField] = useState('mapped_at')
 
-  const controlled  = !!onSelectIdProp
-  const PRESETS     = presetsProp || buildPresets()
-  const selectedId  = controlled ? selectedIdProp  : internalId
-  const onSelectId  = controlled ? onSelectIdProp  : setInternalId
-  const customFrom  = controlled ? customFromProp  : internalFrom
-  const onCustomFrom= controlled ? onCustomFromProp: setInternalFrom
-  const customTo    = controlled ? customToProp    : internalTo
-  const onCustomTo  = controlled ? onCustomToProp  : setInternalTo
+  const controlled     = !!onSelectIdProp
+  const PRESETS        = presetsProp || buildPresets()
+  const selectedId     = controlled ? selectedIdProp      : internalId
+  const onSelectId     = controlled ? onSelectIdProp      : setInternalId
+  const customFrom     = controlled ? customFromProp      : internalFrom
+  const onCustomFrom   = controlled ? onCustomFromProp    : setInternalFrom
+  const customTo       = controlled ? customToProp        : internalTo
+  const onCustomTo     = controlled ? onCustomToProp      : setInternalTo
+  const jobDateField   = jobDateFieldProp  ?? internalDateField
+  const onJobDateField = onJobDateFieldProp ?? setInternalDateField
   const isCustom = selectedId === 'custom'
   const preset   = PRESETS.find(p => p.id === selectedId) || PRESETS[0]
 
@@ -110,8 +126,8 @@ export default function InspectionSummaryCard({
   const ready = curFrom && curTo && curFrom <= curTo
   const prior = ready ? priorYearRange(curFrom, curTo) : null
 
-  const cur  = ready ? computeMetrics(advices, jobs, curFrom, curTo) : null
-  const prev = ready && prior ? computeMetrics(advices, jobs, prior.start, prior.end) : null
+  const cur  = ready ? computeMetrics(advices, jobs, curFrom, curTo, jobDateField) : null
+  const prev = ready && prior ? computeMetrics(advices, jobs, prior.start, prior.end, jobDateField) : null
 
   const y = new Date().getFullYear()
 
@@ -166,6 +182,22 @@ export default function InspectionSummaryCard({
           background: selectedId === 'custom' ? '#0f766e' : 'rgba(255,255,255,0.08)',
           color: selectedId === 'custom' ? '#fff' : 'rgba(255,255,255,0.4)', transition: 'all 0.15s',
         }}>Custom</button>
+      </div>
+
+      {/* Reference date field selector */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '14px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '9.5px', fontWeight: '700', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
+          Jobs filtered by:
+        </span>
+        {DATE_FIELD_OPTIONS.map(opt => (
+          <button key={opt.value} onClick={() => onJobDateField(opt.value)} style={{
+            padding: '3px 10px', borderRadius: '20px', border: 'none', fontSize: '10.5px', fontWeight: '700', cursor: 'pointer',
+            background: jobDateField === opt.value ? 'rgba(232,71,15,0.25)' : 'rgba(255,255,255,0.06)',
+            color: jobDateField === opt.value ? '#E8470F' : 'rgba(255,255,255,0.35)',
+            outline: jobDateField === opt.value ? '1px solid rgba(232,71,15,0.5)' : '1px solid transparent',
+            transition: 'all 0.15s',
+          }}>{opt.label}</button>
+        ))}
       </div>
 
       {/* Custom date picker */}
