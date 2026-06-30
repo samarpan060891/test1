@@ -5,7 +5,7 @@ const apiBase = import.meta.env.VITE_API_URL || ''
 
 async function fetchImageAsBase64(url) {
   try {
-    const token = localStorage.getItem('token')
+    const token = sessionStorage.getItem(`token_${window.name}`) || localStorage.getItem('token')
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) return null
     const blob = await res.blob()
