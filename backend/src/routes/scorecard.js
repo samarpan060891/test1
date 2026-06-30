@@ -209,10 +209,6 @@ router.get('/suppliers', async (req, res) => {
         else                                          grade = 'Needs Improvement'
       }
 
-      // Trend: compare last 6 months vs previous 6 months (simplified via inspection fail rate)
-      const sixMonthsAgo  = new Date(now); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-      const twelveMonthsAgo = new Date(now); twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
-
       return {
         supplier_code: s.supplier_code,
         name: s.name,
