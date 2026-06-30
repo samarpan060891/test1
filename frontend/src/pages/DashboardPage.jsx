@@ -123,10 +123,10 @@ function PeriodBadge({ period }) {
   )
 }
 
-function AgencyBreakdown({ advices, jobs, period, t }) {
+function AgencyBreakdown({ advices, jobs, period, jobDateField = 'mapped_at', t }) {
   const { formatFrom } = useCurrency()
   const filteredAdvices = period ? advices.filter(a => { const d = new Date(a.created_at); return d >= period.from && d <= period.to }) : advices
-  const filteredJobs    = period ? jobs.filter(j => { const d = new Date(j.mapped_at || j.created_at); return d >= period.from && d <= period.to }) : jobs
+  const filteredJobs    = period ? jobs.filter(j => { const d = new Date(j[jobDateField] || j.mapped_at || j.created_at); return d >= period.from && d <= period.to }) : jobs
 
   const byAgency = {}
   filteredAdvices.forEach(a => {
@@ -281,8 +281,8 @@ const PENDING_JOB_LABELS = {
   submitted_pending_qa:       { label: 'Pending QA Review',   color: '#92400e', bg: '#fefce8', dot: '#d97706' },
 }
 
-function CountryBreakdown({ jobs, advices, period, t }) {
-  const filteredJobs    = period ? jobs.filter(j => { const d = new Date(j.mapped_at || j.created_at); return d >= period.from && d <= period.to }) : jobs
+function CountryBreakdown({ jobs, advices, period, jobDateField = 'mapped_at', t }) {
+  const filteredJobs    = period ? jobs.filter(j => { const d = new Date(j[jobDateField] || j.mapped_at || j.created_at); return d >= period.from && d <= period.to }) : jobs
   const filteredAdvices = period ? advices.filter(a => { const d = new Date(a.created_at); return d >= period.from && d <= period.to }) : advices
 
   const byCountry = {}
@@ -403,6 +403,7 @@ export default function DashboardPage() {
   const [selectedPreset, setSelectedPreset] = useState('ytd')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo,   setCustomTo]   = useState('')
+  const [jobDateField, setJobDateField] = useState('mapped_at')
   const activePeriod = resolveActivePeriod(PRESETS, selectedPreset, customFrom, customTo)
 
   const fetchData = (silent = false) => {
@@ -517,6 +518,7 @@ export default function DashboardPage() {
             selectedId={selectedPreset}   onSelectId={setSelectedPreset}
             customFrom={customFrom}       onCustomFrom={setCustomFrom}
             customTo={customTo}           onCustomTo={setCustomTo}
+            jobDateField={jobDateField}   onJobDateField={setJobDateField}
           />
         )}
 
@@ -609,12 +611,12 @@ export default function DashboardPage() {
 
         {/* Country-Wise Breakdown */}
         {!loading && jobs.length > 0 && (
-          <CountryBreakdown jobs={jobs} advices={advices} period={activePeriod} t={t} />
+          <CountryBreakdown jobs={jobs} advices={advices} period={activePeriod} jobDateField={jobDateField} t={t} />
         )}
 
         {/* Agency Inspection Breakdown */}
         {!loading && advices.length > 0 && (
-          <AgencyBreakdown advices={advices} jobs={jobs} period={activePeriod} t={t} />
+          <AgencyBreakdown advices={advices} jobs={jobs} period={activePeriod} jobDateField={jobDateField} t={t} />
         )}
 
         {/* Main layout */}
