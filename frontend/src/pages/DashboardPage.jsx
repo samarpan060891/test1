@@ -696,13 +696,16 @@ export default function DashboardPage() {
                             <DaysTag days={daysSince(job.inspection_date)} warn={0} danger={7} />
                           )}
                           {job.status === 'submitted_pending_qa' && (
-                            <DaysTag days={daysSince(job.status_updated_at || job.submitted_at || job.created_at)} />
+                            <DaysTag days={daysSince(job.submitted_at)} />
                           )}
                         </td>
                         <td style={{ whiteSpace: 'nowrap' }}>
                           <PaymentBadge status={job.payment_status} t={t} />
-                          {job.payment_status && job.payment_status.startsWith('pending') && (
-                            <DaysTag days={daysSince(job.advice_created_at)} />
+                          {job.payment_status === 'pending_imports' && (
+                            <DaysTag days={daysSince(job.buying_approved_at)} />
+                          )}
+                          {job.payment_status === 'pending_accounts' && (
+                            <DaysTag days={daysSince(job.imports_approved_at)} />
                           )}
                         </td>
                         <td style={{ color: '#94a3b8' }}>
