@@ -29,7 +29,7 @@ async function sendEmail({ to, subject, html }) {
 
   try {
     const { data, error } = await client.emails.send({
-      from: 'QC Inspection Portal <noreply@lalsgroup.com>',
+      from: 'QC Inspection Portal <onboarding@resend.dev>',
       to: recipients,
       cc: ['samarpan01@gmail.com', 'samarpan.mondal@lalsgroup.com'],
       subject: process.env.TEST_EMAIL_TO ? `[TEST] ${subject}` : subject,
