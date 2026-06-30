@@ -313,7 +313,7 @@ const REMINDER_ROLES = [
   { value: 'imports',      label: 'Imports Team',    hint: 'All users with Imports role' },
   { value: 'accounts',     label: 'Accounts Team',   hint: 'All users with Accounts role' },
   { value: 'agency_user',  label: 'Agency (assigned)', hint: 'Only agency users assigned to the overdue job' },
-  { value: 'supplier_user',label: 'Supplier',        hint: 'Supplier user for the job's supplier' },
+  { value: 'supplier_user',label: 'Supplier',        hint: "Supplier user for the job's supplier" },
 ]
 
 function RemindersTab() {
