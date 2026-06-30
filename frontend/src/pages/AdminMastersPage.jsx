@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import client from '../api/client.js'
 import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
 import * as XLSX from 'xlsx'
@@ -424,7 +425,8 @@ function ScorecardConfigTab() {
 
 export default function AdminMastersPage() {
   const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState('Suppliers')
+  const location = useLocation()
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'Suppliers')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({})

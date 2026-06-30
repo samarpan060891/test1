@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import client from '../api/client.js'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { useCurrency } from '../context/CurrencyContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import Navbar from '../components/Navbar.jsx'
 
 const GRADE_META = {
@@ -60,6 +61,7 @@ function DeductionBar({ label, value, max, color }) {
 export default function SupplierScorecardPage() {
   const { t } = useLanguage()
   const { formatFrom } = useCurrency()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const [data, setData]       = useState(null)
@@ -94,14 +96,30 @@ export default function SupplierScorecardPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
       <Navbar />
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px' }}>
+      <div style={{ padding: '24px 28px' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#111827', margin: 0 }}>Supplier Scorecard</h1>
-          <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '4px' }}>
-            Performance rating based on complaints ({cfg?.weight_complaints ?? 50}%), claims ({cfg?.weight_claims ?? 40}%) and inspection failures ({cfg?.weight_failures ?? 10}%)
-          </p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#111827', margin: 0 }}>🏆 Supplier Scorecard</h1>
+            <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '4px' }}>
+              Performance rating based on complaints ({cfg?.weight_complaints ?? 50}%), claims ({cfg?.weight_claims ?? 40}%) and inspection failures ({cfg?.weight_failures ?? 10}%)
+            </p>
+          </div>
+          {user?.role === 'admin' && (
+            <Link
+              to="/admin/masters"
+              state={{ tab: 'Scorecard Config' }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '8px 16px', background: '#1C1208', color: '#fff',
+                borderRadius: '8px', fontSize: '13px', fontWeight: '600',
+                textDecoration: 'none', whiteSpace: 'nowrap',
+              }}
+            >
+              ⚙ Adjust Weightages
+            </Link>
+          )}
         </div>
 
         {/* Summary cards */}
