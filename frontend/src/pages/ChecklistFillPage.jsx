@@ -5,7 +5,7 @@ import { useLanguage } from '../context/LanguageContext.jsx'
 import { getJob, submitJob } from '../api/inspectionJobs.js'
 import { getTemplate } from '../api/checklistTemplates.js'
 import { getResponses, submitResponses } from '../api/inspectionResponses.js'
-import axios from 'axios'
+import client from '../api/client.js'
 
 const apiBase = import.meta.env.VITE_API_URL || ''
 
@@ -15,18 +15,27 @@ function ImageUploader({ jobId, sectionKey, readOnly }) {
   const [error, setError] = useState('')
   const inputRef = useRef()
 
+  const [imageURLs, setImageURLs] = useState({})
+
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    axios.get(`${apiBase}/api/checklist-images/${jobId}/images`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then(r => {
-      setImages(r.data.filter(img => img.section_key === sectionKey))
-    }).catch(() => {})
+    client.get(`/checklist-images/${jobId}/images`)
+      .then(async r => {
+        const filtered = r.data.filter(img => img.section_key === sectionKey)
+        setImages(filtered)
+        // Load thumbnails as object URLs (auth required)
+        const urls = {}
+        await Promise.all(filtered.map(async img => {
+          try {
+            const res = await client.get(`/checklist-images/${jobId}/images/${img.image_id}/file`, { responseType: 'blob' })
+            urls[img.image_id] = URL.createObjectURL(res.data)
+          } catch {}
+        }))
+        setImageURLs(urls)
+      }).catch(() => {})
   }, [jobId, sectionKey])
 
   async function handleFiles(files) {
     if (!files?.length) return
-    const token = localStorage.getItem('token')
     const remaining = 10 - images.length
     const toUpload = Array.from(files).slice(0, remaining)
     if (toUpload.length === 0) { setError('Maximum 10 images reached for this section.'); return }
@@ -36,10 +45,14 @@ function ImageUploader({ jobId, sectionKey, readOnly }) {
       fd.append('image', file)
       fd.append('section_key', sectionKey)
       try {
-        const r = await axios.post(`${apiBase}/api/checklist-images/${jobId}/images`, fd, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        setImages(prev => [...prev, r.data])
+        const r = await client.post(`/checklist-images/${jobId}/images`, fd)
+        const newImg = r.data
+        // Load thumbnail for the newly uploaded image
+        try {
+          const res = await client.get(`/checklist-images/${jobId}/images/${newImg.image_id}/file`, { responseType: 'blob' })
+          setImageURLs(prev => ({ ...prev, [newImg.image_id]: URL.createObjectURL(res.data) }))
+        } catch {}
+        setImages(prev => [...prev, newImg])
       } catch (err) {
         setError(err.response?.data?.error || 'Upload failed')
       }
@@ -49,12 +62,10 @@ function ImageUploader({ jobId, sectionKey, readOnly }) {
   }
 
   async function handleDelete(imageId) {
-    const token = localStorage.getItem('token')
     try {
-      await axios.delete(`${apiBase}/api/checklist-images/${jobId}/images/${imageId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      await client.delete(`/checklist-images/${jobId}/images/${imageId}`)
       setImages(prev => prev.filter(i => i.image_id !== imageId))
+      setImageURLs(prev => { const n = { ...prev }; delete n[imageId]; return n })
     } catch { setError('Delete failed') }
   }
 
@@ -82,7 +93,7 @@ function ImageUploader({ jobId, sectionKey, readOnly }) {
           {images.map(img => (
             <div key={img.image_id} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #e5e7eb', flexShrink: 0 }}>
               <img
-                src={`${apiBase}/api/checklist-images/${jobId}/images/${img.image_id}/file`}
+                src={imageURLs[img.image_id]}
                 alt={img.file_name}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
@@ -119,20 +130,15 @@ function VideoLinksPanel({ jobId, readOnly }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    axios.get(`${apiBase}/api/checklist-images/${jobId}/video-links`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then(r => setLinks(r.data)).catch(() => {})
+    client.get(`/checklist-images/${jobId}/video-links`)
+      .then(r => setLinks(r.data)).catch(() => {})
   }, [jobId])
 
   async function handleAdd() {
     if (!url.trim()) { setError('Please enter a URL'); return }
     setSaving(true); setError('')
-    const token = localStorage.getItem('token')
     try {
-      const r = await axios.post(`${apiBase}/api/checklist-images/${jobId}/video-links`, { url, label }, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const r = await client.post(`/checklist-images/${jobId}/video-links`, { url, label })
       setLinks(prev => [...prev, r.data])
       setUrl(''); setLabel('')
     } catch (err) { setError(err.response?.data?.error || 'Failed to save link') }
@@ -140,11 +146,8 @@ function VideoLinksPanel({ jobId, readOnly }) {
   }
 
   async function handleDelete(linkId) {
-    const token = localStorage.getItem('token')
     try {
-      await axios.delete(`${apiBase}/api/checklist-images/${jobId}/video-links/${linkId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      await client.delete(`/checklist-images/${jobId}/video-links/${linkId}`)
       setLinks(prev => prev.filter(l => l.link_id !== linkId))
     } catch {}
   }
