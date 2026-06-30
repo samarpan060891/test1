@@ -608,6 +608,30 @@ async function runMigrations() {
     ADD COLUMN IF NOT EXISTS schedule_id UUID REFERENCES qc_inspection.reminder_schedules(schedule_id) ON DELETE SET NULL
   `, 'overdue_reminder_log schedule_id col');
 
+  // 023: checklist image attachments and video links
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.checklist_images (
+      image_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      job_id      UUID NOT NULL REFERENCES qc_inspection.inspection_job(job_id) ON DELETE CASCADE,
+      section_key TEXT NOT NULL DEFAULT '__defects__',
+      file_name   TEXT NOT NULL,
+      file_type   TEXT NOT NULL,
+      file_size   INT,
+      file_data   BYTEA NOT NULL,
+      uploaded_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `, 'checklist_images table');
+
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.checklist_video_links (
+      link_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      job_id     UUID NOT NULL REFERENCES qc_inspection.inspection_job(job_id) ON DELETE CASCADE,
+      url        TEXT NOT NULL,
+      label      TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `, 'checklist_video_links table');
+
   console.log('✅ Migrations applied');
 }
 

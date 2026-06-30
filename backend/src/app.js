@@ -15,6 +15,7 @@ const inspectionCostRoutes = require('./routes/inspectionCosts');
 const documentRoutes = require('./routes/documents');
 const itemHistoryRoutes = require('./routes/itemHistory');
 const scorecardRoutes = require('./routes/scorecard');
+const checklistImagesRoutes = require('./routes/checklistImages');
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use('/api/inspection-costs', inspectionCostRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/item-history', itemHistoryRoutes);
 app.use('/api/scorecard', scorecardRoutes);
+app.use('/api/checklist-images', checklistImagesRoutes);
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

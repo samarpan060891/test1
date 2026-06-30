@@ -1,10 +1,195 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { getJob, submitJob } from '../api/inspectionJobs.js'
 import { getTemplate } from '../api/checklistTemplates.js'
 import { getResponses, submitResponses } from '../api/inspectionResponses.js'
+import axios from 'axios'
+
+const apiBase = import.meta.env.VITE_API_URL || ''
+
+function ImageUploader({ jobId, sectionKey, readOnly }) {
+  const [images, setImages] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const inputRef = useRef()
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    axios.get(`${apiBase}/api/checklist-images/${jobId}/images`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(r => {
+      setImages(r.data.filter(img => img.section_key === sectionKey))
+    }).catch(() => {})
+  }, [jobId, sectionKey])
+
+  async function handleFiles(files) {
+    if (!files?.length) return
+    const token = localStorage.getItem('token')
+    const remaining = 10 - images.length
+    const toUpload = Array.from(files).slice(0, remaining)
+    if (toUpload.length === 0) { setError('Maximum 10 images reached for this section.'); return }
+    setUploading(true); setError('')
+    for (const file of toUpload) {
+      const fd = new FormData()
+      fd.append('image', file)
+      fd.append('section_key', sectionKey)
+      try {
+        const r = await axios.post(`${apiBase}/api/checklist-images/${jobId}/images`, fd, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        setImages(prev => [...prev, r.data])
+      } catch (err) {
+        setError(err.response?.data?.error || 'Upload failed')
+      }
+    }
+    setUploading(false)
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  async function handleDelete(imageId) {
+    const token = localStorage.getItem('token')
+    try {
+      await axios.delete(`${apiBase}/api/checklist-images/${jobId}/images/${imageId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setImages(prev => prev.filter(i => i.image_id !== imageId))
+    } catch { setError('Delete failed') }
+  }
+
+  return (
+    <div style={{ padding: '14px 20px', background: '#fafafa', borderTop: '1px solid #f0f0f0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <span style={{ fontSize: '12px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          📷 Photos ({images.length}/10)
+        </span>
+        {!readOnly && images.length < 10 && (
+          <label style={{
+            display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer',
+            background: '#1e40af', color: '#fff', padding: '5px 12px', borderRadius: '6px',
+            fontSize: '12px', fontWeight: '700',
+          }}>
+            {uploading ? 'Uploading…' : '+ Add Photos'}
+            <input ref={inputRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+              onChange={e => handleFiles(e.target.files)} disabled={uploading} />
+          </label>
+        )}
+      </div>
+      {error && <div style={{ fontSize: '12px', color: '#dc2626', marginBottom: '8px' }}>{error}</div>}
+      {images.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {images.map(img => (
+            <div key={img.image_id} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #e5e7eb', flexShrink: 0 }}>
+              <img
+                src={`${apiBase}/api/checklist-images/${jobId}/images/${img.image_id}/file`}
+                alt={img.file_name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+              {!readOnly && (
+                <button onClick={() => handleDelete(img.image_id)} style={{
+                  position: 'absolute', top: '2px', right: '2px', width: '18px', height: '18px',
+                  borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none',
+                  fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                }}>×</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {images.length === 0 && !readOnly && (
+        <div style={{ fontSize: '11px', color: '#9ca3af' }}>No photos yet. Tap "+ Add Photos" to attach images.</div>
+      )}
+    </div>
+  )
+}
+
+function VideoLinksPanel({ jobId, readOnly }) {
+  const [links, setLinks] = useState([])
+  const [url, setUrl] = useState('')
+  const [label, setLabel] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    axios.get(`${apiBase}/api/checklist-images/${jobId}/video-links`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(r => setLinks(r.data)).catch(() => {})
+  }, [jobId])
+
+  async function handleAdd() {
+    if (!url.trim()) { setError('Please enter a URL'); return }
+    setSaving(true); setError('')
+    const token = localStorage.getItem('token')
+    try {
+      const r = await axios.post(`${apiBase}/api/checklist-images/${jobId}/video-links`, { url, label }, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setLinks(prev => [...prev, r.data])
+      setUrl(''); setLabel('')
+    } catch (err) { setError(err.response?.data?.error || 'Failed to save link') }
+    finally { setSaving(false) }
+  }
+
+  async function handleDelete(linkId) {
+    const token = localStorage.getItem('token')
+    try {
+      await axios.delete(`${apiBase}/api/checklist-images/${jobId}/video-links/${linkId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setLinks(prev => prev.filter(l => l.link_id !== linkId))
+    } catch {}
+  }
+
+  return (
+    <div style={{ background: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: '16px' }}>
+      <div style={{ fontSize: '14px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>🎥 Video Links</div>
+      <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '14px' }}>
+        If you have inspection videos, upload them to OneDrive, WeTransfer, Google Drive, or Dropbox and paste the share link here.
+      </div>
+
+      {links.map(l => (
+        <div key={l.link_id} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '9px 12px', marginBottom: '8px' }}>
+          <span style={{ fontSize: '16px' }}>🔗</span>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            {l.label && <div style={{ fontSize: '12px', fontWeight: '700', color: '#374151', marginBottom: '2px' }}>{l.label}</div>}
+            <a href={l.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#1e40af', wordBreak: 'break-all' }}>{l.url}</a>
+          </div>
+          {!readOnly && (
+            <button onClick={() => handleDelete(l.link_id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '16px', padding: '2px', flexShrink: 0 }}>×</button>
+          )}
+        </div>
+      ))}
+
+      {!readOnly && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <input
+            value={label} onChange={e => setLabel(e.target.value)}
+            placeholder="Label (optional, e.g. 'Packaging Video')"
+            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px' }}
+          />
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              value={url} onChange={e => setUrl(e.target.value)}
+              placeholder="Paste OneDrive / WeTransfer / Google Drive share link…"
+              style={{ flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px' }}
+            />
+            <button onClick={handleAdd} disabled={saving} style={{
+              background: '#1e40af', color: '#fff', border: 'none', padding: '8px 16px',
+              borderRadius: '6px', fontWeight: '700', fontSize: '13px', cursor: saving ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+            }}>+ Add Link</button>
+          </div>
+          {error && <div style={{ fontSize: '12px', color: '#dc2626' }}>{error}</div>}
+        </div>
+      )}
+
+      {links.length === 0 && readOnly && (
+        <div style={{ fontSize: '12px', color: '#9ca3af' }}>No video links attached.</div>
+      )}
+    </div>
+  )
+}
 
 const criticalityColors = {
   critical: { backgroundColor: '#fee2e2', color: '#dc2626' },
@@ -70,7 +255,6 @@ function getISO2859Sample(lotSize) {
 
 export default function ChecklistFillPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const { t } = useLanguage()
 
   const [job, setJob] = useState(null)
@@ -440,10 +624,36 @@ export default function ChecklistFillPage() {
                       </div>
                     )
                   })}
+                  {/* Per-section image uploader */}
+                  <ImageUploader
+                    jobId={id}
+                    sectionKey={`${group.itemCode}__${group.section}`}
+                    readOnly={job?.status !== 'mapped_awaiting_inspection'}
+                  />
                 </div>
               </div>
             )
           })}
+
+          {/* Defect Images */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ background: '#7f1d1d', color: '#fff', padding: '10px 20px', borderRadius: '8px 8px 0 0', fontSize: '13px', fontWeight: '700' }}>
+              🔴 Defect Images
+            </div>
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 8px 8px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <div style={{ padding: '12px 20px 4px', fontSize: '12px', color: '#6b7280' }}>
+                Attach photos of any defects found during inspection. Maximum 10 images.
+              </div>
+              <ImageUploader
+                jobId={id}
+                sectionKey="__defects__"
+                readOnly={job?.status !== 'mapped_awaiting_inspection'}
+              />
+            </div>
+          </div>
+
+          {/* Video Links */}
+          <VideoLinksPanel jobId={id} readOnly={job?.status !== 'mapped_awaiting_inspection'} />
 
           {/* Actual Inspection Date */}
           <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: '16px' }}>
