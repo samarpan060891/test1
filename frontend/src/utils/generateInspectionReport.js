@@ -257,16 +257,30 @@ export async function generateInspectionReport(job, responses = [], logs = [], j
       })
       const sectionB64 = sectionImgs.map(img => base64Map[img.image_id]).filter(Boolean)
 
+      if (y + 10 > doc.internal.pageSize.getHeight() - 20) { doc.addPage(); y = 20 }
+      doc.setFontSize(8)
+      doc.setTextColor(...gray)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`Photos — ${section} (${sectionB64.length})`, margin, y + 4)
+      y += 8
       if (sectionB64.length > 0) {
-        if (y + 10 > doc.internal.pageSize.getHeight() - 20) { doc.addPage(); y = 20 }
-        doc.setFontSize(8)
-        doc.setTextColor(...gray)
-        doc.setFont('helvetica', 'bold')
-        doc.text(`Photos — ${section} (${sectionB64.length})`, margin, y + 4)
-        y += 8
         y = drawImageGrid(doc, sectionB64, y, margin, pageW)
-        y += 4
+      } else {
+        // Draw 4 empty placeholder boxes
+        const cols = 4
+        const gap = 3
+        const cellW = (pageW - margin * 2 - gap * (cols - 1)) / cols
+        const cellH = cellW * 0.75
+        if (y + cellH > doc.internal.pageSize.getHeight() - 16) { doc.addPage(); y = 20 }
+        doc.setDrawColor(209, 213, 219)
+        doc.setLineWidth(0.3)
+        for (let i = 0; i < cols; i++) {
+          doc.setFillColor(243, 244, 246)
+          doc.rect(margin + i * (cellW + gap), y, cellW, cellH, 'FD')
+        }
+        y += cellH
       }
+      y += 4
     }
     y += 4
   }
