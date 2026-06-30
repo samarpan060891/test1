@@ -160,28 +160,11 @@ router.get('/suppliers', async (req, res) => {
       claimMap[r.supplier_code].push(r)
     })
 
-    const severityWeight = {
-      critical: Number(cfg.severity_critical),
-      high:     Number(cfg.severity_high),
-      medium:   Number(cfg.severity_medium),
-      low:      Number(cfg.severity_low),
-    }
-    const resolvedFactor  = Number(cfg.resolved_penalty_factor)
-    const decayMonths     = Number(cfg.time_decay_months)
-    const decayFactor     = Number(cfg.time_decay_factor)
-    const wComp           = Number(cfg.weight_complaints)
-    const wClaim          = Number(cfg.weight_claims)
-    const wFail           = Number(cfg.weight_failures)
-    const claimsMaxPct    = Number(cfg.claims_full_deduction_pct) / 100
-    const minInsp         = Number(cfg.min_inspections)
-
-    const now = new Date()
-
-    function ageFactor(dateStr) {
-      const d = new Date(dateStr)
-      const monthsOld = (now - d) / (1000 * 60 * 60 * 24 * 30)
-      return monthsOld > decayMonths ? decayFactor : 1
-    }
+    const wComp        = Number(cfg.weight_complaints)
+    const wClaim       = Number(cfg.weight_claims)
+    const wFail        = Number(cfg.weight_failures)
+    const claimsMaxPct = Number(cfg.claims_full_deduction_pct) / 100
+    const minInsp      = Number(cfg.min_inspections)
 
     const scored = suppliers.map(s => {
       const insp   = inspMap[s.supplier_code] || { total_inspections: 0, failed_inspections: 0 }
@@ -194,28 +177,17 @@ router.get('/suppliers', async (req, res) => {
       const insufficientData = totalI < minInsp
 
       // ── Failure deduction (0–weight_failures) ──────────────────────────────
-      const failRate = totalI > 0 ? failI / totalI : 0
+      const failRate      = totalI > 0 ? failI / totalI : 0
       const failDeduction = failRate * wFail
 
       // ── Complaint deduction (0–weight_complaints) ──────────────────────────
-      let weightedComplaints = 0
-      comps.forEach(c => {
-        const sw = severityWeight[c.severity] || 1
-        const rf = ['resolved', 'closed'].includes(c.status) ? resolvedFactor : 1
-        const af = ageFactor(c.complaint_date)
-        weightedComplaints += sw * rf * af
-      })
-      const compIndex = totalI > 0 ? weightedComplaints / totalI : weightedComplaints
-      // Full deduction at index = weight_complaints / 12.5 (same as 4 critical per inspection)
-      const compDeduction = Math.min(wComp, compIndex * (wComp / (wComp / 12.5)))
+      // Simple: complaint_rate = total complaints / total inspections
+      // Full deduction when complaint_rate ≥ 1 (1 complaint per inspection)
+      const compRate      = totalI > 0 ? comps.length / totalI : 0
+      const compDeduction = Math.min(wComp, compRate * wComp)
 
       // ── Claims deduction (0–weight_claims) ────────────────────────────────
-      let totalClaimed = 0
-      claims.forEach(c => {
-        const rf = ['settled', 'resolved'].includes(c.status) ? resolvedFactor : 1
-        const af = ageFactor(c.claim_date)
-        totalClaimed += Number(c.claim_amount) * rf * af
-      })
+      const totalClaimed = claims.reduce((sum, c) => sum + Number(c.claim_amount || 0), 0)
       const claimRate = poVal > 0 ? totalClaimed / poVal : 0
       const claimDeduction = Math.min(wClaim, (claimRate / claimsMaxPct) * wClaim)
 
@@ -248,6 +220,7 @@ router.get('/suppliers', async (req, res) => {
           fail_rate: totalI > 0 ? Math.round(failRate * 100) : 0,
           total_complaints: comps.length,
           open_complaints: comps.filter(c => c.status === 'open').length,
+          comp_rate: totalI > 0 ? Math.round(compRate * 100) : 0,
           total_claims: claims.length,
           total_claimed: Math.round(totalClaimed),
           po_value: Math.round(poVal),
