@@ -527,6 +527,18 @@ async function runMigrations() {
     ON CONFLICT (id) DO NOTHING
   `, 'scorecard_config seed row');
 
+  // 019: status_updated_at on inspection_job — tracks when status last changed
+  await safeQuery(
+    `ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS status_updated_at TIMESTAMPTZ`,
+    'status_updated_at col'
+  );
+  // Backfill: use submitted_at for submitted jobs, updated_at otherwise
+  await safeQuery(`
+    UPDATE qc_inspection.inspection_job
+    SET status_updated_at = COALESCE(submitted_at, updated_at, created_at)
+    WHERE status_updated_at IS NULL
+  `, 'backfill status_updated_at');
+
   console.log('✅ Migrations applied');
 }
 

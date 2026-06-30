@@ -82,7 +82,15 @@ router.get('/', async (req, res) => {
           WHERE ij.job_id = j.job_id
           ORDER BY ca.created_at DESC
           LIMIT 1
-        ) AS payment_status
+        ) AS payment_status,
+        (
+          SELECT ca.created_at
+          FROM qc_inspection.inspection_charges_advice ca
+          JOIN qc_inspection.ica_jobs ij ON ij.advice_id = ca.advice_id
+          WHERE ij.job_id = j.job_id
+          ORDER BY ca.created_at ASC
+          LIMIT 1
+        ) AS advice_created_at
       FROM qc_inspection.inspection_job j
       JOIN qc_inspection.item_master i ON i.item_code = j.item_code
       JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
@@ -438,6 +446,7 @@ router.put('/:id/submit', authorize('agency_user', 'supplier_user'), async (req,
     const updated = await client.query(
       `UPDATE qc_inspection.inspection_job
        SET status = 'submitted_pending_qa', submitted_at = NOW(),
+           status_updated_at = NOW(),
            actual_inspection_date = COALESCE($2::date, CURRENT_DATE)
        WHERE job_id = $1 RETURNING *`,
       [req.params.id, actual_inspection_date || null]
@@ -523,7 +532,8 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
 
     const updated = await client.query(
       `UPDATE qc_inspection.inspection_job
-       SET status = $1, final_outcome = $2, qa_notes = $3, decided_at = NOW()
+       SET status = $1, final_outcome = $2, qa_notes = $3, decided_at = NOW(),
+           status_updated_at = NOW()
        WHERE job_id = $4 RETURNING *`,
       [newStatus, outcome, remarks || null, req.params.id]
     );

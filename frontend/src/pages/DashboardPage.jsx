@@ -65,6 +65,23 @@ function StageBadge({ stage, t }) {
   )
 }
 
+function daysSince(dateStr) {
+  if (!dateStr) return null
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / (1000 * 60 * 60 * 24))
+  return diff
+}
+
+function DaysTag({ days, warn = 7, danger = 14 }) {
+  if (days === null || days === undefined) return null
+  const color = days >= danger ? '#b91c1c' : days >= warn ? '#b45309' : '#15803d'
+  const bg    = days >= danger ? '#fee2e2' : days >= warn ? '#fef3c7' : '#dcfce7'
+  return (
+    <span style={{ marginLeft: '5px', fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '9999px', background: bg, color, whiteSpace: 'nowrap' }}>
+      {days}d
+    </span>
+  )
+}
+
 // kept for non-monetary uses; monetary calls replaced by formatFrom from context
 function fmt(num, currency = 'USD') {
   if (num == null) return '—'
@@ -661,8 +678,18 @@ export default function DashboardPage() {
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.item_name || job.item_code || '—'}</td>
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.supplier_name || job.supplier_code || '—'}</td>
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.agency_name || '—'}</td>
-                        <td><StatusBadge status={job.status} t={t} /></td>
-                        <td><PaymentBadge status={job.payment_status} t={t} /></td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <StatusBadge status={job.status} t={t} />
+                          {job.status && job.status.startsWith('pending') && (
+                            <DaysTag days={daysSince(job.status_updated_at)} />
+                          )}
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <PaymentBadge status={job.payment_status} t={t} />
+                          {job.payment_status && job.payment_status.startsWith('pending') && (
+                            <DaysTag days={daysSince(job.advice_created_at)} />
+                          )}
+                        </td>
                         <td style={{ color: '#94a3b8' }}>
                           {job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : '—'}
                         </td>
