@@ -17,6 +17,7 @@ import AdminMastersPage from './pages/AdminMastersPage.jsx'
 import ChangePasswordPage from './pages/ChangePasswordPage.jsx'
 import InspectionCostPage from './pages/InspectionCostPage.jsx'
 import DocumentControlPage from './pages/DocumentControlPage.jsx'
+import SupplierScorecardPage from './pages/SupplierScorecardPage.jsx'
 
 export default function App() {
   return (
@@ -104,6 +105,15 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <AdminMastersPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/scorecard"
+          element={
+            <ProtectedRoute allowedRoles={['admin','qa','buying','imports','accounts','supplier_user']}>
+              <SupplierScorecardPage />
             </ProtectedRoute>
           }
         />

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
+import client from '../api/client.js'
 import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
 import * as XLSX from 'xlsx'
 import Navbar from '../components/Navbar.jsx'
@@ -16,7 +17,7 @@ import {
 } from '../api/itemHistory.js'
 import { useCurrency } from '../context/CurrencyContext.jsx'
 
-const TABS = ['Suppliers', 'Agencies', 'Items', 'POs', 'Customer Complaints', 'Claims']
+const TABS = ['Suppliers', 'Agencies', 'Items', 'POs', 'Customer Complaints', 'Claims', 'Scorecard Config']
 
 const COMPLAINT_FIELDS = [
   { key: 'item_code',      label: 'Item Code',      placeholder: 'ITEM-001', required: true },
@@ -305,6 +306,122 @@ function HistoryMastersTab({ type }) {
   )
 }
 
+function ScorecardConfigTab() {
+  const [cfg, setCfg] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    client.get('/scorecard/config').then(r => { setCfg(r.data); setLoading(false) }).catch(() => setLoading(false))
+  }, [])
+
+  const weightTotal = cfg ? (+cfg.weight_complaints + +cfg.weight_claims + +cfg.weight_failures) : 100
+
+  const set = (key, val) => setCfg(prev => ({ ...prev, [key]: val }))
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    if (Math.abs(weightTotal - 100) > 0.01) { setMsg('Weights must sum to 100'); return }
+    setSaving(true); setMsg('')
+    try {
+      await client.put('/scorecard/config', cfg)
+      setMsg('✅ Configuration saved successfully')
+    } catch (err) {
+      setMsg('❌ ' + (err.response?.data?.error || err.message))
+    } finally { setSaving(false) }
+  }
+
+  if (loading) return <div style={{ padding: '40px', color: '#6b7280' }}>Loading…</div>
+  if (!cfg) return <div style={{ padding: '40px', color: '#dc2626' }}>Failed to load scorecard config.</div>
+
+  const field = (label, key, opts = {}) => (
+    <div key={key} style={{ marginBottom: '14px' }}>
+      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>{label}</label>
+      <input
+        type="number"
+        value={cfg[key] ?? ''}
+        onChange={e => set(key, e.target.value)}
+        step={opts.step ?? '0.01'}
+        min={opts.min ?? '0'}
+        max={opts.max}
+        style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '7px', fontSize: '14px' }}
+      />
+      {opts.hint && <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '3px' }}>{opts.hint}</div>}
+    </div>
+  )
+
+  return (
+    <form onSubmit={handleSave}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+
+        {/* Component Weights */}
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#111827', margin: '0 0 4px' }}>Component Weights</h3>
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 16px' }}>Must sum to exactly 100%</p>
+          {field('Customer Complaints Weight (%)', 'weight_complaints', { hint: 'Default: 50%' })}
+          {field('Claims Weight (%)', 'weight_claims', { hint: 'Default: 40%' })}
+          {field('Inspection Failures Weight (%)', 'weight_failures', { hint: 'Default: 10%' })}
+          <div style={{
+            padding: '10px 12px', borderRadius: '7px', fontSize: '13px', fontWeight: '700',
+            background: Math.abs(weightTotal - 100) < 0.01 ? '#dcfce7' : '#fee2e2',
+            color: Math.abs(weightTotal - 100) < 0.01 ? '#15803d' : '#b91c1c',
+          }}>
+            Total: {(+cfg.weight_complaints + +cfg.weight_claims + +cfg.weight_failures).toFixed(1)}% {Math.abs(weightTotal - 100) < 0.01 ? '✓' : '— must equal 100'}
+          </div>
+        </div>
+
+        {/* Grade Thresholds */}
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#111827', margin: '0 0 4px' }}>Grade Thresholds</h3>
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 16px' }}>Minimum score (inclusive) for each grade</p>
+          {field('Excellent — minimum score', 'grade_excellent', { hint: 'Default: 85' })}
+          {field('Good — minimum score', 'grade_good', { hint: 'Default: 70' })}
+          {field('Average — minimum score', 'grade_average', { hint: 'Default: 50. Below this = Needs Improvement' })}
+          <div style={{ fontSize: '12px', color: '#6b7280', background: '#f8fafc', padding: '10px', borderRadius: '7px', lineHeight: 1.6 }}>
+            <span style={{ color: '#15803d', fontWeight: '700' }}>●</span> Excellent ≥ {cfg.grade_excellent}<br />
+            <span style={{ color: '#1d4ed8', fontWeight: '700' }}>●</span> Good ≥ {cfg.grade_good}<br />
+            <span style={{ color: '#b45309', fontWeight: '700' }}>●</span> Average ≥ {cfg.grade_average}<br />
+            <span style={{ color: '#b91c1c', fontWeight: '700' }}>●</span> Needs Improvement &lt; {cfg.grade_average}
+          </div>
+        </div>
+
+        {/* Complaint Severity */}
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#111827', margin: '0 0 4px' }}>Complaint Severity Weights</h3>
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 16px' }}>Multiplier applied per complaint by severity level</p>
+          {field('Critical severity multiplier', 'severity_critical', { hint: 'Default: 4× — most severe' })}
+          {field('High severity multiplier', 'severity_high', { hint: 'Default: 2×' })}
+          {field('Medium severity multiplier', 'severity_medium', { hint: 'Default: 1×' })}
+          {field('Low severity multiplier', 'severity_low', { hint: 'Default: 0.5×' })}
+        </div>
+
+        {/* Advanced Settings */}
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#111827', margin: '0 0 4px' }}>Advanced Settings</h3>
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 16px' }}>Fine-tune penalty and data thresholds</p>
+          {field('Resolved complaint/claim penalty factor', 'resolved_penalty_factor', { hint: '0.5 = resolved issues carry 50% of the normal penalty', max: '1', step: '0.05' })}
+          {field('Claims: full deduction at % of PO value', 'claims_full_deduction_pct', { hint: 'E.g. 10 = if claims reach 10% of PO value, full claims deduction applied' })}
+          {field('Time decay — months before older issues decay', 'time_decay_months', { hint: 'Default: 12 months', step: '1', min: '1' })}
+          {field('Time decay factor (fraction of original weight)', 'time_decay_factor', { hint: '0.5 = issues older than threshold carry 50% weight', max: '1', step: '0.05' })}
+          {field('Minimum inspections to show a score', 'min_inspections', { hint: 'Suppliers with fewer inspections show "Insufficient Data"', step: '1', min: '1' })}
+        </div>
+      </div>
+
+      <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <button
+          type="submit" disabled={saving}
+          style={{ padding: '10px 28px', background: '#1C1208', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: saving ? 'not-allowed' : 'pointer' }}
+        >
+          {saving ? 'Saving…' : 'Save Configuration'}
+        </button>
+        {msg && <span style={{ fontSize: '13px', color: msg.startsWith('✅') ? '#15803d' : '#dc2626' }}>{msg}</span>}
+        {cfg.updated_at && <span style={{ fontSize: '12px', color: '#9ca3af', marginLeft: 'auto' }}>Last updated: {new Date(cfg.updated_at).toLocaleString()}</span>}
+      </div>
+    </form>
+  )
+}
+
 export default function AdminMastersPage() {
   const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState('Suppliers')
@@ -463,7 +580,9 @@ export default function AdminMastersPage() {
           ))}
         </div>
 
-        {(activeTab === 'Customer Complaints' || activeTab === 'Claims') ? (
+        {activeTab === 'Scorecard Config' ? (
+          <ScorecardConfigTab />
+        ) : (activeTab === 'Customer Complaints' || activeTab === 'Claims') ? (
           <HistoryMastersTab type={activeTab} />
         ) : (
 

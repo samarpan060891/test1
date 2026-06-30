@@ -14,6 +14,7 @@ const adminRoutes = require('./routes/admin');
 const inspectionCostRoutes = require('./routes/inspectionCosts');
 const documentRoutes = require('./routes/documents');
 const itemHistoryRoutes = require('./routes/itemHistory');
+const scorecardRoutes = require('./routes/scorecard');
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/inspection-costs', inspectionCostRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/item-history', itemHistoryRoutes);
+app.use('/api/scorecard', scorecardRoutes);
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

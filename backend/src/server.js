@@ -498,6 +498,35 @@ async function runMigrations() {
       CHECK (status IN ('pending_upload','pending_approval','qa_approved','approved','rejected','not_applicable'))
   `, 'add not_applicable status');
 
+  // 018: Supplier Scorecard config table
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.scorecard_config (
+      id                          SMALLINT PRIMARY KEY DEFAULT 1,
+      weight_complaints           NUMERIC(5,2) NOT NULL DEFAULT 50,
+      weight_claims               NUMERIC(5,2) NOT NULL DEFAULT 40,
+      weight_failures             NUMERIC(5,2) NOT NULL DEFAULT 10,
+      grade_excellent             NUMERIC(5,2) NOT NULL DEFAULT 85,
+      grade_good                  NUMERIC(5,2) NOT NULL DEFAULT 70,
+      grade_average               NUMERIC(5,2) NOT NULL DEFAULT 50,
+      severity_critical           NUMERIC(4,2) NOT NULL DEFAULT 4,
+      severity_high               NUMERIC(4,2) NOT NULL DEFAULT 2,
+      severity_medium             NUMERIC(4,2) NOT NULL DEFAULT 1,
+      severity_low                NUMERIC(4,2) NOT NULL DEFAULT 0.5,
+      resolved_penalty_factor     NUMERIC(4,2) NOT NULL DEFAULT 0.5,
+      claims_full_deduction_pct   NUMERIC(5,2) NOT NULL DEFAULT 10,
+      time_decay_months           SMALLINT NOT NULL DEFAULT 12,
+      time_decay_factor           NUMERIC(4,2) NOT NULL DEFAULT 0.5,
+      min_inspections             SMALLINT NOT NULL DEFAULT 3,
+      updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by                  UUID REFERENCES qc_inspection.team_stakeholder(user_id)
+    )
+  `, 'scorecard_config table');
+
+  await safeQuery(`
+    INSERT INTO qc_inspection.scorecard_config (id) VALUES (1)
+    ON CONFLICT (id) DO NOTHING
+  `, 'scorecard_config seed row');
+
   console.log('✅ Migrations applied');
 }
 
