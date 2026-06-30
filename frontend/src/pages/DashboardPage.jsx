@@ -73,11 +73,21 @@ function daysSince(dateStr) {
 
 function DaysTag({ days, warn = 7, danger = 14 }) {
   if (days === null || days === undefined) return null
+  if (days < 0) return (
+    <span style={{ marginLeft: '5px', fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '9999px', background: '#f1f5f9', color: '#64748b', whiteSpace: 'nowrap' }}>
+      in {Math.abs(days)}d
+    </span>
+  )
+  if (days === 0) return (
+    <span style={{ marginLeft: '5px', fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '9999px', background: '#fef3c7', color: '#b45309', whiteSpace: 'nowrap' }}>
+      Due Today
+    </span>
+  )
   const color = days >= danger ? '#b91c1c' : days >= warn ? '#b45309' : '#15803d'
   const bg    = days >= danger ? '#fee2e2' : days >= warn ? '#fef3c7' : '#dcfce7'
   return (
     <span style={{ marginLeft: '5px', fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '9999px', background: bg, color, whiteSpace: 'nowrap' }}>
-      {days}d
+      {days}d overdue
     </span>
   )
 }
@@ -680,8 +690,11 @@ export default function DashboardPage() {
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.agency_name || '—'}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>
                           <StatusBadge status={job.status} t={t} />
-                          {job.status && !['qa_approved','qa_rejected'].includes(job.status) && (
-                            <DaysTag days={daysSince(job.status_updated_at || job.submitted_at || job.mapped_at || job.created_at)} />
+                          {job.status === 'mapped_awaiting_inspection' && (
+                            <DaysTag days={daysSince(job.inspection_date)} warn={0} danger={7} />
+                          )}
+                          {job.status === 'submitted_pending_qa' && (
+                            <DaysTag days={daysSince(job.status_updated_at || job.submitted_at || job.created_at)} />
                           )}
                         </td>
                         <td style={{ whiteSpace: 'nowrap' }}>
