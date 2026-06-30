@@ -701,6 +701,9 @@ export default function DashboardPage() {
                         </td>
                         <td style={{ whiteSpace: 'nowrap' }}>
                           <PaymentBadge status={job.payment_status} t={t} />
+                          {job.payment_status === 'pending_buying' && (
+                            <DaysTag days={daysSince(job.advice_qa_approved_at)} />
+                          )}
                           {job.payment_status === 'pending_imports' && (
                             <DaysTag days={daysSince(job.buying_approved_at)} />
                           )}

@@ -92,6 +92,14 @@ router.get('/', async (req, res) => {
           LIMIT 1
         ) AS advice_created_at,
         (
+          SELECT ca.qa_approved_at
+          FROM qc_inspection.inspection_charges_advice ca
+          JOIN qc_inspection.ica_jobs ij ON ij.advice_id = ca.advice_id
+          WHERE ij.job_id = j.job_id
+          ORDER BY ca.created_at DESC
+          LIMIT 1
+        ) AS advice_qa_approved_at,
+        (
           SELECT ca.buying_approved_at
           FROM qc_inspection.inspection_charges_advice ca
           JOIN qc_inspection.ica_jobs ij ON ij.advice_id = ca.advice_id
