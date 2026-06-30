@@ -98,39 +98,42 @@ router.get('/suppliers', async (req, res) => {
 
     const suppliers = suppRes.rows
 
-    // 2. Inspection stats per supplier
+    // 2. Inspection stats per supplier (final_outcome = 'rejected' counts as failed)
     const inspStats = await db.query(`
       SELECT
-        p.supplier_code,
-        COUNT(DISTINCT ij.job_id)                                           AS total_inspections,
-        COUNT(DISTINCT ij.job_id) FILTER (WHERE ij.result = 'fail')        AS failed_inspections
+        ij.supplier_code,
+        COUNT(DISTINCT ij.job_id)                                                      AS total_inspections,
+        COUNT(DISTINCT ij.job_id) FILTER (WHERE ij.final_outcome = 'rejected')         AS failed_inspections
       FROM qc_inspection.inspection_job ij
-      JOIN qc_inspection.po_master p ON p.po_no = ij.po_no
-      GROUP BY p.supplier_code
+      GROUP BY ij.supplier_code
     `)
     const inspMap = {}
     inspStats.rows.forEach(r => { inspMap[r.supplier_code] = r })
 
-    // 3. Complaint stats per supplier (with time decay)
+    // 3. Complaint stats per supplier — complaints link via item_code → job_items → inspection_job
     const compRes = await db.query(`
-      SELECT
+      SELECT DISTINCT ON (cc.id)
         ij.supplier_code,
         cc.severity,
         cc.status,
         cc.complaint_date
       FROM qc_inspection.customer_complaints cc
-      JOIN qc_inspection.inspection_job ij ON ij.job_id = cc.job_id
+      JOIN qc_inspection.job_items ji ON ji.item_code = cc.item_code
+      JOIN qc_inspection.inspection_job ij ON ij.job_id = ji.job_id
+      ORDER BY cc.id, ij.supplier_code
     `)
 
-    // 4. Claims stats per supplier
+    // 4. Claims stats per supplier — item_claims links the same way
     const claimRes = await db.query(`
-      SELECT
+      SELECT DISTINCT ON (cl.id)
         ij.supplier_code,
         cl.claim_amount,
         cl.status,
         cl.claim_date
-      FROM qc_inspection.claims cl
-      JOIN qc_inspection.inspection_job ij ON ij.job_id = cl.job_id
+      FROM qc_inspection.item_claims cl
+      JOIN qc_inspection.job_items ji ON ji.item_code = cl.item_code
+      JOIN qc_inspection.inspection_job ij ON ij.job_id = ji.job_id
+      ORDER BY cl.id, ij.supplier_code
     `)
 
     // 5. PO value per supplier (for claims % calculation)
