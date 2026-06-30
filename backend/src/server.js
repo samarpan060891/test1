@@ -2,6 +2,7 @@ require('dotenv').config();
 const app = require('./app');
 const db = require('./db');
 const bcrypt = require('bcryptjs');
+const { startScheduler } = require('./services/scheduler');
 
 const PORT = process.env.PORT || 4000;
 
@@ -555,6 +556,8 @@ async function startServer() {
       console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`   Health check: http://localhost:${PORT}/api/health`);
     });
+
+    startScheduler();
   } catch (err) {
     console.error('❌ Failed to start server:', err.message);
     process.exit(1);

@@ -418,6 +418,52 @@ function emailDocReviewed({ supplierName, itemName, docType, action, remarks, re
   };
 }
 
+function emailInspectionOverdueDigest({ jobs }) {
+  const rows = jobs.map(j => {
+    const daysOverdue = Math.floor((Date.now() - new Date(j.inspection_date)) / (1000 * 60 * 60 * 24))
+    const color = daysOverdue >= 7 ? '#dc2626' : '#d97706'
+    const bg    = daysOverdue >= 7 ? '#fef2f2' : '#fef3c7'
+    return `<tr style="border-bottom:1px solid #e2e8f0;">
+      <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#E8470F;">${j.job_ref}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#374151;">${j.po_no}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#374151;">${j.item_name || '—'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#374151;">${j.supplier_name || '—'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#374151;">${j.agency_name || 'Self'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#374151;">${new Date(j.inspection_date).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })}</td>
+      <td style="padding:10px 14px;">
+        <span style="background:${bg};color:${color};padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:700;">${daysOverdue}d overdue</span>
+      </td>
+    </tr>`
+  }).join('')
+
+  return {
+    subject: `⚠️ Overdue Inspection Alert — ${jobs.length} job${jobs.length > 1 ? 's' : ''} awaiting inspection`,
+    html: layout(`⚠️ ${jobs.length} Overdue Inspection${jobs.length > 1 ? 's' : ''}`, `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">
+        The following inspection job${jobs.length > 1 ? 's are' : ' is'} <strong style="color:#dc2626;">overdue</strong> —
+        the scheduled inspection date has passed and the job is still awaiting inspection.
+        Please take immediate action.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin:16px 0;">
+        <tr style="background:#fef2f2;">
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">Job Ref</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">PO No</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">Item</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">Supplier</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">Agency</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">Inspection Date</th>
+          <th style="padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;border-bottom:1px solid #fca5a5;">Overdue By</th>
+        </tr>
+        ${rows}
+      </table>
+      ${ctaButton('View All Jobs →', APP_URL)}
+      <p style="color:#94a3b8;font-size:11px;text-align:center;margin-top:8px;">
+        This reminder is sent daily until the inspection is completed or rescheduled.
+      </p>
+    `),
+  }
+}
+
 module.exports = {
   sendEmail,
   emailJobMapped,
@@ -431,4 +477,5 @@ module.exports = {
   emailDocUploadRequired,
   emailDocUploaded,
   emailDocReviewed,
+  emailInspectionOverdueDigest,
 };
