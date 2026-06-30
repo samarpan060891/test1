@@ -71,23 +71,39 @@ async function sendOverdueReminders() {
 
     console.log(`[SCHEDULER] ${jobs.length} job(s) due for overdue reminder.`);
 
-    // Collect recipients: QA, Buying, Admin + assigned agency users
-    const { rows: staff } = await db.query(`
-      SELECT DISTINCT email FROM qc_inspection.team_stakeholder
-      WHERE role IN ('qa', 'buying', 'admin') AND email IS NOT NULL AND email <> ''
-    `);
-
-    const agencyCodes = [...new Set(jobs.map(j => j.agency_code).filter(Boolean))];
-    let agencyEmails = [];
-    if (agencyCodes.length > 0) {
-      const { rows: agencyStaff } = await db.query(`
-        SELECT DISTINCT email FROM qc_inspection.team_stakeholder
-        WHERE role = 'agency_user' AND agency_code = ANY($1) AND email IS NOT NULL AND email <> ''
-      `, [agencyCodes]);
-      agencyEmails = agencyStaff.map(r => r.email);
+    // Collect recipients using admin-configured roles (admin is never included)
+    const configuredRoles = (config.recipient_roles || []).filter(r => r !== 'admin')
+    if (configuredRoles.length === 0) {
+      console.log('[SCHEDULER] No recipient roles configured — skipping send.');
+      return;
     }
 
-    let recipients = [...staff.map(r => r.email), ...agencyEmails];
+    // For agency_user: only those assigned to the overdue jobs; for all others: all users with that role
+    const nonAgencyRoles = configuredRoles.filter(r => r !== 'agency_user')
+    const includeAgency  = configuredRoles.includes('agency_user')
+
+    let staffEmails = []
+    if (nonAgencyRoles.length > 0) {
+      const { rows: staff } = await db.query(`
+        SELECT DISTINCT email FROM qc_inspection.team_stakeholder
+        WHERE role = ANY($1) AND email IS NOT NULL AND email <> ''
+      `, [nonAgencyRoles]);
+      staffEmails = staff.map(r => r.email)
+    }
+
+    let agencyEmails = []
+    if (includeAgency) {
+      const agencyCodes = [...new Set(jobs.map(j => j.agency_code).filter(Boolean))]
+      if (agencyCodes.length > 0) {
+        const { rows: agencyStaff } = await db.query(`
+          SELECT DISTINCT email FROM qc_inspection.team_stakeholder
+          WHERE role = 'agency_user' AND agency_code = ANY($1) AND email IS NOT NULL AND email <> ''
+        `, [agencyCodes]);
+        agencyEmails = agencyStaff.map(r => r.email)
+      }
+    }
+
+    let recipients = [...staffEmails, ...agencyEmails];
     if (process.env.TEST_EMAIL_TO) recipients = [process.env.TEST_EMAIL_TO];
 
     if (recipients.length > 0) {

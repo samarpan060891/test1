@@ -543,15 +543,21 @@ async function runMigrations() {
   // 020: overdue reminder config + log tables
   await safeQuery(`
     CREATE TABLE IF NOT EXISTS qc_inspection.overdue_reminder_config (
-      id              INT PRIMARY KEY DEFAULT 1,
-      enabled         BOOLEAN NOT NULL DEFAULT false,
+      id               INT PRIMARY KEY DEFAULT 1,
+      enabled          BOOLEAN NOT NULL DEFAULT false,
       min_days_overdue INT NOT NULL DEFAULT 1,
-      frequency_days  INT NOT NULL DEFAULT 1,
-      send_time       TIME NOT NULL DEFAULT '08:00:00',
-      updated_at      TIMESTAMPTZ DEFAULT NOW(),
+      frequency_days   INT NOT NULL DEFAULT 1,
+      send_time        TIME NOT NULL DEFAULT '08:00:00',
+      recipient_roles  TEXT[] NOT NULL DEFAULT '{}',
+      updated_at       TIMESTAMPTZ DEFAULT NOW(),
       CONSTRAINT single_row CHECK (id = 1)
     )
   `, 'overdue_reminder_config table');
+
+  await safeQuery(`
+    ALTER TABLE qc_inspection.overdue_reminder_config
+    ADD COLUMN IF NOT EXISTS recipient_roles TEXT[] NOT NULL DEFAULT '{}'
+  `, 'overdue_reminder_config recipient_roles col');
 
   await safeQuery(`
     INSERT INTO qc_inspection.overdue_reminder_config (id) VALUES (1)

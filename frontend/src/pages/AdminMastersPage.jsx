@@ -307,6 +307,15 @@ function HistoryMastersTab({ type }) {
   )
 }
 
+const REMINDER_ROLES = [
+  { value: 'qa',           label: 'QA Team',        hint: 'All users with QA role' },
+  { value: 'buying',       label: 'Buying Team',     hint: 'All users with Buying role' },
+  { value: 'imports',      label: 'Imports Team',    hint: 'All users with Imports role' },
+  { value: 'accounts',     label: 'Accounts Team',   hint: 'All users with Accounts role' },
+  { value: 'agency_user',  label: 'Agency (assigned)', hint: 'Only agency users assigned to the overdue job' },
+  { value: 'supplier_user',label: 'Supplier',        hint: 'Supplier user for the job's supplier' },
+]
+
 function RemindersTab() {
   const [cfg, setCfg] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -319,8 +328,18 @@ function RemindersTab() {
     client.get('/admin/reminder-log').then(r => setLog(r.data)).catch(() => {})
   }, [])
 
+  function toggleRole(role) {
+    const current = cfg.recipient_roles || []
+    const next = current.includes(role) ? current.filter(r => r !== role) : [...current, role]
+    setCfg(c => ({ ...c, recipient_roles: next }))
+  }
+
   async function handleSave(e) {
     e.preventDefault()
+    if (cfg.enabled && (!cfg.recipient_roles || cfg.recipient_roles.length === 0)) {
+      setError('Select at least one recipient group before enabling reminders.')
+      return
+    }
     setSaving(true); setSaved(false); setError('')
     try {
       const r = await client.put('/admin/reminder-config', cfg)
@@ -338,40 +357,75 @@ function RemindersTab() {
 
   if (!cfg) return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading…</div>
 
+  const selectedRoles = cfg.recipient_roles || []
+  const selectedLabels = REMINDER_ROLES.filter(r => selectedRoles.includes(r.value)).map(r => r.label)
+
   return (
-    <div style={{ maxWidth: '680px', padding: '28px 0' }}>
+    <div style={{ maxWidth: '700px', padding: '28px 0' }}>
+
       {/* Enable toggle */}
       <div style={panelStyle}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: '15px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Overdue Inspection Reminders</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Automatically email QA, Buying and Agency teams when inspection jobs are overdue.</div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>Automatically notify selected stakeholders when inspection jobs are overdue. Admin is excluded from all reminders.</div>
           </div>
-          <label style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer', gap: '10px' }}>
-            <div
-              onClick={() => setCfg(c => ({ ...c, enabled: !c.enabled }))}
-              style={{
-                width: '44px', height: '24px', borderRadius: '9999px', cursor: 'pointer', transition: 'background 0.2s',
-                background: cfg.enabled ? '#E8470F' : '#d1d5db', position: 'relative', flexShrink: 0,
-              }}
-            >
-              <div style={{
-                position: 'absolute', top: '3px', left: cfg.enabled ? '22px' : '3px',
-                width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
-                transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-              }} />
-            </div>
-            <span style={{ fontSize: '13px', fontWeight: '700', color: cfg.enabled ? '#E8470F' : '#9ca3af' }}>
-              {cfg.enabled ? 'Enabled' : 'Disabled'}
-            </span>
-          </label>
+          <div
+            onClick={() => setCfg(c => ({ ...c, enabled: !c.enabled }))}
+            style={{
+              width: '44px', height: '24px', borderRadius: '9999px', cursor: 'pointer', transition: 'background 0.2s',
+              background: cfg.enabled ? '#E8470F' : '#d1d5db', position: 'relative', flexShrink: 0,
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: '3px', left: cfg.enabled ? '22px' : '3px',
+              width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+              transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            }} />
+          </div>
+        </div>
+        <div style={{ marginTop: '10px', fontSize: '12px', fontWeight: '700', color: cfg.enabled ? '#E8470F' : '#9ca3af' }}>
+          {cfg.enabled ? '● Active' : '○ Inactive'}
         </div>
       </div>
 
-      {/* Config form */}
       <form onSubmit={handleSave}>
+
+        {/* Recipient selection */}
         <div style={panelStyle}>
-          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '18px' }}>Reminder Settings</div>
+          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Who receives reminders?</div>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '16px' }}>Select one or more stakeholder groups. Each group will receive a consolidated email listing all overdue jobs.</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {REMINDER_ROLES.map(opt => {
+              const checked = selectedRoles.includes(opt.value)
+              return (
+                <label key={opt.value} onClick={() => toggleRole(opt.value)} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
+                  borderRadius: '8px', border: `1.5px solid ${checked ? '#E8470F' : '#e5e7eb'}`,
+                  background: checked ? '#fff7f5' : '#fafafa', cursor: 'pointer', transition: 'all 0.15s',
+                }}>
+                  <div style={{
+                    width: '18px', height: '18px', borderRadius: '4px', border: `2px solid ${checked ? '#E8470F' : '#d1d5db'}`,
+                    background: checked ? '#E8470F' : '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {checked && <span style={{ color: '#fff', fontSize: '11px', fontWeight: '900', lineHeight: 1 }}>✓</span>}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: checked ? '#E8470F' : '#374151' }}>{opt.label}</div>
+                    <div style={{ fontSize: '11px', color: '#6b7280' }}>{opt.hint}</div>
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+          {selectedRoles.length === 0 && (
+            <div style={{ marginTop: '12px', fontSize: '12px', color: '#dc2626' }}>⚠ No recipients selected — reminders will not be sent even if enabled.</div>
+          )}
+        </div>
+
+        {/* Timing settings */}
+        <div style={panelStyle}>
+          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '18px' }}>Timing &amp; Frequency</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
 
             <div>
@@ -383,16 +437,14 @@ function RemindersTab() {
                 style={inputStyle}
                 required
               />
-              <div style={hintStyle}>Daily send time in server timezone (UTC by default)</div>
+              <div style={hintStyle}>Server timezone is UTC. Set TZ env var to change.</div>
             </div>
 
             <div>
-              <label style={labelStyle}>Send first reminder after</label>
+              <label style={labelStyle}>First reminder after</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input
-                  type="number"
-                  min="1"
-                  max="30"
+                  type="number" min="1" max="30"
                   value={cfg.min_days_overdue || 1}
                   onChange={e => setCfg(c => ({ ...c, min_days_overdue: parseInt(e.target.value) || 1 }))}
                   style={{ ...inputStyle, width: '70px' }}
@@ -400,16 +452,14 @@ function RemindersTab() {
                 />
                 <span style={{ fontSize: '13px', color: '#374151' }}>day(s) overdue</span>
               </div>
-              <div style={hintStyle}>Minimum days past inspection date before first email</div>
+              <div style={hintStyle}>Days past inspection date before the first email</div>
             </div>
 
             <div>
               <label style={labelStyle}>Repeat every</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input
-                  type="number"
-                  min="1"
-                  max="30"
+                  type="number" min="1" max="30"
                   value={cfg.frequency_days || 1}
                   onChange={e => setCfg(c => ({ ...c, frequency_days: parseInt(e.target.value) || 1 }))}
                   style={{ ...inputStyle, width: '70px' }}
@@ -417,16 +467,17 @@ function RemindersTab() {
                 />
                 <span style={{ fontSize: '13px', color: '#374151' }}>day(s)</span>
               </div>
-              <div style={hintStyle}>Frequency of repeat reminders after the first one</div>
+              <div style={hintStyle}>Interval between repeat reminders</div>
             </div>
           </div>
 
-          {/* Preview */}
-          {cfg.enabled && (
+          {/* Live preview */}
+          {cfg.enabled && selectedRoles.length > 0 && (
             <div style={{ marginTop: '20px', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px', padding: '12px 16px', fontSize: '12px', color: '#92400e' }}>
               <strong>Preview: </strong>
-              First reminder sent <strong>{cfg.min_days_overdue} day(s)</strong> after the inspection date is missed,
-              then repeated every <strong>{cfg.frequency_days} day(s)</strong> at <strong>{(cfg.send_time || '08:00').slice(0, 5)}</strong> until the job is completed.
+              First reminder sent <strong>{cfg.min_days_overdue} day(s)</strong> after the inspection date is missed at <strong>{(cfg.send_time || '08:00').slice(0, 5)}</strong>,
+              then repeated every <strong>{cfg.frequency_days} day(s)</strong>.
+              Recipients: <strong>{selectedLabels.join(', ')}</strong>.
             </div>
           )}
         </div>
@@ -444,7 +495,7 @@ function RemindersTab() {
         </div>
       </form>
 
-      {/* Recent log */}
+      {/* Recent reminder log */}
       {log.length > 0 && (
         <div style={{ ...panelStyle, marginTop: '24px' }}>
           <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '14px' }}>Recent Reminder Log</div>
