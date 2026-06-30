@@ -24,6 +24,7 @@ const NAV_ICONS = {
   tmpl:    '✅',
   costs:   '💰',
   docs:    '📁',
+  score:   '🏆',
   users:   '👥',
   masters: '⚙',
 }

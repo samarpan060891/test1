@@ -206,6 +206,16 @@ export default function SupplierScorecardPage() {
                                 <span>Final Score</span>
                                 <span style={{ color: s.score >= 85 ? '#15803d' : s.score >= 70 ? '#1d4ed8' : s.score >= 50 ? '#b45309' : '#b91c1c' }}>{s.score} / 100</span>
                               </div>
+                              <div style={{ marginTop: '10px', padding: '8px 10px', background: '#f8fafc', borderRadius: '6px', fontSize: '11px', color: '#6b7280', lineHeight: 1.6 }}>
+                                <div style={{ fontWeight: '700', color: '#374151', marginBottom: '4px' }}>* Formula</div>
+                                <div>Score = 100 − Complaint Deduction − Claims Deduction − Failure Deduction</div>
+                                <div style={{ marginTop: '4px', color: '#9ca3af' }}>
+                                  * Complaints: severity-weighted rate × {cfg?.weight_complaints}pts (Critical={cfg?.severity_critical}×, High={cfg?.severity_high}×, Medium={cfg?.severity_medium}×, Low={cfg?.severity_low}×)<br/>
+                                  * Resolved complaints carry {(cfg?.resolved_penalty_factor * 100).toFixed(0)}% penalty; issues older than {cfg?.time_decay_months}m carry {(cfg?.time_decay_factor * 100).toFixed(0)}% weight<br/>
+                                  * Claims: (Total Claimed ÷ PO Value) ÷ {cfg?.claims_full_deduction_pct}% threshold × {cfg?.weight_claims}pts (capped)<br/>
+                                  * Failures: (Failed ÷ Total Inspections) × {cfg?.weight_failures}pts
+                                </div>
+                              </div>
                             </>
                           ) : (
                             <div style={{ color: '#9ca3af', fontSize: '13px' }}>Not enough inspection history to calculate score.</div>
