@@ -82,6 +82,9 @@ export default function JobDetailPage() {
   const [checklistRows, setChecklistRows] = useState([])
   const [checklistLoading, setChecklistLoading] = useState(false)
   const [checklistError, setChecklistError] = useState('')
+  const [sliderImages, setSliderImages] = useState([])
+  const [sliderVideoLinks, setSliderVideoLinks] = useState([])
+  const [sliderImageURLs, setSliderImageURLs] = useState({})
 
   const [showReinspect, setShowReinspect] = useState(false)
   const [reinspectType, setReinspectType] = useState('agency')
@@ -187,9 +190,28 @@ export default function JobDetailPage() {
     setSliderOpen(true)
     setChecklistLoading(true)
     setChecklistError('')
+    setSliderImages([])
+    setSliderVideoLinks([])
+    setSliderImageURLs({})
     try {
-      const r = await getChecklistReport({ job_id: id })
-      setChecklistRows(r.data || [])
+      const [checklistRes, imagesRes, videoRes] = await Promise.all([
+        getChecklistReport({ job_id: id }),
+        client.get(`/checklist-images/${id}/images`).catch(() => ({ data: [] })),
+        client.get(`/checklist-images/${id}/video-links`).catch(() => ({ data: [] })),
+      ])
+      setChecklistRows(checklistRes.data || [])
+      const imgs = imagesRes.data || []
+      setSliderImages(imgs)
+      setSliderVideoLinks(videoRes.data || [])
+      // Pre-fetch images as object URLs (auth required)
+      const urlMap = {}
+      await Promise.all(imgs.map(async img => {
+        try {
+          const r = await client.get(`/checklist-images/${id}/images/${img.image_id}/file`, { responseType: 'blob' })
+          urlMap[img.image_id] = URL.createObjectURL(r.data)
+        } catch {}
+      }))
+      setSliderImageURLs(urlMap)
     } catch {
       setChecklistError('Failed to load checklist report.')
     } finally {
@@ -551,7 +573,12 @@ export default function JobDetailPage() {
                           {itemName}
                         </div>
                       )}
-                      {Object.entries(sections).map(([section, items]) => (
+                      {Object.entries(sections).map(([section, items]) => {
+                        const sectionImgs = sliderImages.filter(img => {
+                          const parts = (img.section_key || '').split('__')
+                          return parts.slice(1).join('__') === section && img.section_key !== '__defects__'
+                        })
+                        return (
                         <div key={section} style={{ marginBottom: '8px', borderRadius: multiItem ? '0' : '10px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
                           <div style={{ background: '#1C1208', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             {section}
@@ -584,10 +611,68 @@ export default function JobDetailPage() {
                               })}
                             </tbody>
                           </table>
+                          {/* Section photos */}
+                          <div style={{ padding: '12px 14px', background: '#fafafa', borderTop: '1px solid #f0f0f0' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                              📷 Photos ({sectionImgs.length}/10)
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                              {sectionImgs.length > 0 ? sectionImgs.map(img => (
+                                <a key={img.image_id} href={sliderImageURLs[img.image_id] || '#'} target="_blank" rel="noreferrer"
+                                  style={{ display: 'block', width: '80px', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #e5e7eb', flexShrink: 0 }}>
+                                  <img src={sliderImageURLs[img.image_id]} alt={img.file_name}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </a>
+                              )) : [0,1,2,3].map(i => (
+                                <div key={i} style={{ width: '80px', height: '80px', borderRadius: '6px', border: '1.5px dashed #d1d5db', background: '#f3f4f6', flexShrink: 0 }} />
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ))}
+                  {/* Defect Images */}
+                  {(() => {
+                    const defectImgs = sliderImages.filter(img => img.section_key === '__defects__')
+                    return (
+                      <div style={{ marginTop: '16px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #fecaca' }}>
+                        <div style={{ background: '#7f1d1d', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          🔴 Defect Images ({defectImgs.length}/10)
+                        </div>
+                        <div style={{ padding: '12px 14px', background: '#fff5f5' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {defectImgs.length > 0 ? defectImgs.map(img => (
+                              <a key={img.image_id} href={`${client.defaults.baseURL}/checklist-images/${id}/images/${img.image_id}/file`} target="_blank" rel="noreferrer"
+                                style={{ display: 'block', width: '80px', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #fca5a5', flexShrink: 0 }}>
+                                <img src={`${client.defaults.baseURL}/checklist-images/${id}/images/${img.image_id}/file`} alt={img.file_name}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </a>
+                            )) : [0,1,2,3].map(i => (
+                              <div key={i} style={{ width: '80px', height: '80px', borderRadius: '6px', border: '1.5px dashed #fca5a5', background: '#fef2f2', flexShrink: 0 }} />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                  {/* Video Links */}
+                  {sliderVideoLinks.length > 0 && (
+                    <div style={{ marginTop: '16px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                      <div style={{ background: '#1e293b', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        🎥 Video Links
+                      </div>
+                      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {sliderVideoLinks.map(l => (
+                          <div key={l.link_id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                            {l.label && <span style={{ color: '#64748b', fontWeight: '600', minWidth: '80px' }}>{l.label}</span>}
+                            <a href={l.url} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', wordBreak: 'break-all' }}>{l.url}</a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })()}
