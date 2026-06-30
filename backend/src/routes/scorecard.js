@@ -193,9 +193,10 @@ router.get('/suppliers', async (req, res) => {
       const compDeduction = Math.min(wComp, compRate * wComp)
 
       // ── Claims deduction (0–weight_claims) ────────────────────────────────
+      // Proportional: 0% claims = 0 deduction, 100% of PO claimed = full deduction
       const totalClaimed = claims.reduce((sum, c) => sum + Number(c.claim_amount || 0), 0)
-      const claimRate = poVal > 0 ? totalClaimed / poVal : 0
-      const claimDeduction = (claimRate / claimsMaxPct) * wClaim
+      const claimRate = poVal > 0 ? Math.min(1, totalClaimed / poVal) : 0
+      const claimDeduction = claimRate * wClaim
 
       const score = insufficientData
         ? null

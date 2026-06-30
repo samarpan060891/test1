@@ -211,7 +211,7 @@ export default function SupplierScorecardPage() {
                                 <div style={{ fontWeight: '600', color: '#374151' }}>Score = 100 − Complaint Deduction − Claims Deduction − Failure Deduction</div>
                                 <div style={{ marginTop: '5px' }}>
                                   * <b>Complaints ({cfg?.weight_complaints}pts):</b> (Total Complaints ÷ Total Qty Supplied) × {cfg?.weight_complaints} — full deduction when ≥1 complaint per unit supplied<br/>
-                                  * <b>Claims ({cfg?.weight_claims}pts):</b> (Total Claimed ÷ PO Value) ÷ {cfg?.claims_full_deduction_pct}% threshold × {cfg?.weight_claims} — no cap, can push score below 0 (floored at 0)<br/>
+                                  * <b>Claims ({cfg?.weight_claims}pts):</b> (Total Claimed ÷ PO Value) × {cfg?.weight_claims} — 0% claimed = 0 deduction, 100% claimed = full {cfg?.weight_claims}pt deduction<br/>
                                   * <b>Failures ({cfg?.weight_failures}pts):</b> (Failed Inspections ÷ Total Inspections) × {cfg?.weight_failures}
                                 </div>
                               </div>
