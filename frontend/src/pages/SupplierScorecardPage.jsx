@@ -37,8 +37,7 @@ function ScoreRing({ score }) {
   const bg    = score >= 85 ? '#dcfce7' : score >= 70 ? '#dbeafe' : score >= 50 ? '#fef3c7' : '#fee2e2'
   return (
     <div style={{ width: 72, height: 72, borderRadius: '50%', background: bg, border: `3px solid ${color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-      <span style={{ fontSize: '22px', fontWeight: '800', color, lineHeight: 1 }}>{score}</span>
-      <span style={{ fontSize: '10px', color, fontWeight: '600' }}>/100</span>
+      <span style={{ fontSize: '20px', fontWeight: '800', color, lineHeight: 1 }}>{score}%</span>
     </div>
   )
 }
@@ -222,7 +221,7 @@ export default function SupplierScorecardPage() {
                               <DeductionBar label={`Inspection Failures (${cfg?.weight_failures}%)`}   value={bk.fail_deduction}  max={Number(cfg?.weight_failures)}     color="#8b5cf6" />
                               <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '700' }}>
                                 <span>Final Score</span>
-                                <span style={{ color: s.score >= 85 ? '#15803d' : s.score >= 70 ? '#1d4ed8' : s.score >= 50 ? '#b45309' : '#b91c1c' }}>{s.score} / 100</span>
+                                <span style={{ color: s.score >= 85 ? '#15803d' : s.score >= 70 ? '#1d4ed8' : s.score >= 50 ? '#b45309' : '#b91c1c' }}>{s.score}%</span>
                               </div>
                               <div style={{ marginTop: '10px', padding: '8px 10px', background: '#f8fafc', borderRadius: '6px', fontSize: '11px', color: '#6b7280', lineHeight: 1.7 }}>
                                 <div style={{ fontWeight: '700', color: '#374151', marginBottom: '4px' }}>* Formula</div>
