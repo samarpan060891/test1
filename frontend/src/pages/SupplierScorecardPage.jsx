@@ -210,7 +210,7 @@ export default function SupplierScorecardPage() {
                                 <div style={{ fontWeight: '700', color: '#374151', marginBottom: '4px' }}>* Formula</div>
                                 <div style={{ fontWeight: '600', color: '#374151' }}>Score = 100 − Complaint Deduction − Claims Deduction − Failure Deduction</div>
                                 <div style={{ marginTop: '5px' }}>
-                                  * <b>Complaints ({cfg?.weight_complaints}pts):</b> (Total Complaints ÷ Total Inspections) × {cfg?.weight_complaints} — full deduction when ≥1 complaint per inspection<br/>
+                                  * <b>Complaints ({cfg?.weight_complaints}pts):</b> (Total Complaints ÷ Total Qty Supplied) × {cfg?.weight_complaints} — full deduction when ≥1 complaint per unit supplied<br/>
                                   * <b>Claims ({cfg?.weight_claims}pts):</b> (Total Claimed ÷ PO Value) ÷ {cfg?.claims_full_deduction_pct}% threshold × {cfg?.weight_claims} — capped at {cfg?.weight_claims}pts<br/>
                                   * <b>Failures ({cfg?.weight_failures}pts):</b> (Failed Inspections ÷ Total Inspections) × {cfg?.weight_failures}
                                 </div>
@@ -228,7 +228,8 @@ export default function SupplierScorecardPage() {
                             { label: 'Total', value: bk.total_complaints },
                             { label: 'Open',  value: bk.open_complaints, warn: true },
                             { label: 'Resolved', value: bk.total_complaints - bk.open_complaints },
-                            { label: 'Per Inspection', value: `${bk.comp_rate}%`, warn: bk.comp_rate > 50 },
+                            { label: 'Total Qty Supplied', value: bk.total_qty_supplied?.toLocaleString() ?? '—' },
+                            { label: 'Complaints per 100 units', value: `${bk.comp_rate}`, warn: bk.comp_rate > 1 },
                           ].map(r => (
                             <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
                               <span style={{ color: '#6b7280' }}>{r.label}</span>

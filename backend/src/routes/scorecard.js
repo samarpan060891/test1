@@ -136,17 +136,22 @@ router.get('/suppliers', async (req, res) => {
       ORDER BY cl.id, ij.supplier_code
     `)
 
-    // 5. PO value per supplier (for claims % calculation)
+    // 5. PO value + total qty supplied per supplier
     const poValRes = await db.query(`
       SELECT
         p.supplier_code,
-        COALESCE(SUM(pl.quantity * pl.unit_price), 0) AS total_po_value
+        COALESCE(SUM(pl.quantity * pl.unit_price), 0) AS total_po_value,
+        COALESCE(SUM(pl.quantity), 0)                 AS total_qty_supplied
       FROM qc_inspection.po_master p
       LEFT JOIN qc_inspection.po_line_items pl ON pl.po_no = p.po_no
       GROUP BY p.supplier_code
     `)
     const poValMap = {}
-    poValRes.rows.forEach(r => { poValMap[r.supplier_code] = Number(r.total_po_value) })
+    const poQtyMap = {}
+    poValRes.rows.forEach(r => {
+      poValMap[r.supplier_code] = Number(r.total_po_value)
+      poQtyMap[r.supplier_code] = Number(r.total_qty_supplied)
+    })
 
     // Group complaints and claims by supplier
     const compMap = {}
@@ -170,9 +175,10 @@ router.get('/suppliers', async (req, res) => {
       const insp   = inspMap[s.supplier_code] || { total_inspections: 0, failed_inspections: 0 }
       const totalI = Number(insp.total_inspections)
       const failI  = Number(insp.failed_inspections)
-      const comps  = compMap[s.supplier_code] || []
-      const claims = claimMap[s.supplier_code] || []
-      const poVal  = poValMap[s.supplier_code] || 0
+      const comps    = compMap[s.supplier_code] || []
+      const claims   = claimMap[s.supplier_code] || []
+      const poVal    = poValMap[s.supplier_code] || 0
+      const totalQty = poQtyMap[s.supplier_code] || 0
 
       const insufficientData = totalI < minInsp
 
@@ -181,9 +187,9 @@ router.get('/suppliers', async (req, res) => {
       const failDeduction = failRate * wFail
 
       // ── Complaint deduction (0–weight_complaints) ──────────────────────────
-      // Simple: complaint_rate = total complaints / total inspections
-      // Full deduction when complaint_rate ≥ 1 (1 complaint per inspection)
-      const compRate      = totalI > 0 ? comps.length / totalI : 0
+      // complaint_rate = total complaints / total qty supplied
+      // Full deduction when ≥1 complaint per unit supplied
+      const compRate      = totalQty > 0 ? comps.length / totalQty : 0
       const compDeduction = Math.min(wComp, compRate * wComp)
 
       // ── Claims deduction (0–weight_claims) ────────────────────────────────
@@ -220,7 +226,8 @@ router.get('/suppliers', async (req, res) => {
           fail_rate: totalI > 0 ? Math.round(failRate * 100) : 0,
           total_complaints: comps.length,
           open_complaints: comps.filter(c => c.status === 'open').length,
-          comp_rate: totalI > 0 ? Math.round(compRate * 100) : 0,
+          total_qty_supplied: totalQty,
+          comp_rate: totalQty > 0 ? Math.round(compRate * 10000) / 100 : 0,
           total_claims: claims.length,
           total_claimed: Math.round(totalClaimed),
           po_value: Math.round(poVal),
