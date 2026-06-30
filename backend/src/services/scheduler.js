@@ -47,6 +47,7 @@ async function runInspectionOverdue(sched) {
   const minDays = sched.min_days_overdue || 1;
   const freqDays = sched.frequency_days || 1;
   const configuredRoles = (sched.recipient_roles || []).filter(r => r !== 'admin');
+  console.log(`[SCHEDULER] runInspectionOverdue: roles=${JSON.stringify(configuredRoles)} minDays=${minDays} freqDays=${freqDays}`);
 
   try {
     const { rows: jobs } = await db.query(`
@@ -69,6 +70,7 @@ async function runInspectionOverdue(sched) {
       ORDER BY j.inspection_date ASC
     `, [minDays, freqDays, sched.schedule_id]);
 
+    console.log(`[SCHEDULER] Inspection overdue jobs found: ${jobs.length}`);
     if (jobs.length === 0) return;
 
     const nonAgencyRoles = configuredRoles.filter(r => r !== 'agency_user');
@@ -81,6 +83,7 @@ async function runInspectionOverdue(sched) {
         [nonAgencyRoles]
       );
       staffEmails = rows.map(r => r.email);
+      console.log(`[SCHEDULER] Staff emails for roles ${JSON.stringify(nonAgencyRoles)}: ${JSON.stringify(staffEmails)}`);
     }
 
     let agencyEmails = [];
@@ -120,6 +123,7 @@ async function runPaymentOverdue(sched) {
   const configuredRoles = (sched.recipient_roles || []).filter(r => r !== 'admin');
   const wantsImports  = configuredRoles.includes('imports');
   const wantsAccounts = configuredRoles.includes('accounts');
+  console.log(`[SCHEDULER] runPaymentOverdue: wantsImports=${wantsImports} wantsAccounts=${wantsAccounts}`);
   if (!wantsImports && !wantsAccounts) return;
 
   try {
