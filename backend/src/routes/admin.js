@@ -371,7 +371,7 @@ router.get('/reminder-config', async (req, res) => {
 const ALLOWED_RECIPIENT_ROLES = ['qa', 'buying', 'imports', 'accounts', 'agency_user', 'supplier_user'];
 
 router.put('/reminder-config', async (req, res) => {
-  const { enabled, min_days_overdue, frequency_days, send_time, recipient_roles } = req.body;
+  const { enabled, min_days_overdue, frequency_days, send_time, recipient_roles, timezone } = req.body;
   if (frequency_days < 1 || min_days_overdue < 1) {
     return res.status(400).json({ error: 'Days values must be at least 1' });
   }
@@ -385,10 +385,10 @@ router.put('/reminder-config', async (req, res) => {
     const { rows } = await db.query(`
       UPDATE qc_inspection.overdue_reminder_config
       SET enabled = $1, min_days_overdue = $2, frequency_days = $3, send_time = $4,
-          recipient_roles = $5, updated_at = NOW()
+          recipient_roles = $5, timezone = $6, updated_at = NOW()
       WHERE id = 1
       RETURNING *
-    `, [!!enabled, min_days_overdue, frequency_days, send_time, roles]);
+    `, [!!enabled, min_days_overdue, frequency_days, send_time, roles, timezone || 'UTC']);
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

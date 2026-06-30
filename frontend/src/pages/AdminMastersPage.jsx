@@ -307,6 +307,37 @@ function HistoryMastersTab({ type }) {
   )
 }
 
+const TIMEZONE_OPTIONS = [
+  { label: 'UAE / Gulf (Dubai)',           tz: 'Asia/Dubai',             offset: 'UTC+4'    },
+  { label: 'India (Mumbai/Delhi)',          tz: 'Asia/Kolkata',           offset: 'UTC+5:30' },
+  { label: 'Pakistan (Karachi)',            tz: 'Asia/Karachi',           offset: 'UTC+5'    },
+  { label: 'Bangladesh (Dhaka)',            tz: 'Asia/Dhaka',             offset: 'UTC+6'    },
+  { label: 'Sri Lanka (Colombo)',           tz: 'Asia/Colombo',           offset: 'UTC+5:30' },
+  { label: 'Malaysia / Singapore',         tz: 'Asia/Kuala_Lumpur',      offset: 'UTC+8'    },
+  { label: 'Indonesia (Jakarta)',           tz: 'Asia/Jakarta',           offset: 'UTC+7'    },
+  { label: 'Vietnam (Ho Chi Minh)',         tz: 'Asia/Ho_Chi_Minh',       offset: 'UTC+7'    },
+  { label: 'Thailand (Bangkok)',            tz: 'Asia/Bangkok',           offset: 'UTC+7'    },
+  { label: 'Philippines (Manila)',          tz: 'Asia/Manila',            offset: 'UTC+8'    },
+  { label: 'China (Shanghai/Beijing)',      tz: 'Asia/Shanghai',          offset: 'UTC+8'    },
+  { label: 'Hong Kong',                    tz: 'Asia/Hong_Kong',         offset: 'UTC+8'    },
+  { label: 'South Korea (Seoul)',           tz: 'Asia/Seoul',             offset: 'UTC+9'    },
+  { label: 'Japan (Tokyo)',                tz: 'Asia/Tokyo',             offset: 'UTC+9'    },
+  { label: 'Turkey (Istanbul)',             tz: 'Europe/Istanbul',        offset: 'UTC+3'    },
+  { label: 'UK (London)',                  tz: 'Europe/London',          offset: 'UTC+0/+1' },
+  { label: 'Germany / France (CET)',       tz: 'Europe/Berlin',          offset: 'UTC+1/+2' },
+  { label: 'South Africa (Johannesburg)',  tz: 'Africa/Johannesburg',    offset: 'UTC+2'    },
+  { label: 'USA Eastern (New York)',        tz: 'America/New_York',       offset: 'UTC-5/-4' },
+  { label: 'USA Pacific (Los Angeles)',    tz: 'America/Los_Angeles',    offset: 'UTC-8/-7' },
+  { label: 'Australia (Sydney)',           tz: 'Australia/Sydney',       offset: 'UTC+10/+11'},
+  { label: 'UTC (Universal)',              tz: 'UTC',                    offset: 'UTC+0'    },
+]
+
+function localTimeInTz(tz) {
+  try {
+    return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).format(new Date())
+  } catch { return '--:--' }
+}
+
 const REMINDER_ROLES = [
   { value: 'qa',           label: 'QA Team',        hint: 'All users with QA role' },
   { value: 'buying',       label: 'Buying Team',     hint: 'All users with Buying role' },
@@ -350,6 +381,14 @@ function RemindersTab() {
     } finally { setSaving(false) }
   }
 
+  const [nowInTz, setNowInTz] = React.useState('')
+  React.useEffect(() => {
+    if (!cfg?.timezone) return
+    setNowInTz(localTimeInTz(cfg.timezone))
+    const t = setInterval(() => setNowInTz(localTimeInTz(cfg.timezone)), 10000)
+    return () => clearInterval(t)
+  }, [cfg?.timezone])
+
   const panelStyle = { background: '#fff', borderRadius: '10px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '20px' }
   const labelStyle = { fontSize: '12px', fontWeight: '700', color: '#374151', display: 'block', marginBottom: '6px' }
   const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: '7px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }
@@ -359,6 +398,7 @@ function RemindersTab() {
 
   const selectedRoles = cfg.recipient_roles || []
   const selectedLabels = REMINDER_ROLES.filter(r => selectedRoles.includes(r.value)).map(r => r.label)
+  const selectedTzOption = TIMEZONE_OPTIONS.find(o => o.tz === cfg.timezone) || TIMEZONE_OPTIONS.find(o => o.tz === 'UTC')
 
   return (
     <div style={{ maxWidth: '700px', padding: '28px 0' }}>
@@ -390,6 +430,27 @@ function RemindersTab() {
       </div>
 
       <form onSubmit={handleSave}>
+
+        {/* Timezone selector */}
+        <div style={panelStyle}>
+          <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>Your Timezone</div>
+          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '14px' }}>Select your country so all reminder times are set in your local time.</div>
+          <select
+            value={cfg.timezone || 'UTC'}
+            onChange={e => setCfg(c => ({ ...c, timezone: e.target.value }))}
+            style={{ ...inputStyle, maxWidth: '380px' }}
+          >
+            {TIMEZONE_OPTIONS.map(o => (
+              <option key={o.tz} value={o.tz}>{o.label} ({o.offset})</option>
+            ))}
+          </select>
+          {nowInTz && (
+            <div style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '7px', padding: '6px 14px' }}>
+              <span style={{ fontSize: '18px', fontWeight: '800', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{nowInTz}</span>
+              <span style={{ fontSize: '11px', color: '#16a34a' }}>current time in {selectedTzOption?.label}</span>
+            </div>
+          )}
+        </div>
 
         {/* Recipient selection */}
         <div style={panelStyle}>
@@ -437,7 +498,7 @@ function RemindersTab() {
                 style={inputStyle}
                 required
               />
-              <div style={hintStyle}>Server timezone is UTC. Set TZ env var to change.</div>
+              <div style={hintStyle}>In your selected timezone ({selectedTzOption?.offset})</div>
             </div>
 
             <div>
@@ -475,7 +536,8 @@ function RemindersTab() {
           {cfg.enabled && selectedRoles.length > 0 && (
             <div style={{ marginTop: '20px', background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px', padding: '12px 16px', fontSize: '12px', color: '#92400e' }}>
               <strong>Preview: </strong>
-              First reminder sent <strong>{cfg.min_days_overdue} day(s)</strong> after the inspection date is missed at <strong>{(cfg.send_time || '08:00').slice(0, 5)}</strong>,
+              First reminder at <strong>{(cfg.send_time || '08:00').slice(0, 5)} {selectedTzOption?.label}</strong>,
+              sent <strong>{cfg.min_days_overdue} day(s)</strong> after inspection date is missed,
               then repeated every <strong>{cfg.frequency_days} day(s)</strong>.
               Recipients: <strong>{selectedLabels.join(', ')}</strong>.
             </div>

@@ -19,12 +19,11 @@ async function sendOverdueReminders() {
 
   if (!config || !config.enabled) return;
 
-  // Check if current time matches configured send_time (HH:MM)
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const currentMinute = `${hh}:${mm}`;
-  const configuredTime = (config.send_time || '08:00').slice(0, 5); // trim seconds if present
+  // Check if current time in the configured timezone matches send_time (HH:MM)
+  const tz = config.timezone || 'UTC';
+  const localTime = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).format(new Date());
+  const currentMinute = localTime.replace(':', ':'); // already HH:MM
+  const configuredTime = (config.send_time || '08:00').slice(0, 5);
 
   if (currentMinute !== configuredTime) return;
   if (lastRunMinute === currentMinute) return; // already fired this minute

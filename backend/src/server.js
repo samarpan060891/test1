@@ -560,6 +560,11 @@ async function runMigrations() {
   `, 'overdue_reminder_config recipient_roles col');
 
   await safeQuery(`
+    ALTER TABLE qc_inspection.overdue_reminder_config
+    ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'UTC'
+  `, 'overdue_reminder_config timezone col');
+
+  await safeQuery(`
     INSERT INTO qc_inspection.overdue_reminder_config (id) VALUES (1)
     ON CONFLICT (id) DO NOTHING
   `, 'overdue_reminder_config seed row');
