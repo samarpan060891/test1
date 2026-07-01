@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 import { getPastInspections, getComplaints, getClaims } from '../api/itemHistory.js'
 import client from '../api/client.js'
+import * as XLSX from 'xlsx'
 import {
   getWarehouseInspection,
   getWarehouseResponses,
@@ -37,10 +39,16 @@ const STATUS_COLOR = {
   qa_rejected:      { bg: '#fee2e2', color: '#991b1b',  label: 'QA Rejected' },
 }
 
+const STAGE_COLORS   = { pre_production: '#92400e', inline: '#E8470F', final: '#15803d', loading: '#7e22ce' }
+const OUTCOME_COLORS = { approved: { bg: '#f0fdf4', color: '#15803d' }, rejected: { bg: '#fef2f2', color: '#dc2626' } }
+const SEV_COLORS     = { critical: { bg: '#fef2f2', color: '#991b1b' }, high: { bg: '#fff7ed', color: '#c2410c' }, medium: { bg: '#fefce8', color: '#92400e' }, low: { bg: '#f0fdf4', color: '#15803d' } }
+const CLAIM_STAT_COLORS = { open: { bg: '#fef2f2', color: '#991b1b' }, under_review: { bg: '#fff7ed', color: '#c2410c' }, approved: { bg: '#f0fdf4', color: '#15803d' }, rejected: { bg: '#fef2f2', color: '#dc2626' }, settled: { bg: '#eff6ff', color: '#1d4ed8' } }
+
 export default function WarehouseInspectionFillPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { formatAmount, currentCurrency } = useCurrency()
   const canManageCheckpoints = user?.role === 'admin' || user?.role === 'qa'
 
   const [inspection, setInspection] = useState(null)
@@ -51,6 +59,7 @@ export default function WarehouseInspectionFillPage() {
   const [supplierScore, setSupplierScore] = useState(null)
   const [histLoading, setHistLoading] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  const [historyPanel, setHistoryPanel] = useState(null)
   const [images, setImages] = useState([])
   const [imageURLs, setImageURLs] = useState({})
   const [activeTab, setTab] = useState('checklist')
@@ -273,6 +282,13 @@ export default function WarehouseInspectionFillPage() {
     } catch (err) {
       setMsg('Delete failed: ' + (err.response?.data?.error || err.message))
     }
+  }
+
+  const exportHistoryExcel = (type, data) => {
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, type)
+    XLSX.writeFile(wb, `${type}_${inspection?.item_code}_${new Date().toISOString().slice(0,10)}.xlsx`)
   }
 
   // Group responses by section
@@ -625,134 +641,131 @@ export default function WarehouseInspectionFillPage() {
             </div>
 
             {histLoading ? (
-              <div style={{ background: '#fff', padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>Loading history…</div>
+              <div style={{ background: '#fff', padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading history…</div>
             ) : (
               <div style={{ background: '#fff' }}>
 
                 {/* Past Inspections */}
-                <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Past Inspections</div>
-                    <span style={{ background: '#f1f5f9', color: '#64748b', fontSize: '10px', fontWeight: '700', padding: '1px 7px', borderRadius: '9999px' }}>{priorQC.length}</span>
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Past Inspections</div>
+                    <span style={{ background: '#f1f5f9', color: '#64748b', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>{priorQC.length}</span>
                   </div>
                   {priorQC.length === 0 ? (
-                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No past records.</p>
+                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No past inspection records found.</p>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {priorQC.map((j, i) => {
-                        const fail = parseInt(j.fail_count) || 0
-                        const total = parseInt(j.total_count) || 0
-                        const outcomeColor = j.final_outcome === 'approved' ? '#065f46' : j.final_outcome === 'rejected' ? '#991b1b' : '#92400e'
-                        const outcomeBg = j.final_outcome === 'approved' ? '#d1fae5' : j.final_outcome === 'rejected' ? '#fee2e2' : '#fef3c7'
-                        const stageColors = { pre_production: '#7c3aed', inline: '#0891b2', final: '#059669', loading: '#d97706' }
+                      {priorQC.slice(0, 5).map((j, i) => {
+                        const outColor = OUTCOME_COLORS[j.final_outcome] || { bg: '#fefce8', color: '#92400e' }
+                        const stageColor = STAGE_COLORS[j.inspection_stage] || '#64748b'
                         return (
-                          <div key={j.job_id || i} style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', borderLeft: `3px solid ${stageColors[j.inspection_stage] || '#64748b'}` }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '6px' }}>
+                          <div key={j.job_id || i} style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', borderLeft: `3px solid ${stageColor}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                               <div>
                                 <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{j.job_ref || String(j.job_id).slice(0,8)}</div>
-                                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{j.inspection_stage?.replace(/_/g,' ')} · {j.agency_name || 'Self'}</div>
-                                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>{j.inspection_date ? new Date(j.inspection_date).toLocaleDateString('en-GB') : '—'}</div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{j.inspection_stage?.replace(/_/g,' ')} · {j.po_no}</div>
+                                {j.agency_name && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>{j.agency_name}</div>}
                               </div>
                               {j.final_outcome && (
-                                <span style={{ background: outcomeBg, color: outcomeColor, fontSize: '10px', fontWeight: '800', padding: '2px 7px', borderRadius: '9999px', flexShrink: 0, textTransform: 'uppercase' }}>{j.final_outcome}</span>
+                                <span style={{ background: outColor.bg, color: outColor.color, fontSize: '10px', fontWeight: '800', padding: '2px 8px', borderRadius: '9999px', flexShrink: 0, textTransform: 'uppercase' }}>{j.final_outcome}</span>
                               )}
                             </div>
-                            {total > 0 && (
-                              <div style={{ marginTop: '5px', fontSize: '11px', color: fail > 0 ? '#dc2626' : '#15803d', fontWeight: '600' }}>{fail}/{total} checkpoints failed</div>
-                            )}
+                            <div style={{ marginTop: '6px', display: 'flex', gap: '12px', fontSize: '11px', color: '#64748b' }}>
+                              <span>{j.inspection_date ? new Date(j.inspection_date).toLocaleDateString() : '—'}</span>
+                              {Number(j.total_responses || j.total_count) > 0 && (
+                                <span style={{ color: Number(j.fail_count) > 0 ? '#dc2626' : '#15803d', fontWeight: '600' }}>
+                                  {j.fail_count}/{j.total_responses || j.total_count} fails
+                                </span>
+                              )}
+                            </div>
                             {j.qa_remarks && (
-                              <div style={{ marginTop: '5px', fontSize: '11px', color: '#475569', fontStyle: 'italic', borderTop: '1px solid #e2e8f0', paddingTop: '5px' }}>"{j.qa_remarks}"</div>
-                            )}
-                            {j.job_id && (
-                              <a href={`/jobs/${j.job_id}`} target="_blank" rel="noopener noreferrer"
-                                style={{ display: 'inline-block', marginTop: '6px', fontSize: '11px', color: '#1d4ed8', fontWeight: '600', textDecoration: 'none' }}>
-                                View details →
-                              </a>
+                              <div style={{ marginTop: '5px', fontSize: '11px', color: '#475569', fontStyle: 'italic', lineHeight: 1.4, borderTop: '1px solid #e2e8f0', paddingTop: '5px' }}>"{j.qa_remarks}"</div>
                             )}
                           </div>
                         )
                       })}
+                      {priorQC.length > 5 && (
+                        <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0, textAlign: 'center' }}>+{priorQC.length - 5} more inspections</p>
+                      )}
                     </div>
                   )}
                 </div>
 
-                {/* Complaints — full list */}
-                <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Complaints</div>
-                    <span style={{ background: complaints.length > 0 ? '#fef2f2' : '#f1f5f9', color: complaints.length > 0 ? '#dc2626' : '#64748b', fontSize: '10px', fontWeight: '700', padding: '1px 7px', borderRadius: '9999px' }}>{complaints.length}</span>
+                {/* Customer Complaints */}
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Customer Complaints</div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <span style={{ background: complaints.length > 0 ? '#fef2f2' : '#f1f5f9', color: complaints.length > 0 ? '#dc2626' : '#64748b', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>{complaints.length}</span>
+                      {complaints.length > 0 && (
+                        <button onClick={() => setHistoryPanel({ type: 'complaints', data: complaints })}
+                          style={{ fontSize: '11px', fontWeight: '600', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer' }}>
+                          View details
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {complaints.length === 0 ? (
-                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No complaints.</p>
+                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No customer complaints.</p>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {complaints.map((c, i) => {
-                        const sevColor = { critical: '#dc2626', high: '#ea580c', medium: '#d97706', low: '#65a30d' }[c.severity] || '#64748b'
-                        const sevBg   = { critical: '#fef2f2', high: '#fff7ed', medium: '#fefce8', low: '#f7fee7' }[c.severity] || '#f1f5f9'
-                        const stColor = { open: '#dc2626', investigating: '#ea580c', resolved: '#065f46', closed: '#475569' }[c.status] || '#64748b'
-                        const stBg   = { open: '#fef2f2', investigating: '#fff7ed', resolved: '#d1fae5', closed: '#f1f5f9' }[c.status] || '#f1f5f9'
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {['critical','high','medium','low'].map(sev => {
+                        const cnt = complaints.filter(c => c.severity === sev).length
+                        if (!cnt) return null
+                        const sc = SEV_COLORS[sev] || { bg: '#f8fafc', color: '#64748b' }
                         return (
-                          <div key={c.complaint_id || i} style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
-                              <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{c.complaint_ref || `#${i+1}`}</div>
-                              <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                                <span style={{ background: sevBg, color: sevColor, fontSize: '9px', fontWeight: '700', padding: '1px 6px', borderRadius: '9999px' }}>{c.severity}</span>
-                                <span style={{ background: stBg, color: stColor, fontSize: '9px', fontWeight: '700', padding: '1px 6px', borderRadius: '9999px' }}>{c.status}</span>
-                              </div>
-                            </div>
-                            {c.customer_name && <div style={{ fontSize: '11px', color: '#64748b' }}>Customer: {c.customer_name}</div>}
-                            {c.complaint_date && <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(c.complaint_date).toLocaleDateString('en-GB')}</div>}
-                            {c.description && <div style={{ fontSize: '11px', color: '#374151', marginTop: '4px', lineHeight: '1.4' }}>{c.description}</div>}
-                            {c.resolution && (
-                              <div style={{ marginTop: '4px', fontSize: '11px', color: '#065f46', background: '#f0fdf4', borderRadius: '4px', padding: '4px 8px' }}>
-                                Resolution: {c.resolution}
-                              </div>
-                            )}
+                          <div key={sev} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                            <span style={{ background: sc.bg, color: sc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{sev}</span>
+                            <span style={{ color: '#374151', fontWeight: '600' }}>{cnt} {cnt > 1 ? 'complaints' : 'complaint'}</span>
                           </div>
                         )
                       })}
+                      <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+                        {complaints.filter(c => ['open','investigating'].includes(c.status)).length} open · {complaints.filter(c => ['resolved','closed'].includes(c.status)).length} resolved
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Claims — full list */}
-                <div style={{ padding: '12px 14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Claims</div>
-                    <span style={{ background: claims.length > 0 ? '#fff7ed' : '#f1f5f9', color: claims.length > 0 ? '#c2410c' : '#64748b', fontSize: '10px', fontWeight: '700', padding: '1px 7px', borderRadius: '9999px' }}>{claims.length}</span>
+                {/* Claims */}
+                <div style={{ padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Claims</div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <span style={{ background: claims.length > 0 ? '#fff7ed' : '#f1f5f9', color: claims.length > 0 ? '#c2410c' : '#64748b', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>{claims.length}</span>
+                      {claims.length > 0 && (
+                        <button onClick={() => setHistoryPanel({ type: 'claims', data: claims })}
+                          style={{ fontSize: '11px', fontWeight: '600', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer' }}>
+                          View details
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {claims.length === 0 ? (
                     <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No claims.</p>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ background: '#fff7ed', borderRadius: '8px', padding: '8px 12px', marginBottom: '2px' }}>
-                        <div style={{ fontSize: '10px', color: '#92400e', fontWeight: '600' }}>Total claimed</div>
-                        <div style={{ fontSize: '16px', fontWeight: '800', color: '#c2410c' }}>
-                          ${claims.reduce((s, c) => s + (Number(c.claim_amount) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    <div>
+                      {claims.some(c => c.claim_amount) && (
+                        <div style={{ background: '#fff7ed', borderRadius: '8px', padding: '8px 12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '11px', color: '#92400e', fontWeight: '600' }}>Total claimed</span>
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: '#c2410c' }}>
+                            {formatAmount(claims.reduce((sum, c) => sum + (Number(c.claim_amount) || 0), 0))}
+                          </span>
                         </div>
+                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        {['open','under_review','approved','rejected','settled'].map(st => {
+                          const cnt = claims.filter(c => c.status === st).length
+                          if (!cnt) return null
+                          const sc = CLAIM_STAT_COLORS[st] || { bg: '#f8fafc', color: '#64748b' }
+                          return (
+                            <div key={st} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                              <span style={{ background: sc.bg, color: sc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{st.replace(/_/g,' ')}</span>
+                              <span style={{ color: '#374151', fontWeight: '600' }}>{cnt}</span>
+                            </div>
+                          )
+                        })}
                       </div>
-                      {claims.map((c, i) => {
-                        const stColor = { approved: '#15803d', settled: '#0369a1', pending: '#92400e', rejected: '#dc2626' }[c.status] || '#64748b'
-                        const stBg   = { approved: '#f0fdf4', settled: '#eff6ff', pending: '#fef3c7', rejected: '#fef2f2' }[c.status] || '#f1f5f9'
-                        return (
-                          <div key={c.claim_id || i} style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
-                              <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{c.claim_ref || `Claim #${i+1}`}</div>
-                              <span style={{ background: stBg, color: stColor, fontSize: '9px', fontWeight: '700', padding: '1px 6px', borderRadius: '9999px', flexShrink: 0 }}>{c.status}</span>
-                            </div>
-                            <div style={{ fontSize: '13px', fontWeight: '700', color: '#c2410c' }}>
-                              ${Number(c.claim_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                            </div>
-                            {c.claim_date && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{new Date(c.claim_date).toLocaleDateString('en-GB')}</div>}
-                            {c.reason && <div style={{ fontSize: '11px', color: '#374151', marginTop: '4px', lineHeight: '1.4' }}>{c.reason}</div>}
-                            {c.resolution && (
-                              <div style={{ marginTop: '4px', fontSize: '11px', color: '#065f46', background: '#f0fdf4', borderRadius: '4px', padding: '4px 8px' }}>
-                                Resolution: {c.resolution}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
                     </div>
                   )}
                 </div>
@@ -811,6 +824,111 @@ export default function WarehouseInspectionFillPage() {
           </div>
         )}
 
+      </div>
+
+      {/* ── History Detail Slide Panel ──────────────────────────────────── */}
+      {historyPanel && (
+        <div onClick={() => setHistoryPanel(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1500 }} />
+      )}
+      <div style={{
+        position: 'fixed', top: '52px', right: 0, width: '780px', maxWidth: '96vw',
+        height: 'calc(100vh - 52px)', background: '#fff', zIndex: 1600,
+        display: 'flex', flexDirection: 'column', boxShadow: '-6px 0 30px rgba(0,0,0,0.18)',
+        transform: historyPanel ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+      }}>
+        {historyPanel && (<>
+          <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div>
+              <div style={{ fontWeight: '800', fontSize: '15px', color: '#fff' }}>
+                {historyPanel.type === 'complaints' ? '⚠️ Customer Complaints' : '📋 Claims'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', marginTop: '2px' }}>
+                Item: {inspection?.item_code} · {historyPanel.data.length} {historyPanel.data.length !== 1 ? 'records' : 'record'}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button onClick={() => exportHistoryExcel(historyPanel.type, historyPanel.data)}
+                style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', borderRadius: '7px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                ⬇ Export Excel
+              </button>
+              <button onClick={() => setHistoryPanel(null)}
+                style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+            </div>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+            {historyPanel.type === 'complaints' ? (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '700px' }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#f8fafc' }}>
+                  <tr>
+                    {['Ref','Date','Customer','Description','Severity','Status','Resolution'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap', background: '#f8fafc' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyPanel.data.map((row, i) => {
+                    const sc  = SEV_COLORS[row.severity] || { bg: '#f8fafc', color: '#64748b' }
+                    const stc = { open: { bg: '#fef2f2', color: '#991b1b' }, investigating: { bg: '#fff7ed', color: '#c2410c' }, resolved: { bg: '#f0fdf4', color: '#15803d' }, closed: { bg: '#f8fafc', color: '#64748b' } }[row.status] || { bg: '#f8fafc', color: '#64748b' }
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                        <td style={{ padding: '10px 14px', color: '#334155', fontWeight: '600', whiteSpace: 'nowrap' }}>{row.complaint_ref || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#64748b', whiteSpace: 'nowrap' }}>{row.complaint_date ? row.complaint_date.slice(0,10) : '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{row.customer_name || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#475569', maxWidth: '240px' }}>{row.description || '—'}</td>
+                        <td style={{ padding: '10px 14px' }}>
+                          {row.severity ? <span style={{ background: sc.bg, color: sc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{row.severity}</span> : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ background: stc.bg, color: stc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{row.status?.replace(/_/g,' ')}</span>
+                        </td>
+                        <td style={{ padding: '10px 14px', color: '#64748b', maxWidth: '180px' }}>{row.resolution || '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '700px' }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#f8fafc' }}>
+                  <tr>
+                    {['Ref','Date','Customer','Reason',`Amount (${currentCurrency.code})`,'Status','Resolution'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '700', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap', background: '#f8fafc' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyPanel.data.map((row, i) => {
+                    const sc = CLAIM_STAT_COLORS[row.status] || { bg: '#f8fafc', color: '#64748b' }
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                        <td style={{ padding: '10px 14px', color: '#334155', fontWeight: '600', whiteSpace: 'nowrap' }}>{row.claim_ref || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#64748b', whiteSpace: 'nowrap' }}>{row.claim_date ? row.claim_date.slice(0,10) : '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#334155', whiteSpace: 'nowrap' }}>{row.customer_name || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#475569', maxWidth: '220px' }}>{row.reason || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#c2410c', fontWeight: '700', textAlign: 'right' }}>{row.claim_amount ? formatAmount(Number(row.claim_amount)) : '—'}</td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ background: sc.bg, color: sc.color, padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{row.status?.replace(/_/g,' ')}</span>
+                        </td>
+                        <td style={{ padding: '10px 14px', color: '#64748b', maxWidth: '180px' }}>{row.resolution || '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: '#f8fafc', borderTop: '2px solid #e5e7eb' }}>
+                    <td colSpan={4} style={{ padding: '10px 14px', fontSize: '12px', fontWeight: '700', color: '#374151' }}>Total</td>
+                    <td style={{ padding: '10px 14px', color: '#c2410c', fontWeight: '800', fontSize: '13px', textAlign: 'right' }}>
+                      {formatAmount(historyPanel.data.reduce((sum, c) => sum + (Number(c.claim_amount) || 0), 0))}
+                    </td>
+                    <td colSpan={2} />
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+        </>)}
       </div>
     </div>
   )
