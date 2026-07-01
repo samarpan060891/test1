@@ -29,8 +29,14 @@ export default function WarehouseInspectionPage() {
   useEffect(() => {
     fetchInspections()
     client.get('/masters/pos').then(r => setPoList(r.data || [])).catch(() => {})
-    client.get('/masters/items').then(r => setItemList(r.data || [])).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!form.po_no) { setItemList([]); return }
+    client.get('/masters/items', { params: { po_no: form.po_no } })
+      .then(r => setItemList(r.data || []))
+      .catch(() => setItemList([]))
+  }, [form.po_no])
 
   async function fetchInspections() {
     setLoading(true)
@@ -186,7 +192,7 @@ export default function WarehouseInspectionPage() {
             <form onSubmit={handleCreate}>
               <label style={{ display: 'block', marginBottom: '14px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '5px' }}>PO Number *</span>
-                <select value={form.po_no} onChange={e => setForm(f => ({ ...f, po_no: e.target.value }))}
+                <select value={form.po_no} onChange={e => setForm(f => ({ ...f, po_no: e.target.value, item_code: '' }))}
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px' }} required>
                   <option value="">Select PO</option>
                   {poList.map(p => <option key={p.po_no} value={p.po_no}>{p.po_no}{p.description ? ` — ${p.description}` : ''}</option>)}
@@ -196,7 +202,7 @@ export default function WarehouseInspectionPage() {
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '5px' }}>Item *</span>
                 <select value={form.item_code} onChange={e => setForm(f => ({ ...f, item_code: e.target.value }))}
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px' }} required>
-                  <option value="">Select Item</option>
+                  <option value="">{form.po_no ? 'Select Item' : 'Select PO first'}</option>
                   {itemList.map(i => <option key={i.item_code} value={i.item_code}>{i.item_code}{i.name ? ` — ${i.name}` : ''}</option>)}
                 </select>
               </label>

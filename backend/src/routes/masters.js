@@ -100,16 +100,28 @@ router.get('/agencies', authenticate, async (req, res) => {
 
 // GET /api/masters/items?search=sofa
 router.get('/items', authenticate, async (req, res) => {
-  const { search = '' } = req.query
+  const { search = '', po_no } = req.query
   try {
-    const result = await db.query(
-      `SELECT item_code, name, category, sub_category
-       FROM qc_inspection.item_master
-       WHERE name ILIKE $1 OR item_code ILIKE $1 OR category ILIKE $1
-       ORDER BY name
-       LIMIT 20`,
-      [`%${search}%`]
-    )
+    let result
+    if (po_no) {
+      result = await db.query(
+        `SELECT im.item_code, im.name, im.category, im.sub_category
+         FROM qc_inspection.item_master im
+         JOIN qc_inspection.po_line_items pl ON pl.item_code = im.item_code
+         WHERE pl.po_no = $1
+         ORDER BY im.name`,
+        [po_no]
+      )
+    } else {
+      result = await db.query(
+        `SELECT item_code, name, category, sub_category
+         FROM qc_inspection.item_master
+         WHERE name ILIKE $1 OR item_code ILIKE $1 OR category ILIKE $1
+         ORDER BY name
+         LIMIT 20`,
+        [`%${search}%`]
+      )
+    }
     res.json(result.rows)
   } catch (err) {
     console.error(err)
