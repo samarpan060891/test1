@@ -26,6 +26,7 @@ export default function WarehouseInspectionPage() {
   const [selectedItems, setSelectedItems] = useState([]) // multi-select
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
+  const [listError, setListError] = useState('')
 
   useEffect(() => {
     fetchInspections()
@@ -52,6 +53,7 @@ export default function WarehouseInspectionPage() {
 
   async function fetchInspections() {
     setLoading(true)
+    setListError('')
     try {
       const params = {}
       if (filters.stage) params.stage = filters.stage
@@ -59,8 +61,9 @@ export default function WarehouseInspectionPage() {
       if (filters.po_no) params.po_no = filters.po_no
       const r = await listWarehouseInspections(params)
       setInspections(r.data || [])
-    } catch {
+    } catch (err) {
       setInspections([])
+      setListError(err.response?.data?.error || err.message || 'Failed to load inspections')
     } finally {
       setLoading(false)
     }
@@ -145,6 +148,11 @@ export default function WarehouseInspectionPage() {
         </div>
 
         {/* List */}
+        {listError && (
+          <div style={{ ...card, marginBottom: '12px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', fontSize: '13px' }}>
+            ⚠ Error loading inspections: {listError}
+          </div>
+        )}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>Loading…</div>
         ) : inspections.length === 0 ? (
