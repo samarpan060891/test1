@@ -49,7 +49,8 @@ export default function WarehouseInspectionFillPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { formatAmount, currentCurrency } = useCurrency()
-  const canManageCheckpoints = user?.role === 'admin' || user?.role === 'qa'
+  const canManageCheckpoints = user?.role === 'admin'
+  const canFill = ['warehouse', 'admin'].includes(user?.role)
 
   const [inspection, setInspection] = useState(null)
   const [responses, setResponses] = useState([])
@@ -393,7 +394,7 @@ export default function WarehouseInspectionFillPage() {
                               {r.criticality}
                             </span>
                           </div>
-                          {!isComplete ? (
+                          {!isComplete && canFill ? (
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                               {RESULT_OPTIONS.map(opt => (
                                 <button key={opt} onClick={() => updateResponse(r.checkpoint_id, 'result', opt)}
@@ -407,7 +408,7 @@ export default function WarehouseInspectionFillPage() {
                           ) : (
                             <span style={{ ...rc, padding: '3px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>{rc.label}</span>
                           )}
-                          {!isComplete ? (
+                          {!isComplete && canFill ? (
                             <input
                               value={r.remarks || ''}
                               onChange={e => updateResponse(r.checkpoint_id, 'remarks', e.target.value)}
@@ -483,7 +484,7 @@ export default function WarehouseInspectionFillPage() {
             )}
 
             {/* Summary + actions */}
-            {!isComplete && (
+            {!isComplete && canFill && (
               <div style={{ ...card, marginTop: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '14px' }}>
                   <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Overall Remarks</span>
@@ -782,7 +783,7 @@ export default function WarehouseInspectionFillPage() {
           <div style={card}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Inspection Photos</h3>
-              {!isComplete && (
+              {!isComplete && canFill && (
                 <>
                   <button onClick={() => fileRef.current?.click()} disabled={uploading}
                     style={{ background: '#1C1208', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: uploading ? 'default' : 'pointer', fontSize: '13px', fontWeight: '600', opacity: uploading ? 0.7 : 1 }}>
