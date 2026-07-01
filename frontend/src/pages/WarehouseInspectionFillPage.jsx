@@ -244,6 +244,12 @@ export default function WarehouseInspectionFillPage() {
     setSubmittingForQA(true)
     setMsg('')
     try {
+      // Auto-save responses and remarks before submitting
+      await saveWarehouseResponses(id, responses.map(r => ({
+        checkpoint_id: r.checkpoint_id,
+        result: r.result || null,
+        remarks: r.remarks || null,
+      })))
       const r = await submitWarehouseForQA(id)
       setInspection(r.data)
       setMsg('Submitted for QA review. QA team has been notified.')
@@ -480,6 +486,14 @@ export default function WarehouseInspectionFillPage() {
                     </button>
                   </form>
                 )}
+              </div>
+            )}
+
+            {/* Overall remarks read-only (completed inspections) */}
+            {isComplete && inspection?.remarks && (
+              <div style={{ ...card, marginTop: '16px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Overall Remarks</div>
+                <div style={{ fontSize: '13px', color: '#475569', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>{inspection.remarks}</div>
               </div>
             )}
 
