@@ -102,8 +102,8 @@ router.delete('/checkpoint-templates/:checkpointId', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(`
-      SELECT wi.*, p.status AS po_status, im.name AS item_name,
-             ts.name AS inspector_name
+      SELECT wi.*, p.status AS po_status, p.supplier_code, p.supplier_name,
+             im.name AS item_name, ts.name AS inspector_name
       FROM qc_inspection.warehouse_inspection wi
       JOIN qc_inspection.po_master p ON p.po_no = wi.po_no
       JOIN qc_inspection.item_master im ON im.item_code = wi.item_code
