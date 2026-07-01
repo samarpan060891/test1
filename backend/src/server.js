@@ -653,7 +653,7 @@ async function runMigrations() {
       po_no             TEXT NOT NULL REFERENCES qc_inspection.po_master(po_no),
       item_code         TEXT NOT NULL,
       stage             TEXT NOT NULL CHECK (stage IN ('inbound','outbound','random')),
-      trigger_source    TEXT CHECK (trigger_source IN ('customer','stores','delivery_team')),
+      trigger_source    TEXT CHECK (trigger_source IN ('customer','stores','delivery_team','incoming_goods')),
       status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','in_progress','pass','fail')),
       inspector_id      UUID REFERENCES qc_inspection.team_stakeholder(user_id),
       remarks           TEXT,
@@ -696,6 +696,17 @@ async function runMigrations() {
       uploaded_at       TIMESTAMPTZ DEFAULT NOW()
     )
   `, 'warehouse_inspection_image table');
+
+  // Update trigger_source constraint to include incoming_goods
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      DROP CONSTRAINT IF EXISTS warehouse_inspection_trigger_source_check
+  `, 'drop old trigger_source constraint');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD CONSTRAINT warehouse_inspection_trigger_source_check
+        CHECK (trigger_source IN ('customer','stores','delivery_team','incoming_goods'))
+  `, 'add updated trigger_source constraint');
 
   // Seed warehouse user
   try {

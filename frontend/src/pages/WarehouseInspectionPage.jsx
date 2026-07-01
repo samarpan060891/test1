@@ -221,6 +221,7 @@ export default function WarehouseInspectionPage() {
                   <option value="customer">Customer</option>
                   <option value="stores">Stores</option>
                   <option value="delivery_team">Delivery Team</option>
+                  <option value="incoming_goods">Incoming Goods</option>
                 </select>
               </label>
               {createError && <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '14px' }}>{createError}</div>}
