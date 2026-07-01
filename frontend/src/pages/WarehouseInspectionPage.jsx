@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar.jsx'
 import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
 import { listWarehouseInspections, createWarehouseInspection } from '../api/warehouseInspections.js'
 import client from '../api/client.js'
+import * as XLSX from 'xlsx'
 
 const STAGES = ['inbound', 'outbound', 'random']
 
@@ -54,6 +55,7 @@ export default function WarehouseInspectionPage() {
   const [selectedItems, setSelectedItems] = useState([])
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
+  const [activeFilter, setActiveFilter] = useState(null) // null | 'in_progress' | 'pass' | 'fail' | 'inbound' | 'outbound' | 'random'
 
   useEffect(() => {
     fetchInspections()
@@ -125,6 +127,43 @@ export default function WarehouseInspectionPage() {
     }
   }
 
+  function downloadExcel(rows) {
+    const data = rows.map(ins => ({
+      'PO No.':        ins.po_no,
+      'Item Code':     ins.item_code,
+      'Item Name':     ins.item_name || '',
+      'Stage':         ins.stage,
+      'Inspector':     ins.inspector_name || '',
+      'Trigger':       ins.trigger_source || '',
+      'Status':        ins.status,
+      'Pass':          parseInt(ins.pass_count) || 0,
+      'Fail':          parseInt(ins.fail_count) || 0,
+      'Total Checkpoints': parseInt(ins.total_checkpoints) || 0,
+      'Date':          new Date(ins.created_at).toLocaleDateString('en-GB'),
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Warehouse Inspections')
+    XLSX.writeFile(wb, `warehouse_inspections_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  // Apply stat card filter on top of API filters
+  const displayInspections = activeFilter
+    ? inspections.filter(ins =>
+        ins.status === activeFilter || ins.stage === activeFilter
+      )
+    : inspections
+
+  const STAT_CARDS = [
+    { label: 'All Inspections', key: null,          cls: 'blue',  accent: '#E8470F' },
+    { label: 'In Progress',     key: 'in_progress', cls: 'amber', accent: '#d97706' },
+    { label: 'Pass',            key: 'pass',        cls: 'green', accent: '#059669' },
+    { label: 'Fail',            key: 'fail',        cls: 'red',   accent: '#dc2626' },
+    { label: 'Inbound',        key: 'inbound',     cls: 'blue',  accent: '#1d4ed8' },
+    { label: 'Outbound',       key: 'outbound',    cls: 'blue',  accent: '#7e22ce' },
+    { label: 'Random',         key: 'random',      cls: 'amber', accent: '#92400e' },
+  ]
+
   const selectStyle = {
     padding: '7px 12px',
     borderRadius: '6px',
@@ -152,6 +191,27 @@ export default function WarehouseInspectionPage() {
           >
             + New Inspection
           </button>
+        </div>
+
+        {/* Stat cards */}
+        <div className="stat-grid mb-4">
+          {STAT_CARDS.map(s => {
+            const isActive = activeFilter === s.key
+            const count = s.key === null
+              ? inspections.length
+              : inspections.filter(i => i.status === s.key || i.stage === s.key).length
+            return (
+              <div key={String(s.key)} className={`stat-card ${s.cls}`}
+                onClick={() => setActiveFilter(p => p === s.key ? null : s.key)}
+                style={{ cursor: 'pointer', transform: isActive ? 'translateY(-2px)' : undefined, transition: 'transform 0.1s', userSelect: 'none' }}>
+                <div className="stat-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {s.label}
+                  {isActive && <span style={{ fontSize: '10px', fontWeight: '700', opacity: 0.7 }}>✕ FILTER</span>}
+                </div>
+                <div className="stat-value" style={{ color: s.accent }}>{count}</div>
+              </div>
+            )
+          })}
         </div>
 
         {/* Filter bar */}
@@ -184,11 +244,35 @@ export default function WarehouseInspectionPage() {
 
         {/* Table card */}
         <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+          {/* Card header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #f1f5f9' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>Warehouse Inspections</h2>
+              {activeFilter && (
+                <span style={{ background: '#FEF0EB', color: '#E8470F', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px' }}>
+                  {STAT_CARDS.find(s => s.key === activeFilter)?.label}
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                {displayInspections.length}{activeFilter ? ` of ${inspections.length}` : ''} inspection(s)
+              </span>
+              <button
+                onClick={() => downloadExcel(displayInspections)}
+                disabled={displayInspections.length === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '7px', border: '1.5px solid #059669', background: '#fff', color: '#059669', fontSize: '13px', fontWeight: '600', cursor: displayInspections.length === 0 ? 'not-allowed' : 'pointer', opacity: displayInspections.length === 0 ? 0.5 : 1 }}
+              >
+                ↓ Download Excel
+              </button>
+            </div>
+          </div>
+
           {loading ? (
             <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>Loading…</div>
-          ) : inspections.length === 0 ? (
+          ) : displayInspections.length === 0 ? (
             <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
-              No inspections found. Create one to get started.
+              {inspections.length === 0 ? 'No inspections found. Create one to get started.' : 'No inspections match the selected filter.'}
             </div>
           ) : (
             <TableScrollWrap>
@@ -207,7 +291,7 @@ export default function WarehouseInspectionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {inspections.map(ins => {
+                  {displayInspections.map(ins => {
                     const st = STATUS_META[ins.status] || { bg: '#f1f5f9', color: '#475569', label: ins.status }
                     const sg = STAGE_META[ins.stage] || { bg: '#f1f5f9', color: '#475569' }
                     const total = parseInt(ins.total_checkpoints) || 0
@@ -273,15 +357,6 @@ export default function WarehouseInspectionPage() {
           )}
         </div>
 
-        {/* Summary row */}
-        {!loading && inspections.length > 0 && (
-          <div style={{ marginTop: '10px', fontSize: '12px', color: '#94a3b8', textAlign: 'right' }}>
-            {inspections.length} inspection{inspections.length !== 1 ? 's' : ''}
-            {' · '}{inspections.filter(i => i.status === 'pass').length} passed
-            {' · '}{inspections.filter(i => i.status === 'fail').length} failed
-            {' · '}{inspections.filter(i => i.status === 'in_progress').length} in progress
-          </div>
-        )}
       </div>
 
       {/* Create modal */}
