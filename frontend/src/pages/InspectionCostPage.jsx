@@ -217,7 +217,8 @@ export default function InspectionCostPage() {
 
   const handleAction = async () => {
     if (!showApprove) return
-    if (showApprove.action === 'reject' && !actionNote) { setActionMsg('Please provide rejection reason'); return }
+    if (showApprove.action === 'approve' && !actionNote.trim()) { setActionMsg('Transaction Reference is required'); return }
+    if (showApprove.action === 'reject' && !actionNote.trim()) { setActionMsg('Please provide rejection reason'); return }
     setActionSaving(true); setActionMsg('')
     try {
       if (showApprove.action === 'approve') await approveAdvice(showApprove.advice.advice_id, actionNote)
@@ -913,12 +914,16 @@ export default function InspectionCostPage() {
             )}
 
             <div className="field">
-              <label>{showApprove.action === 'approve' ? t('costs_notes_optional') : t('costs_rejection_reason')}</label>
+              <label>
+                {showApprove.action === 'approve'
+                  ? <>Transaction Reference <span style={{ color: '#dc2626' }}>*</span></>
+                  : t('costs_rejection_reason')}
+              </label>
               <textarea
                 value={actionNote}
                 onChange={e => setActionNote(e.target.value)}
                 rows={3}
-                placeholder={showApprove.action === 'approve' ? t('costs_any_remarks') : t('costs_rejection_placeholder')}
+                placeholder={showApprove.action === 'approve' ? 'e.g. TXN-20260701-001' : t('costs_rejection_placeholder')}
                 className="textarea"
               />
             </div>
