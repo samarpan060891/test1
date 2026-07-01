@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
@@ -393,6 +393,10 @@ function CountryBreakdown({ jobs, advices, period, jobDateField = 'mapped_at', t
 export default function DashboardPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
+
+  if (user?.role === 'warehouse') {
+    return <Navigate to="/warehouse-inspections" replace />
+  }
   const [jobs, setJobs] = useState([])
   const [advices, setAdvices] = useState([])
   const [loading, setLoading] = useState(true)
