@@ -138,7 +138,7 @@ export default function WarehouseInspectionPage() {
             <option value="">All POs</option>
             {poList.map(p => (
               <option key={p.po_no} value={p.po_no}>
-                {p.po_no}{p.description ? ` — ${p.description}` : ''}
+                {p.po_no}{p.supplier_name ? ` — ${p.supplier_name}` : ''}
               </option>
             ))}
           </select>
@@ -181,7 +181,7 @@ export default function WarehouseInspectionPage() {
                       PO: {ins.po_no} &nbsp;·&nbsp; {ins.item_name || ins.item_code}
                     </div>
                     <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>
-                      {ins.po_description || ''} &nbsp;·&nbsp; Inspector: {ins.inspector_name || '—'}
+                      {ins.po_status ? `PO ${ins.po_status}` : ''} &nbsp;·&nbsp; Inspector: {ins.inspector_name || '—'}
                       {ins.trigger_source ? ` · Trigger: ${ins.trigger_source}` : ''}
                     </div>
                     {/* Progress bar */}
@@ -223,7 +223,7 @@ export default function WarehouseInspectionPage() {
                 <select value={form.po_no} onChange={e => setForm(f => ({ ...f, po_no: e.target.value, item_code: '' }))}
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px' }} required>
                   <option value="">Select PO</option>
-                  {poList.map(p => <option key={p.po_no} value={p.po_no}>{p.po_no}{p.description ? ` — ${p.description}` : ''}</option>)}
+                  {poList.map(p => <option key={p.po_no} value={p.po_no}>{p.po_no}{p.supplier_name ? ` — ${p.supplier_name}` : ''}</option>)}
                 </select>
               </label>
               <div style={{ marginBottom: '14px' }}>

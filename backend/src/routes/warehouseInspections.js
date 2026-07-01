@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
     const { rows } = await db.query(`
       SELECT
         wi.*,
-        p.description AS po_description,
+        p.status      AS po_status,
         im.name       AS item_name,
         ts.name       AS inspector_name,
         COUNT(wir.response_id)                            AS total_checkpoints,
@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
       LEFT JOIN qc_inspection.team_stakeholder ts ON ts.user_id = wi.inspector_id
       LEFT JOIN qc_inspection.warehouse_inspection_response wir ON wir.wh_inspection_id = wi.wh_inspection_id
       ${where}
-      GROUP BY wi.wh_inspection_id, p.description, im.name, ts.name
+      GROUP BY wi.wh_inspection_id, p.status, im.name, ts.name
       ORDER BY wi.created_at DESC
     `, params);
     res.json(rows);
@@ -101,7 +101,7 @@ router.delete('/checkpoint-templates/:checkpointId', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(`
-      SELECT wi.*, p.description AS po_description, im.name AS item_name,
+      SELECT wi.*, p.status AS po_status, im.name AS item_name,
              ts.name AS inspector_name
       FROM qc_inspection.warehouse_inspection wi
       JOIN qc_inspection.po_master p ON p.po_no = wi.po_no

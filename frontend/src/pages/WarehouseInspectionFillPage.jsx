@@ -241,7 +241,7 @@ export default function WarehouseInspectionFillPage() {
             </h1>
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
               PO: <strong>{inspection.po_no}</strong> &nbsp;·&nbsp; {inspection.item_name || inspection.item_code}
-              {inspection.po_description ? ` · ${inspection.po_description}` : ''}
+              {inspection.po_status ? ` · PO ${inspection.po_status}` : ''}
               {inspection.trigger_source ? ` · Trigger: ${inspection.trigger_source}` : ''}
             </p>
           </div>
