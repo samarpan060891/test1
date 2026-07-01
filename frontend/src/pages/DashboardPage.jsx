@@ -394,7 +394,7 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
 
-  if (user?.role === 'warehouse') return <Navigate to="/scorecard" replace />
+  if (user?.role === 'warehouse') return <Navigate to="/warehouse-inspections" replace />
 
   const [jobs, setJobs] = useState([])
   const [advices, setAdvices] = useState([])

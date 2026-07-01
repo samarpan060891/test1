@@ -41,8 +41,6 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path
 
   const navLinks = [
-    { to: '/scorecard',          label: 'Supplier Scorecard',         key: 'score',
-      show: role === 'warehouse' },
     { to: '/warehouse-inspections', label: 'Warehouse Inspections',   key: 'wh',
       show: role === 'warehouse' },
     { to: '/po-log',             label: 'QC History',                 key: 'map',
@@ -58,7 +56,7 @@ export default function Navbar() {
     { to: '/warehouse-inspections', label: 'Warehouse Inspections',   key: 'wh',
       show: ['admin', 'qa', 'buying'].includes(role) },
     { to: '/scorecard',          label: 'Supplier Scorecard',         key: 'score',
-      show: ['admin','qa','buying','imports','accounts','supplier_user'].includes(role) },
+      show: ['admin','qa','buying','imports','accounts','supplier_user','warehouse'].includes(role) },
     { to: '/admin/users',        label: t('nav_users'),               key: 'users',   show: role === 'admin' },
     { to: '/admin/masters',      label: t('nav_masters'),             key: 'masters', show: role === 'admin' },
   ].filter(l => l.show)
