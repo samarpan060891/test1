@@ -307,10 +307,11 @@ router.post('/:id/submit-for-qa', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
 
     const { rows: wiRows } = await db.query(
-      `SELECT wi.*, im.name AS item_name, p.supplier_name
+      `SELECT wi.*, im.name AS item_name, s.name AS supplier_name
        FROM qc_inspection.warehouse_inspection wi
        JOIN qc_inspection.item_master im ON im.item_code = wi.item_code
        JOIN qc_inspection.po_master p ON p.po_no = wi.po_no
+       LEFT JOIN qc_inspection.supplier_master s ON s.supplier_code = p.supplier_code
        WHERE wi.wh_inspection_id = $1`,
       [req.params.id]
     );
@@ -366,10 +367,11 @@ router.post('/:id/qa-review', async (req, res) => {
       return res.status(400).json({ error: 'action must be approve or reject' });
 
     const { rows: wiRows } = await db.query(
-      `SELECT wi.*, im.name AS item_name, p.supplier_name
+      `SELECT wi.*, im.name AS item_name, s.name AS supplier_name
        FROM qc_inspection.warehouse_inspection wi
        JOIN qc_inspection.item_master im ON im.item_code = wi.item_code
        JOIN qc_inspection.po_master p ON p.po_no = wi.po_no
+       LEFT JOIN qc_inspection.supplier_master s ON s.supplier_code = p.supplier_code
        WHERE wi.wh_inspection_id = $1`,
       [req.params.id]
     );
