@@ -703,19 +703,39 @@ async function runMigrations() {
       ADD COLUMN IF NOT EXISTS item_code TEXT
   `, 'add item_code to warehouse_checklist_template');
 
-  // Deduplicate warehouse_checklist_template rows (seed re-runs on each restart → duplicates)
-  await safeQuery(`
-    DELETE FROM qc_inspection.warehouse_checklist_template a
-    USING qc_inspection.warehouse_checklist_template b
-    WHERE a.checkpoint_id > b.checkpoint_id
-      AND a.stage = b.stage
-      AND a.section = b.section
-      AND a.checkpoint = b.checkpoint
-      AND (
-        (a.item_code IS NULL AND b.item_code IS NULL)
-        OR a.item_code = b.item_code
-      )
-  `, 'deduplicate warehouse_checklist_template');
+  // Fix duplicates: delete responses linked to duplicate checkpoints, then deduplicate templates
+  try {
+    const wctDedup = await db.query(
+      `SELECT 1 FROM qc_inspection._migration_flags WHERE flag = 'wct_dedup_v3'`
+    );
+    if (wctDedup.rows.length === 0) {
+      // Step 1: delete responses pointing to the "loser" duplicate checkpoints
+      await db.query(`
+        DELETE FROM qc_inspection.warehouse_inspection_response
+        WHERE checkpoint_id IN (
+          SELECT checkpoint_id FROM qc_inspection.warehouse_checklist_template
+          WHERE checkpoint_id NOT IN (
+            SELECT MIN(checkpoint_id::text)::uuid
+            FROM qc_inspection.warehouse_checklist_template
+            GROUP BY stage, section, checkpoint, COALESCE(item_code, '__NULL__')
+          )
+        )
+      `);
+      // Step 2: delete duplicate checkpoint rows (now safe — no FK references remain)
+      await db.query(`
+        DELETE FROM qc_inspection.warehouse_checklist_template
+        WHERE checkpoint_id NOT IN (
+          SELECT MIN(checkpoint_id::text)::uuid
+          FROM qc_inspection.warehouse_checklist_template
+          GROUP BY stage, section, checkpoint, COALESCE(item_code, '__NULL__')
+        )
+      `);
+      await db.query(`INSERT INTO qc_inspection._migration_flags VALUES ('wct_dedup_v3')`);
+      console.log('✅ [MIGRATION] wct_dedup_v3: warehouse checklist deduplication complete');
+    }
+  } catch (err) {
+    console.error('⚠️  [MIGRATION] wct_dedup_v3 failed:', err.message);
+  }
 
   // Unique indexes on template so ON CONFLICT DO NOTHING works in seed
   await safeQuery(`
@@ -767,45 +787,56 @@ async function runMigrations() {
     );
   } catch (err) { console.warn('⚠️  Could not upsert warehouse user:', err.message); }
 
-  // Seed warehouse checklist checkpoints
-  await safeQuery(`
-    INSERT INTO qc_inspection.warehouse_checklist_template
-      (stage, section, checkpoint, criticality, sort_order)
-    VALUES
-      -- INBOUND
-      ('inbound','Receiving','Carton count matches packing list',          'critical', 1),
-      ('inbound','Receiving','No visible carton damage or wet marks',      'critical', 2),
-      ('inbound','Receiving','Carton labels match PO and item code',       'major',    3),
-      ('inbound','Receiving','Shipment seal / container seal intact',      'major',    4),
-      ('inbound','Product Check','Product matches approved sample/spec',   'critical', 5),
-      ('inbound','Product Check','No visible defects or surface damage',   'critical', 6),
-      ('inbound','Product Check','Quantity per carton matches packing list','major',   7),
-      ('inbound','Product Check','Barcodes/SKU scannable and correct',     'major',    8),
-      ('inbound','Documentation','Commercial invoice present and correct', 'major',    9),
-      ('inbound','Documentation','Packing list matches shipment',          'major',   10),
-      ('inbound','Documentation','Country of origin label correct',        'minor',   11),
-      -- OUTBOUND
-      ('outbound','Picking','Pick quantity matches dispatch order',        'critical', 1),
-      ('outbound','Picking','Correct items picked (item code/barcode)',    'critical', 2),
-      ('outbound','Picking','No damaged items included in dispatch',       'major',    3),
-      ('outbound','Packing','Items packed securely with adequate protection','major',  4),
-      ('outbound','Packing','Carton sealed properly with tape',            'minor',   5),
-      ('outbound','Packing','Shipping label correctly affixed',            'critical', 6),
-      ('outbound','Packing','Weight and dimensions within courier limits', 'major',   7),
-      ('outbound','Documentation','Delivery note / invoice enclosed',      'major',   8),
-      ('outbound','Documentation','Correct delivery address on label',     'critical', 9),
-      -- RANDOM
-      ('random','Stock Condition','No signs of moisture or mould',         'critical', 1),
-      ('random','Stock Condition','Products stored in correct location/rack','major',  2),
-      ('random','Stock Condition','No pest activity observed',             'critical', 3),
-      ('random','Stock Condition','FIFO / FEFO rotation observed',         'major',   4),
-      ('random','Product Integrity','Packaging intact, no open cartons',   'major',   5),
-      ('random','Product Integrity','Sample product matches approved spec', 'critical', 6),
-      ('random','Product Integrity','Barcodes readable and match system',  'major',   7),
-      ('random','Quantity Check','Physical count matches system inventory', 'critical', 8),
-      ('random','Quantity Check','No unrecorded stock movements observed', 'major',   9)
-    ON CONFLICT DO NOTHING
-  `, 'warehouse checklist seed');
+  // Seed warehouse checklist checkpoints (run once only)
+  try {
+    const seeded = await db.query(
+      `SELECT 1 FROM qc_inspection._migration_flags WHERE flag = 'wct_seed_v1'`
+    );
+    if (seeded.rows.length === 0) {
+      await db.query(`
+        INSERT INTO qc_inspection.warehouse_checklist_template
+          (stage, section, checkpoint, criticality, sort_order)
+        VALUES
+          -- INBOUND
+          ('inbound','Receiving','Carton count matches packing list',          'critical', 1),
+          ('inbound','Receiving','No visible carton damage or wet marks',      'critical', 2),
+          ('inbound','Receiving','Carton labels match PO and item code',       'major',    3),
+          ('inbound','Receiving','Shipment seal / container seal intact',      'major',    4),
+          ('inbound','Product Check','Product matches approved sample/spec',   'critical', 5),
+          ('inbound','Product Check','No visible defects or surface damage',   'critical', 6),
+          ('inbound','Product Check','Quantity per carton matches packing list','major',   7),
+          ('inbound','Product Check','Barcodes/SKU scannable and correct',     'major',    8),
+          ('inbound','Documentation','Commercial invoice present and correct', 'major',    9),
+          ('inbound','Documentation','Packing list matches shipment',          'major',   10),
+          ('inbound','Documentation','Country of origin label correct',        'minor',   11),
+          -- OUTBOUND
+          ('outbound','Picking','Pick quantity matches dispatch order',        'critical', 1),
+          ('outbound','Picking','Correct items picked (item code/barcode)',    'critical', 2),
+          ('outbound','Picking','No damaged items included in dispatch',       'major',    3),
+          ('outbound','Packing','Items packed securely with adequate protection','major',  4),
+          ('outbound','Packing','Carton sealed properly with tape',            'minor',   5),
+          ('outbound','Packing','Shipping label correctly affixed',            'critical', 6),
+          ('outbound','Packing','Weight and dimensions within courier limits', 'major',   7),
+          ('outbound','Documentation','Delivery note / invoice enclosed',      'major',   8),
+          ('outbound','Documentation','Correct delivery address on label',     'critical', 9),
+          -- RANDOM
+          ('random','Stock Condition','No signs of moisture or mould',         'critical', 1),
+          ('random','Stock Condition','Products stored in correct location/rack','major',  2),
+          ('random','Stock Condition','No pest activity observed',             'critical', 3),
+          ('random','Stock Condition','FIFO / FEFO rotation observed',         'major',   4),
+          ('random','Product Integrity','Packaging intact, no open cartons',   'major',   5),
+          ('random','Product Integrity','Sample product matches approved spec', 'critical', 6),
+          ('random','Product Integrity','Barcodes readable and match system',  'major',   7),
+          ('random','Quantity Check','Physical count matches system inventory', 'critical', 8),
+          ('random','Quantity Check','No unrecorded stock movements observed', 'major',   9)
+        ON CONFLICT DO NOTHING
+      `);
+      await db.query(`INSERT INTO qc_inspection._migration_flags VALUES ('wct_seed_v1')`);
+      console.log('✅ [MIGRATION] wct_seed_v1: warehouse checklist seeded');
+    }
+  } catch (err) {
+    console.error('⚠️  [MIGRATION] wct_seed_v1 failed:', err.message);
+  }
 
   console.log('✅ Migrations applied');
 }
