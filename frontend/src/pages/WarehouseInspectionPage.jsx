@@ -215,9 +215,13 @@ export default function WarehouseInspectionPage() {
               </label>
               <label style={{ display: 'block', marginBottom: '20px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '5px' }}>Trigger Source</span>
-                <input value={form.trigger_source} onChange={e => setForm(f => ({ ...f, trigger_source: e.target.value }))}
-                  placeholder="e.g. Customer, Stores, Delivery Team"
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px', boxSizing: 'border-box' }} />
+                <select value={form.trigger_source} onChange={e => setForm(f => ({ ...f, trigger_source: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px' }}>
+                  <option value="">— Select trigger —</option>
+                  <option value="customer">Customer</option>
+                  <option value="stores">Stores</option>
+                  <option value="delivery_team">Delivery Team</option>
+                </select>
               </label>
               {createError && <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '14px' }}>{createError}</div>}
               <div style={{ display: 'flex', gap: '10px' }}>
