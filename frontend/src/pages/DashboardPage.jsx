@@ -716,7 +716,11 @@ export default function DashboardPage() {
                         </td>
                         <td>
                           <Link
-                            to={`/jobs/${job.job_id || job.id}`}
+                            to={
+                              (user?.role === 'accounts' || user?.role === 'imports')
+                                ? '/inspection-costs'
+                                : `/jobs/${job.job_id || job.id}`
+                            }
                             className="btn btn-outline btn-sm"
                           >
                             {t('th_view')}
