@@ -215,7 +215,7 @@ export default function WarehouseInspectionFillPage() {
   const card = { background: '#fff', borderRadius: '12px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', padding: '20px' }
   const tabStyle = (active) => ({
     padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
-    background: active ? '#1e3a5f' : '#f1f5f9', color: active ? '#fff' : '#475569',
+    background: active ? '#1C1208' : '#f1f5f9', color: active ? '#fff' : '#475569',
   })
 
   if (!inspection) return (
@@ -272,7 +272,7 @@ export default function WarehouseInspectionFillPage() {
           <div>
             {Object.entries(sections).map(([section, items]) => (
               <div key={section} style={{ ...card, marginBottom: '16px' }}>
-                <h3 style={{ margin: '0 0 14px', fontSize: '15px', fontWeight: '700', color: '#1e3a5f', paddingBottom: '10px', borderBottom: '2px solid #e2e8f0' }}>
+                <h3 style={{ margin: '0 0 14px', fontSize: '15px', fontWeight: '700', color: '#1C1208', paddingBottom: '10px', borderBottom: '2px solid #e2e8f0' }}>
                   {section}
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -296,8 +296,8 @@ export default function WarehouseInspectionFillPage() {
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                               {RESULT_OPTIONS.map(opt => (
                                 <button key={opt} onClick={() => updateResponse(r.checkpoint_id, 'result', opt)}
-                                  style={{ padding: '4px 12px', borderRadius: '6px', border: `1.5px solid ${(r.result || '') === opt ? '#1e3a5f' : '#e2e8f0'}`,
-                                    background: (r.result || '') === opt ? '#1e3a5f' : '#fff',
+                                  style={{ padding: '4px 12px', borderRadius: '6px', border: `1.5px solid ${(r.result || '') === opt ? '#1C1208' : '#e2e8f0'}`,
+                                    background: (r.result || '') === opt ? '#1C1208' : '#fff',
                                     color: (r.result || '') === opt ? '#fff' : '#64748b', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
                                   {opt === '' ? 'Pending' : opt.toUpperCase()}
                                 </button>
@@ -326,16 +326,16 @@ export default function WarehouseInspectionFillPage() {
 
             {/* Item-specific checkpoint management (admin/qa only) */}
             {canManageCheckpoints && (
-              <div style={{ ...card, marginBottom: '16px', borderLeft: '3px solid #1e3a5f' }}>
+              <div style={{ ...card, marginBottom: '16px', borderLeft: '3px solid #1C1208' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontWeight: '700', fontSize: '14px', color: '#1e3a5f' }}>Item-Specific Checkpoints</div>
+                    <div style={{ fontWeight: '700', fontSize: '14px', color: '#1C1208' }}>Item-Specific Checkpoints</div>
                     <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
                       Add checkpoints that apply only to <strong>{inspection.item_code}</strong> for {inspection.stage} inspections
                     </div>
                   </div>
                   <button onClick={() => { setShowAddCheckpoint(v => !v); setCpMsg('') }}
-                    style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                    style={{ background: '#1C1208', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
                     {showAddCheckpoint ? 'Cancel' : '+ Add'}
                   </button>
                 </div>
@@ -373,7 +373,7 @@ export default function WarehouseInspectionFillPage() {
                       style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px' }} />
                     {cpMsg && <div style={{ fontSize: '12px', color: '#dc2626' }}>{cpMsg}</div>}
                     <button type="submit" disabled={addingCp}
-                      style={{ alignSelf: 'flex-start', padding: '7px 16px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: addingCp ? 'default' : 'pointer', opacity: addingCp ? 0.7 : 1 }}>
+                      style={{ alignSelf: 'flex-start', padding: '7px 16px', background: '#1C1208', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: addingCp ? 'default' : 'pointer', opacity: addingCp ? 0.7 : 1 }}>
                       {addingCp ? 'Adding…' : 'Add Checkpoint'}
                     </button>
                   </form>
@@ -392,7 +392,7 @@ export default function WarehouseInspectionFillPage() {
                 </label>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <button onClick={handleSave} disabled={saving}
-                    style={{ padding: '10px 20px', borderRadius: '8px', background: '#1e3a5f', color: '#fff', border: 'none', fontWeight: '600', fontSize: '14px', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                    style={{ padding: '10px 20px', borderRadius: '8px', background: '#1C1208', color: '#fff', border: 'none', fontWeight: '600', fontSize: '14px', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
                     {saving ? 'Saving…' : 'Save Progress'}
                   </button>
                   <button onClick={handleComplete} disabled={completing}
@@ -425,7 +425,7 @@ export default function WarehouseInspectionFillPage() {
               {!isComplete && (
                 <>
                   <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                    style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: uploading ? 'default' : 'pointer', fontSize: '13px', fontWeight: '600', opacity: uploading ? 0.7 : 1 }}>
+                    style={{ background: '#1C1208', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: uploading ? 'default' : 'pointer', fontSize: '13px', fontWeight: '600', opacity: uploading ? 0.7 : 1 }}>
                     {uploading ? 'Uploading…' : '+ Upload Photo'}
                   </button>
                   <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />

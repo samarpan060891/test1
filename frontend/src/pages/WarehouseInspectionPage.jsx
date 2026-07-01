@@ -1,15 +1,43 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
+import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
 import { listWarehouseInspections, createWarehouseInspection } from '../api/warehouseInspections.js'
 import client from '../api/client.js'
 
 const STAGES = ['inbound', 'outbound', 'random']
 
-const STATUS_COLOR = {
+const STATUS_META = {
   in_progress: { bg: '#fef3c7', color: '#92400e', label: 'In Progress' },
-  pass:        { bg: '#d1fae5', color: '#065f46', label: 'Pass' },
-  fail:        { bg: '#fee2e2', color: '#991b1b', label: 'Fail' },
+  pass:        { bg: '#f0fdf4', color: '#15803d', label: 'Pass' },
+  fail:        { bg: '#fef2f2', color: '#dc2626', label: 'Fail' },
+}
+
+const STAGE_META = {
+  inbound:  { bg: '#eff6ff', color: '#1d4ed8' },
+  outbound: { bg: '#faf5ff', color: '#7e22ce' },
+  random:   { bg: '#fefce8', color: '#92400e' },
+}
+
+const thStyle = {
+  padding: '10px 14px',
+  textAlign: 'left',
+  fontSize: '11px',
+  fontWeight: '700',
+  color: '#64748b',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  background: '#f8fafc',
+  borderBottom: '1px solid #e2e8f0',
+  whiteSpace: 'nowrap',
+}
+
+const tdStyle = {
+  padding: '12px 14px',
+  fontSize: '13px',
+  color: '#1e293b',
+  borderBottom: '1px solid #f1f5f9',
+  verticalAlign: 'middle',
 }
 
 export default function WarehouseInspectionPage() {
@@ -18,15 +46,14 @@ export default function WarehouseInspectionPage() {
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ stage: '', status: '', po_no: '' })
   const [showCreate, setShowCreate] = useState(false)
+  const [listError, setListError] = useState('')
 
-  // PO/item dropdowns
   const [poList, setPoList] = useState([])
   const [itemList, setItemList] = useState([])
   const [form, setForm] = useState({ po_no: '', stage: 'inbound', trigger_source: '' })
-  const [selectedItems, setSelectedItems] = useState([]) // multi-select
+  const [selectedItems, setSelectedItems] = useState([])
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
-  const [listError, setListError] = useState('')
 
   useEffect(() => {
     fetchInspections()
@@ -98,43 +125,48 @@ export default function WarehouseInspectionPage() {
     }
   }
 
-  const card = { background: '#fff', borderRadius: '12px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', padding: '20px' }
+  const selectStyle = {
+    padding: '7px 12px',
+    borderRadius: '6px',
+    border: '1px solid #e2e8f0',
+    fontSize: '13px',
+    background: '#fff',
+    color: '#374151',
+    minWidth: '130px',
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
       <Navbar />
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 16px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 16px' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        {/* Page header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: '#1e293b' }}>🏭 Warehouse Inspections</h1>
+            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: '#1e293b' }}>Warehouse Inspections</h1>
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Inbound · Outbound · Random stock checks</p>
           </div>
           <button
             onClick={() => { setShowCreate(true); setCreateError('') }}
-            style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 18px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }}
+            style={{ background: '#1C1208', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 20px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }}
           >
             + New Inspection
           </button>
         </div>
 
-        {/* Filters */}
-        <div style={{ ...card, marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <select value={filters.stage} onChange={e => setFilters(f => ({ ...f, stage: e.target.value }))}
-            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px', minWidth: '130px' }}>
+        {/* Filter bar */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', padding: '14px 18px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <select value={filters.stage} onChange={e => setFilters(f => ({ ...f, stage: e.target.value }))} style={selectStyle}>
             <option value="">All Stages</option>
             {STAGES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </select>
-          <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
-            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px', minWidth: '130px' }}>
+          <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} style={selectStyle}>
             <option value="">All Statuses</option>
             <option value="in_progress">In Progress</option>
             <option value="pass">Pass</option>
             <option value="fail">Fail</option>
           </select>
-          <select value={filters.po_no} onChange={e => setFilters(f => ({ ...f, po_no: e.target.value }))}
-            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px', minWidth: '180px' }}>
+          <select value={filters.po_no} onChange={e => setFilters(f => ({ ...f, po_no: e.target.value }))} style={{ ...selectStyle, minWidth: '200px' }}>
             <option value="">All POs</option>
             {poList.map(p => (
               <option key={p.po_no} value={p.po_no}>
@@ -142,72 +174,112 @@ export default function WarehouseInspectionPage() {
               </option>
             ))}
           </select>
-          <button onClick={fetchInspections} style={{ padding: '7px 14px', borderRadius: '6px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontSize: '13px', cursor: 'pointer' }}>
+          <button onClick={fetchInspections} style={{ padding: '7px 16px', borderRadius: '6px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontSize: '13px', cursor: 'pointer', color: '#374151', fontWeight: '500' }}>
             Refresh
           </button>
+          {listError && (
+            <span style={{ fontSize: '13px', color: '#dc2626', fontWeight: '500' }}>⚠ {listError}</span>
+          )}
         </div>
 
-        {/* List */}
-        {listError && (
-          <div style={{ ...card, marginBottom: '12px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', fontSize: '13px' }}>
-            ⚠ Error loading inspections: {listError}
-          </div>
-        )}
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>Loading…</div>
-        ) : inspections.length === 0 ? (
-          <div style={{ ...card, textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
-            No inspections found. Create one to get started.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {inspections.map(ins => {
-              const st = STATUS_COLOR[ins.status] || { bg: '#f1f5f9', color: '#475569', label: ins.status }
-              const total = parseInt(ins.total_checkpoints) || 0
-              const passed = parseInt(ins.pass_count) || 0
-              const failed = parseInt(ins.fail_count) || 0
-              const pct = total > 0 ? Math.round((passed / total) * 100) : 0
-              return (
-                <div key={ins.wh_inspection_id} style={{ ...card, display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer' }}
-                  onClick={() => navigate(`/warehouse-inspections/${ins.wh_inspection_id}`)}>
-                  {/* Stage badge */}
-                  <div style={{ background: '#1e3a5f', color: '#fff', borderRadius: '8px', padding: '8px 12px', textAlign: 'center', minWidth: '72px', flexShrink: 0 }}>
-                    <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.7 }}>Stage</div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', marginTop: '2px' }}>{ins.stage?.charAt(0).toUpperCase() + ins.stage?.slice(1)}</div>
-                  </div>
-                  {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>
-                      PO: {ins.po_no} &nbsp;·&nbsp; {ins.item_name || ins.item_code}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>
-                      {ins.po_status ? `PO ${ins.po_status}` : ''} &nbsp;·&nbsp; Inspector: {ins.inspector_name || '—'}
-                      {ins.trigger_source ? ` · Trigger: ${ins.trigger_source}` : ''}
-                    </div>
-                    {/* Progress bar */}
-                    {total > 0 && (
-                      <div style={{ marginTop: '8px' }}>
-                        <div style={{ height: '5px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: failed > 0 ? '#ef4444' : '#10b981', transition: 'width 0.3s' }} />
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-                          {passed} pass · {failed} fail · {total - passed - failed} pending
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {/* Status + date */}
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>
-                      {st.label}
-                    </span>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '5px' }}>
-                      {new Date(ins.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+        {/* Table card */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+          {loading ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>Loading…</div>
+          ) : inspections.length === 0 ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+              No inspections found. Create one to get started.
+            </div>
+          ) : (
+            <TableScrollWrap>
+              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>PO No.</th>
+                    <th style={thStyle}>Item</th>
+                    <th style={thStyle}>Stage</th>
+                    <th style={thStyle}>Inspector</th>
+                    <th style={thStyle}>Trigger</th>
+                    <th style={thStyle}>Progress</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={thStyle}>Date</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inspections.map(ins => {
+                    const st = STATUS_META[ins.status] || { bg: '#f1f5f9', color: '#475569', label: ins.status }
+                    const sg = STAGE_META[ins.stage] || { bg: '#f1f5f9', color: '#475569' }
+                    const total = parseInt(ins.total_checkpoints) || 0
+                    const passed = parseInt(ins.pass_count) || 0
+                    const failed = parseInt(ins.fail_count) || 0
+                    const pending = total - passed - failed
+                    const pct = total > 0 ? Math.round((passed / total) * 100) : 0
+                    return (
+                      <tr key={ins.wh_inspection_id}
+                        onClick={() => navigate(`/warehouse-inspections/${ins.wh_inspection_id}`)}
+                        style={{ cursor: 'pointer', transition: 'background 0.12s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                        onMouseLeave={e => e.currentTarget.style.background = ''}
+                      >
+                        <td style={{ ...tdStyle, fontWeight: '600', color: '#1e293b' }}>{ins.po_no}</td>
+                        <td style={tdStyle}>
+                          <div style={{ fontWeight: '500' }}>{ins.item_name || ins.item_code}</div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{ins.item_code}</div>
+                        </td>
+                        <td style={tdStyle}>
+                          <span style={{ background: sg.bg, color: sg.color, padding: '2px 9px', borderRadius: '5px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                            {ins.stage}
+                          </span>
+                        </td>
+                        <td style={{ ...tdStyle, color: '#475569' }}>{ins.inspector_name || '—'}</td>
+                        <td style={{ ...tdStyle, color: '#475569', fontSize: '12px' }}>
+                          {ins.trigger_source ? ins.trigger_source.replace(/_/g, ' ') : '—'}
+                        </td>
+                        <td style={{ ...tdStyle, minWidth: '120px' }}>
+                          {total > 0 ? (
+                            <>
+                              <div style={{ height: '5px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', marginBottom: '4px' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: failed > 0 ? '#ef4444' : '#10b981', transition: 'width 0.3s' }} />
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                                {passed}✓ {failed > 0 ? `${failed}✗ ` : ''}{pending > 0 ? `${pending} pending` : ''}
+                              </div>
+                            </>
+                          ) : <span style={{ color: '#94a3b8', fontSize: '12px' }}>—</span>}
+                        </td>
+                        <td style={tdStyle}>
+                          <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                            {st.label}
+                          </span>
+                        </td>
+                        <td style={{ ...tdStyle, color: '#64748b', whiteSpace: 'nowrap' }}>
+                          {new Date(ins.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                          <button
+                            onClick={e => { e.stopPropagation(); navigate(`/warehouse-inspections/${ins.wh_inspection_id}`) }}
+                            style={{ padding: '5px 14px', borderRadius: '6px', background: '#1C1208', color: '#fff', border: 'none', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </TableScrollWrap>
+          )}
+        </div>
+
+        {/* Summary row */}
+        {!loading && inspections.length > 0 && (
+          <div style={{ marginTop: '10px', fontSize: '12px', color: '#94a3b8', textAlign: 'right' }}>
+            {inspections.length} inspection{inspections.length !== 1 ? 's' : ''}
+            {' · '}{inspections.filter(i => i.status === 'pass').length} passed
+            {' · '}{inspections.filter(i => i.status === 'fail').length} failed
+            {' · '}{inspections.filter(i => i.status === 'in_progress').length} in progress
           </div>
         )}
       </div>
@@ -226,11 +298,12 @@ export default function WarehouseInspectionPage() {
                   {poList.map(p => <option key={p.po_no} value={p.po_no}>{p.po_no}{p.supplier_name ? ` — ${p.supplier_name}` : ''}</option>)}
                 </select>
               </label>
+
               <div style={{ marginBottom: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Items * ({selectedItems.length} selected)</span>
                   {itemList.length > 0 && (
-                    <button type="button" onClick={toggleAll} style={{ fontSize: '12px', color: '#1e3a5f', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
+                    <button type="button" onClick={toggleAll} style={{ fontSize: '12px', color: '#1C1208', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
                       {selectedItems.length === itemList.length ? 'Deselect All' : 'Select All'}
                     </button>
                   )}
@@ -241,13 +314,14 @@ export default function WarehouseInspectionPage() {
                   ) : itemList.length === 0 ? (
                     <div style={{ padding: '12px', color: '#94a3b8', fontSize: '13px' }}>No items found for this PO</div>
                   ) : itemList.map(i => (
-                    <label key={i.item_code} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', background: selectedItems.includes(i.item_code) ? '#eff6ff' : '#fff' }}>
-                      <input type="checkbox" checked={selectedItems.includes(i.item_code)} onChange={() => toggleItem(i.item_code)} style={{ width: '16px', height: '16px', accentColor: '#1e3a5f' }} />
+                    <label key={i.item_code} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', background: selectedItems.includes(i.item_code) ? '#f0fdf4' : '#fff' }}>
+                      <input type="checkbox" checked={selectedItems.includes(i.item_code)} onChange={() => toggleItem(i.item_code)} style={{ width: '16px', height: '16px', accentColor: '#1C1208' }} />
                       <span style={{ fontSize: '13px', color: '#1e293b' }}>{i.item_code}{i.name ? ` — ${i.name}` : ''}</span>
                     </label>
                   ))}
                 </div>
               </div>
+
               <label style={{ display: 'block', marginBottom: '14px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '5px' }}>Stage *</span>
                 <select value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}
@@ -255,6 +329,7 @@ export default function WarehouseInspectionPage() {
                   {STAGES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
                 </select>
               </label>
+
               <label style={{ display: 'block', marginBottom: '20px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '5px' }}>Trigger Source</span>
                 <select value={form.trigger_source} onChange={e => setForm(f => ({ ...f, trigger_source: e.target.value }))}
@@ -266,10 +341,11 @@ export default function WarehouseInspectionPage() {
                   <option value="incoming_goods">Incoming Goods</option>
                 </select>
               </label>
+
               {createError && <div style={{ color: '#dc2626', fontSize: '13px', marginBottom: '14px' }}>{createError}</div>}
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="submit" disabled={creating}
-                  style={{ flex: 1, background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: '8px', padding: '11px', fontWeight: '600', fontSize: '14px', cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.7 : 1 }}>
+                  style={{ flex: 1, background: '#1C1208', color: '#fff', border: 'none', borderRadius: '8px', padding: '11px', fontWeight: '600', fontSize: '14px', cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.7 : 1 }}>
                   {creating ? 'Creating…' : 'Create Inspection'}
                 </button>
                 <button type="button" onClick={() => setShowCreate(false)}
