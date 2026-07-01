@@ -527,6 +527,17 @@ export default function WarehouseInspectionFillPage() {
               </div>
             )}
 
+            {/* Notice for QA: awaiting warehouse submission */}
+            {['qa', 'buying'].includes(user?.role) && ['pass', 'fail', 'in_progress'].includes(inspection?.status) && (
+              <div style={{ ...card, marginTop: '16px', borderLeft: '4px solid #f59e0b', background: '#fffbeb' }}>
+                <div style={{ fontWeight: '700', fontSize: '14px', color: '#92400e', marginBottom: '4px' }}>⏳ Awaiting Warehouse Submission</div>
+                <p style={{ margin: 0, fontSize: '13px', color: '#78350f' }}>
+                  This inspection is <strong>{inspection.status === 'in_progress' ? 'still in progress' : `marked as ${inspection.status.toUpperCase()}`}</strong> by the warehouse team.
+                  It will appear here for QA review once the warehouse clicks <em>"Submit for QA Review"</em>.
+                </p>
+              </div>
+            )}
+
             {/* QA Review panel */}
             {canQAReview && (
               <div style={{ ...card, marginTop: '16px', borderLeft: '4px solid #f59e0b', background: '#fffbeb' }}>
