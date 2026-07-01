@@ -632,6 +632,123 @@ async function runMigrations() {
     )
   `, 'checklist_video_links table');
 
+  // 024: warehouse inspections
+  await safeQuery(`
+    DO $$ DECLARE r RECORD; BEGIN
+      FOR r IN SELECT conname FROM pg_constraint
+        WHERE conrelid = 'qc_inspection.team_stakeholder'::regclass AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%role%'
+      LOOP EXECUTE 'ALTER TABLE qc_inspection.team_stakeholder DROP CONSTRAINT IF EXISTS ' || quote_ident(r.conname); END LOOP;
+    END $$`, 'drop role constraint for warehouse');
+
+  await safeQuery(`
+    DO $$ BEGIN
+      ALTER TABLE qc_inspection.team_stakeholder ADD CONSTRAINT ts_role_check
+        CHECK (role IN ('qa','buying','agency_user','supplier_user','admin','imports','accounts','warehouse'));
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$`, 'add warehouse role constraint');
+
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.warehouse_inspection (
+      wh_inspection_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      po_no             TEXT NOT NULL REFERENCES qc_inspection.po_master(po_no),
+      item_code         TEXT NOT NULL,
+      stage             TEXT NOT NULL CHECK (stage IN ('inbound','outbound','random')),
+      trigger_source    TEXT CHECK (trigger_source IN ('customer','stores','delivery_team')),
+      status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','in_progress','pass','fail')),
+      inspector_id      UUID REFERENCES qc_inspection.team_stakeholder(user_id),
+      remarks           TEXT,
+      created_at        TIMESTAMPTZ DEFAULT NOW(),
+      completed_at      TIMESTAMPTZ
+    )
+  `, 'warehouse_inspection table');
+
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.warehouse_checklist_template (
+      checkpoint_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      stage          TEXT NOT NULL,
+      section        TEXT NOT NULL,
+      checkpoint     TEXT NOT NULL,
+      criticality    TEXT NOT NULL DEFAULT 'major' CHECK (criticality IN ('critical','major','minor')),
+      sort_order     INT DEFAULT 0
+    )
+  `, 'warehouse_checklist_template table');
+
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.warehouse_inspection_response (
+      response_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      wh_inspection_id  UUID NOT NULL REFERENCES qc_inspection.warehouse_inspection(wh_inspection_id) ON DELETE CASCADE,
+      checkpoint_id     UUID NOT NULL REFERENCES qc_inspection.warehouse_checklist_template(checkpoint_id),
+      result            TEXT CHECK (result IN ('pass','fail','na')),
+      remarks           TEXT,
+      updated_at        TIMESTAMPTZ DEFAULT NOW()
+    )
+  `, 'warehouse_inspection_response table');
+
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.warehouse_inspection_image (
+      image_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      wh_inspection_id  UUID NOT NULL REFERENCES qc_inspection.warehouse_inspection(wh_inspection_id) ON DELETE CASCADE,
+      section_key       TEXT NOT NULL DEFAULT '__general__',
+      file_name         TEXT NOT NULL,
+      file_type         TEXT NOT NULL,
+      file_size         INT,
+      file_data         BYTEA NOT NULL,
+      uploaded_at       TIMESTAMPTZ DEFAULT NOW()
+    )
+  `, 'warehouse_inspection_image table');
+
+  // Seed warehouse user
+  try {
+    const bcryptLocal = require('bcryptjs');
+    const whHash = await bcryptLocal.hash('Warehouse@123', 10);
+    await db.query(
+      `INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (email) DO UPDATE SET password_hash = $3, role = $4`,
+      ['Warehouse User', 'warehouse@homesrus.com', whHash, 'warehouse']
+    );
+  } catch (err) { console.warn('⚠️  Could not upsert warehouse user:', err.message); }
+
+  // Seed warehouse checklist checkpoints
+  await safeQuery(`
+    INSERT INTO qc_inspection.warehouse_checklist_template
+      (stage, section, checkpoint, criticality, sort_order)
+    VALUES
+      -- INBOUND
+      ('inbound','Receiving','Carton count matches packing list',          'critical', 1),
+      ('inbound','Receiving','No visible carton damage or wet marks',      'critical', 2),
+      ('inbound','Receiving','Carton labels match PO and item code',       'major',    3),
+      ('inbound','Receiving','Shipment seal / container seal intact',      'major',    4),
+      ('inbound','Product Check','Product matches approved sample/spec',   'critical', 5),
+      ('inbound','Product Check','No visible defects or surface damage',   'critical', 6),
+      ('inbound','Product Check','Quantity per carton matches packing list','major',   7),
+      ('inbound','Product Check','Barcodes/SKU scannable and correct',     'major',    8),
+      ('inbound','Documentation','Commercial invoice present and correct', 'major',    9),
+      ('inbound','Documentation','Packing list matches shipment',          'major',   10),
+      ('inbound','Documentation','Country of origin label correct',        'minor',   11),
+      -- OUTBOUND
+      ('outbound','Picking','Pick quantity matches dispatch order',        'critical', 1),
+      ('outbound','Picking','Correct items picked (item code/barcode)',    'critical', 2),
+      ('outbound','Picking','No damaged items included in dispatch',       'major',    3),
+      ('outbound','Packing','Items packed securely with adequate protection','major',  4),
+      ('outbound','Packing','Carton sealed properly with tape',            'minor',   5),
+      ('outbound','Packing','Shipping label correctly affixed',            'critical', 6),
+      ('outbound','Packing','Weight and dimensions within courier limits', 'major',   7),
+      ('outbound','Documentation','Delivery note / invoice enclosed',      'major',   8),
+      ('outbound','Documentation','Correct delivery address on label',     'critical', 9),
+      -- RANDOM
+      ('random','Stock Condition','No signs of moisture or mould',         'critical', 1),
+      ('random','Stock Condition','Products stored in correct location/rack','major',  2),
+      ('random','Stock Condition','No pest activity observed',             'critical', 3),
+      ('random','Stock Condition','FIFO / FEFO rotation observed',         'major',   4),
+      ('random','Product Integrity','Packaging intact, no open cartons',   'major',   5),
+      ('random','Product Integrity','Sample product matches approved spec', 'critical', 6),
+      ('random','Product Integrity','Barcodes readable and match system',  'major',   7),
+      ('random','Quantity Check','Physical count matches system inventory', 'critical', 8),
+      ('random','Quantity Check','No unrecorded stock movements observed', 'major',   9)
+    ON CONFLICT DO NOTHING
+  `, 'warehouse checklist seed');
+
   console.log('✅ Migrations applied');
 }
 

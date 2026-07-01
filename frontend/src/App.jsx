@@ -18,6 +18,8 @@ import ChangePasswordPage from './pages/ChangePasswordPage.jsx'
 import InspectionCostPage from './pages/InspectionCostPage.jsx'
 import DocumentControlPage from './pages/DocumentControlPage.jsx'
 import SupplierScorecardPage from './pages/SupplierScorecardPage.jsx'
+import WarehouseInspectionPage from './pages/WarehouseInspectionPage.jsx'
+import WarehouseInspectionFillPage from './pages/WarehouseInspectionFillPage.jsx'
 
 export default function App() {
   return (
@@ -141,6 +143,24 @@ export default function App() {
           element={
             <ProtectedRoute>
               <DocumentControlPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/warehouse-inspections"
+          element={
+            <ProtectedRoute allowedRoles={['warehouse', 'admin', 'qa', 'buying']}>
+              <WarehouseInspectionPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/warehouse-inspections/:id"
+          element={
+            <ProtectedRoute allowedRoles={['warehouse', 'admin', 'qa', 'buying']}>
+              <WarehouseInspectionFillPage />
             </ProtectedRoute>
           }
         />

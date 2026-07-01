@@ -16,6 +16,7 @@ const documentRoutes = require('./routes/documents');
 const itemHistoryRoutes = require('./routes/itemHistory');
 const scorecardRoutes = require('./routes/scorecard');
 const checklistImagesRoutes = require('./routes/checklistImages');
+const warehouseInspectionRoutes = require('./routes/warehouseInspections');
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/item-history', itemHistoryRoutes);
 app.use('/api/scorecard', scorecardRoutes);
 app.use('/api/checklist-images', checklistImagesRoutes);
+app.use('/api/warehouse-inspections', warehouseInspectionRoutes);
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

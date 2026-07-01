@@ -15,6 +15,7 @@ const roleMeta = {
   agency_user:   { label: 'Agency',   bg: '#d97706', color: '#fff' },
   supplier_user: { label: 'Supplier', bg: '#7c3aed', color: '#fff' },
   admin:         { label: 'Admin',    bg: '#dc2626', color: '#fff' },
+  warehouse:     { label: 'Warehouse', bg: '#0f766e', color: '#fff' },
 }
 
 const NAV_ICONS = {
@@ -24,6 +25,7 @@ const NAV_ICONS = {
   tmpl:    '✅',
   costs:   '💰',
   docs:    '📁',
+  wh:      '🏭',
   score:   '🏆',
   users:   '👥',
   masters: '⚙',
@@ -46,6 +48,8 @@ export default function Navbar() {
     { to: '/inspection-costs',   label: role === 'supplier_user' ? 'Inspection Charges' : t('nav_inspection_costs'), key: 'costs',
       show: ['qa','buying','imports','accounts','agency_user','admin','supplier_user'].includes(role) },
     { to: '/documents',          label: 'Document Control',           key: 'docs',    show: true },
+    { to: '/warehouse-inspections', label: 'Warehouse Inspections',   key: 'wh',
+      show: ['warehouse', 'admin', 'qa', 'buying'].includes(role) },
     { to: '/scorecard',          label: 'Supplier Scorecard',         key: 'score',
       show: ['admin','qa','buying','imports','accounts','supplier_user'].includes(role) },
     { to: '/admin/users',        label: t('nav_users'),               key: 'users',   show: role === 'admin' },
