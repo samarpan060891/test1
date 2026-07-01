@@ -22,7 +22,8 @@ export default function WarehouseInspectionPage() {
   // PO/item dropdowns
   const [poList, setPoList] = useState([])
   const [itemList, setItemList] = useState([])
-  const [form, setForm] = useState({ po_no: '', item_code: '', stage: 'inbound', trigger_source: '' })
+  const [form, setForm] = useState({ po_no: '', stage: 'inbound', trigger_source: '' })
+  const [selectedItems, setSelectedItems] = useState([]) // multi-select
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
 
@@ -32,11 +33,22 @@ export default function WarehouseInspectionPage() {
   }, [])
 
   useEffect(() => {
-    if (!form.po_no) { setItemList([]); return }
+    if (!form.po_no) { setItemList([]); setSelectedItems([]); return }
     client.get('/masters/items', { params: { po_no: form.po_no } })
-      .then(r => setItemList(r.data || []))
-      .catch(() => setItemList([]))
+      .then(r => { setItemList(r.data || []); setSelectedItems([]) })
+      .catch(() => { setItemList([]); setSelectedItems([]) })
   }, [form.po_no])
+
+  function toggleItem(code) {
+    setSelectedItems(prev =>
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+    )
+  }
+  function toggleAll() {
+    setSelectedItems(prev =>
+      prev.length === itemList.length ? [] : itemList.map(i => i.item_code)
+    )
+  }
 
   async function fetchInspections() {
     setLoading(true)
@@ -58,16 +70,24 @@ export default function WarehouseInspectionPage() {
 
   async function handleCreate(e) {
     e.preventDefault()
-    if (!form.po_no || !form.item_code || !form.stage) {
-      setCreateError('PO, item and stage are required')
+    if (!form.po_no || selectedItems.length === 0 || !form.stage) {
+      setCreateError('PO, at least one item, and stage are required')
       return
     }
     setCreating(true)
     setCreateError('')
     try {
-      const r = await createWarehouseInspection(form)
+      const results = []
+      for (const item_code of selectedItems) {
+        const r = await createWarehouseInspection({ ...form, item_code })
+        results.push(r.data)
+      }
       setShowCreate(false)
-      navigate(`/warehouse-inspections/${r.data.wh_inspection_id}`)
+      if (results.length === 1) {
+        navigate(`/warehouse-inspections/${results[0].wh_inspection_id}`)
+      } else {
+        fetchInspections()
+      }
     } catch (err) {
       setCreateError(err.response?.data?.error || 'Failed to create')
     } finally {
@@ -198,14 +218,28 @@ export default function WarehouseInspectionPage() {
                   {poList.map(p => <option key={p.po_no} value={p.po_no}>{p.po_no}{p.description ? ` — ${p.description}` : ''}</option>)}
                 </select>
               </label>
-              <label style={{ display: 'block', marginBottom: '14px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '5px' }}>Item *</span>
-                <select value={form.item_code} onChange={e => setForm(f => ({ ...f, item_code: e.target.value }))}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px' }} required>
-                  <option value="">{form.po_no ? 'Select Item' : 'Select PO first'}</option>
-                  {itemList.map(i => <option key={i.item_code} value={i.item_code}>{i.item_code}{i.name ? ` — ${i.name}` : ''}</option>)}
-                </select>
-              </label>
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Items * ({selectedItems.length} selected)</span>
+                  {itemList.length > 0 && (
+                    <button type="button" onClick={toggleAll} style={{ fontSize: '12px', color: '#1e3a5f', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
+                      {selectedItems.length === itemList.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                  )}
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+                  {!form.po_no ? (
+                    <div style={{ padding: '12px', color: '#94a3b8', fontSize: '13px' }}>Select PO first</div>
+                  ) : itemList.length === 0 ? (
+                    <div style={{ padding: '12px', color: '#94a3b8', fontSize: '13px' }}>No items found for this PO</div>
+                  ) : itemList.map(i => (
+                    <label key={i.item_code} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', background: selectedItems.includes(i.item_code) ? '#eff6ff' : '#fff' }}>
+                      <input type="checkbox" checked={selectedItems.includes(i.item_code)} onChange={() => toggleItem(i.item_code)} style={{ width: '16px', height: '16px', accentColor: '#1e3a5f' }} />
+                      <span style={{ fontSize: '13px', color: '#1e293b' }}>{i.item_code}{i.name ? ` — ${i.name}` : ''}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <label style={{ display: 'block', marginBottom: '14px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '5px' }}>Stage *</span>
                 <select value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}
