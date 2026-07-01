@@ -31,7 +31,7 @@ async function sendEmail({ to, subject, html }) {
     const { data, error } = await client.emails.send({
       from: 'QC Inspection Portal <onboarding@resend.dev>',
       to: recipients,
-      cc: ['samarpan01@gmail.com', 'samarpan.mondal@lalsgroup.com'],
+      cc: ['samarpan01@gmail.com'],
       subject: process.env.TEST_EMAIL_TO ? `[TEST] ${subject}` : subject,
       html: testBanner + html,
     });
