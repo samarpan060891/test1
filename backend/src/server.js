@@ -703,6 +703,41 @@ async function runMigrations() {
       ADD COLUMN IF NOT EXISTS item_code TEXT
   `, 'add item_code to warehouse_checklist_template');
 
+  // Deduplicate warehouse_checklist_template rows (seed re-runs on each restart → duplicates)
+  await safeQuery(`
+    DELETE FROM qc_inspection.warehouse_checklist_template a
+    USING qc_inspection.warehouse_checklist_template b
+    WHERE a.checkpoint_id > b.checkpoint_id
+      AND a.stage = b.stage
+      AND a.section = b.section
+      AND a.checkpoint = b.checkpoint
+      AND (
+        (a.item_code IS NULL AND b.item_code IS NULL)
+        OR a.item_code = b.item_code
+      )
+  `, 'deduplicate warehouse_checklist_template');
+
+  // Unique indexes on template so ON CONFLICT DO NOTHING works in seed
+  await safeQuery(`
+    CREATE UNIQUE INDEX IF NOT EXISTS wct_unique_generic
+      ON qc_inspection.warehouse_checklist_template (stage, section, checkpoint)
+      WHERE item_code IS NULL
+  `, 'unique index for generic checkpoints');
+  await safeQuery(`
+    CREATE UNIQUE INDEX IF NOT EXISTS wct_unique_item_specific
+      ON qc_inspection.warehouse_checklist_template (stage, section, checkpoint, item_code)
+      WHERE item_code IS NOT NULL
+  `, 'unique index for item-specific checkpoints');
+
+  // Deduplicate warehouse_inspection_response before adding unique constraint
+  await safeQuery(`
+    DELETE FROM qc_inspection.warehouse_inspection_response a
+    USING qc_inspection.warehouse_inspection_response b
+    WHERE a.wh_inspection_id = b.wh_inspection_id
+      AND a.checkpoint_id = b.checkpoint_id
+      AND a.response_id > b.response_id
+  `, 'deduplicate warehouse_inspection_response');
+
   // Unique constraint on response to allow ON CONFLICT DO NOTHING in sync
   await safeQuery(`
     ALTER TABLE qc_inspection.warehouse_inspection_response
