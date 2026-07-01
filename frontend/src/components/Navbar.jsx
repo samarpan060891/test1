@@ -43,8 +43,6 @@ export default function Navbar() {
   const navLinks = [
     { to: '/warehouse-inspections', label: 'Warehouse Inspections',   key: 'wh',
       show: role === 'warehouse' },
-    { to: '/map-inspection',     label: 'QC History',                 key: 'map',
-      show: role === 'warehouse' },
     { to: '/dashboard',          label: t('nav_dashboard'),           key: 'dash',    show: role !== 'warehouse' },
     { to: '/po-log',             label: t('nav_po_log'),              key: 'po',      show: role !== 'warehouse' },
     { to: '/map-inspection',     label: t('nav_map_inspection'),      key: 'map',

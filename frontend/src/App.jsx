@@ -42,7 +42,7 @@ export default function App() {
         <Route
           path="/map-inspection"
           element={
-            <ProtectedRoute allowedRoles={['qa', 'buying', 'admin', 'warehouse']}>
+            <ProtectedRoute allowedRoles={['qa', 'buying', 'admin']}>
               <MapInspectionPage />
             </ProtectedRoute>
           }
