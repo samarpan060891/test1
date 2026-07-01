@@ -41,9 +41,12 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path
 
   const navLinks = [
-    { to: '/dashboard',          label: t('nav_dashboard'),           key: 'dash',    show: true },
-    { to: '/po-log',             label: t('nav_po_log'),              key: 'po',      show: true },
-    { to: '/map-inspection',     label: t('nav_map_inspection'),      key: 'map',     show: role === 'qa' || role === 'buying' },
+    { to: '/scorecard',          label: 'Supplier Scorecard',         key: 'score',
+      show: role === 'warehouse' },
+    { to: '/dashboard',          label: t('nav_dashboard'),           key: 'dash',    show: role !== 'warehouse' },
+    { to: '/po-log',             label: t('nav_po_log'),              key: 'po',      show: role !== 'warehouse' },
+    { to: '/map-inspection',     label: role === 'warehouse' ? 'QC History' : t('nav_map_inspection'), key: 'map',
+      show: ['qa', 'buying', 'warehouse', 'admin'].includes(role) },
     { to: '/checklist-templates',label: t('nav_checklist_templates'), key: 'tmpl',    show: role === 'qa' || role === 'admin' },
     { to: '/inspection-costs',   label: role === 'supplier_user' ? 'Inspection Charges' : t('nav_inspection_costs'), key: 'costs',
       show: ['qa','buying','imports','accounts','agency_user','admin','supplier_user'].includes(role) },

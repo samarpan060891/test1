@@ -654,7 +654,7 @@ async function runMigrations() {
       item_code         TEXT NOT NULL,
       stage             TEXT NOT NULL CHECK (stage IN ('inbound','outbound','random')),
       trigger_source    TEXT CHECK (trigger_source IN ('customer','stores','delivery_team','incoming_goods')),
-      status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','in_progress','pass','fail')),
+      status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','in_progress','pass','fail','submitted_for_qa','qa_approved','qa_rejected')),
       inspector_id      UUID REFERENCES qc_inspection.team_stakeholder(user_id),
       remarks           TEXT,
       created_at        TIMESTAMPTZ DEFAULT NOW(),
@@ -763,6 +763,35 @@ async function runMigrations() {
     ALTER TABLE qc_inspection.warehouse_inspection_response
       ADD CONSTRAINT wir_unique_inspection_checkpoint UNIQUE (wh_inspection_id, checkpoint_id)
   `, 'add unique constraint to warehouse_inspection_response');
+
+  // Widen warehouse_inspection status constraint to include QA approval states
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      DROP CONSTRAINT IF EXISTS warehouse_inspection_status_check
+  `, 'drop old warehouse_inspection status check');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD CONSTRAINT warehouse_inspection_status_check
+        CHECK (status IN ('pending','in_progress','pass','fail','submitted_for_qa','qa_approved','qa_rejected'))
+  `, 'add updated warehouse_inspection status check');
+
+  // Add qa_reviewer_id and qa_remarks columns for QA approval flow
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS qa_reviewer_id UUID REFERENCES qc_inspection.team_stakeholder(user_id)
+  `, 'add qa_reviewer_id to warehouse_inspection');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS qa_remarks TEXT
+  `, 'add qa_remarks to warehouse_inspection');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS qa_reviewed_at TIMESTAMPTZ
+  `, 'add qa_reviewed_at to warehouse_inspection');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ
+  `, 'add submitted_at to warehouse_inspection');
 
   // Update trigger_source constraint to include incoming_goods
   await safeQuery(`

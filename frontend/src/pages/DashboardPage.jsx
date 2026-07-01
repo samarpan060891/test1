@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
@@ -394,6 +394,7 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
 
+  if (user?.role === 'warehouse') return <Navigate to="/scorecard" replace />
 
   const [jobs, setJobs] = useState([])
   const [advices, setAdvices] = useState([])

@@ -9,9 +9,12 @@ import * as XLSX from 'xlsx'
 const STAGES = ['inbound', 'outbound', 'random']
 
 const STATUS_META = {
-  in_progress: { bg: '#fef3c7', color: '#92400e', label: 'In Progress' },
-  pass:        { bg: '#f0fdf4', color: '#15803d', label: 'Pass' },
-  fail:        { bg: '#fef2f2', color: '#dc2626', label: 'Fail' },
+  in_progress:      { bg: '#fef3c7', color: '#92400e',  label: 'In Progress' },
+  pass:             { bg: '#f0fdf4', color: '#15803d',  label: 'Pass' },
+  fail:             { bg: '#fef2f2', color: '#dc2626',  label: 'Fail' },
+  submitted_for_qa: { bg: '#eff6ff', color: '#1d4ed8',  label: 'Submitted for QA' },
+  qa_approved:      { bg: '#f0fdf4', color: '#15803d',  label: 'QA Approved' },
+  qa_rejected:      { bg: '#fef2f2', color: '#dc2626',  label: 'QA Rejected' },
 }
 
 const STAGE_META = {
@@ -155,13 +158,16 @@ export default function WarehouseInspectionPage() {
     : inspections
 
   const STAT_CARDS = [
-    { label: 'All Inspections', key: null,          cls: 'blue',  accent: '#E8470F' },
-    { label: 'In Progress',     key: 'in_progress', cls: 'amber', accent: '#d97706' },
-    { label: 'Pass',            key: 'pass',        cls: 'green', accent: '#059669' },
-    { label: 'Fail',            key: 'fail',        cls: 'red',   accent: '#dc2626' },
-    { label: 'Inbound',        key: 'inbound',     cls: 'blue',  accent: '#1d4ed8' },
-    { label: 'Outbound',       key: 'outbound',    cls: 'blue',  accent: '#7e22ce' },
-    { label: 'Random',         key: 'random',      cls: 'amber', accent: '#92400e' },
+    { label: 'All Inspections', key: null,               cls: 'blue',  accent: '#E8470F' },
+    { label: 'In Progress',     key: 'in_progress',      cls: 'amber', accent: '#d97706' },
+    { label: 'Submitted QA',   key: 'submitted_for_qa', cls: 'blue',  accent: '#1d4ed8' },
+    { label: 'QA Approved',    key: 'qa_approved',      cls: 'green', accent: '#059669' },
+    { label: 'QA Rejected',    key: 'qa_rejected',      cls: 'red',   accent: '#dc2626' },
+    { label: 'Pass',            key: 'pass',             cls: 'green', accent: '#059669' },
+    { label: 'Fail',            key: 'fail',             cls: 'red',   accent: '#dc2626' },
+    { label: 'Inbound',         key: 'inbound',          cls: 'blue',  accent: '#1d4ed8' },
+    { label: 'Outbound',        key: 'outbound',         cls: 'blue',  accent: '#7e22ce' },
+    { label: 'Random',          key: 'random',           cls: 'amber', accent: '#92400e' },
   ]
 
   const selectStyle = {
@@ -225,6 +231,9 @@ export default function WarehouseInspectionPage() {
             <option value="in_progress">In Progress</option>
             <option value="pass">Pass</option>
             <option value="fail">Fail</option>
+            <option value="submitted_for_qa">Submitted for QA</option>
+            <option value="qa_approved">QA Approved</option>
+            <option value="qa_rejected">QA Rejected</option>
           </select>
           <select value={filters.po_no} onChange={e => setFilters(f => ({ ...f, po_no: e.target.value }))} style={{ ...selectStyle, minWidth: '200px' }}>
             <option value="">All POs</option>

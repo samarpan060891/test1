@@ -15,6 +15,8 @@ import {
   addCheckpointTemplate,
   deleteCheckpointTemplate,
   syncInspectionResponses,
+  submitWarehouseForQA,
+  qaReviewWarehouseInspection,
 } from '../api/warehouseInspections.js'
 
 const RESULT_OPTIONS = ['', 'pass', 'fail', 'na']
@@ -25,9 +27,12 @@ const RESULT_COLORS = {
   '':   { bg: '#fff', color: '#94a3b8', label: 'Pending' },
 }
 const STATUS_COLOR = {
-  in_progress: { bg: '#fef3c7', color: '#92400e', label: 'In Progress' },
-  pass:        { bg: '#d1fae5', color: '#065f46', label: 'Pass' },
-  fail:        { bg: '#fee2e2', color: '#991b1b', label: 'Fail' },
+  in_progress:      { bg: '#fef3c7', color: '#92400e',  label: 'In Progress' },
+  pass:             { bg: '#d1fae5', color: '#065f46',  label: 'Pass' },
+  fail:             { bg: '#fee2e2', color: '#991b1b',  label: 'Fail' },
+  submitted_for_qa: { bg: '#eff6ff', color: '#1d4ed8',  label: 'Submitted for QA' },
+  qa_approved:      { bg: '#d1fae5', color: '#065f46',  label: 'QA Approved' },
+  qa_rejected:      { bg: '#fee2e2', color: '#991b1b',  label: 'QA Rejected' },
 }
 
 export default function WarehouseInspectionFillPage() {
@@ -48,6 +53,12 @@ export default function WarehouseInspectionFillPage() {
   const [msg, setMsg] = useState('')
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
+
+  // QA review state
+  const [submittingForQA, setSubmittingForQA] = useState(false)
+  const [qaAction, setQaAction] = useState('')
+  const [qaRemarks, setQaRemarks] = useState('')
+  const [qaReviewing, setQaReviewing] = useState(false)
 
   // Item-specific checkpoint management
   const [showAddCheckpoint, setShowAddCheckpoint] = useState(false)
@@ -191,6 +202,41 @@ export default function WarehouseInspectionFillPage() {
     }
   }
 
+  async function handleSubmitForQA() {
+    if (!window.confirm('Submit this inspection for QA review? QA will be notified by email.')) return
+    setSubmittingForQA(true)
+    setMsg('')
+    try {
+      const r = await submitWarehouseForQA(id)
+      setInspection(r.data)
+      setMsg('Submitted for QA review. QA team has been notified.')
+    } catch (err) {
+      setMsg('Failed: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setSubmittingForQA(false)
+    }
+  }
+
+  async function handleQAReview(action) {
+    if (!qaRemarks.trim() && action === 'reject') {
+      setMsg('Please provide remarks when rejecting.')
+      return
+    }
+    if (!window.confirm(`${action === 'approve' ? 'Approve' : 'Reject'} this warehouse inspection?`)) return
+    setQaReviewing(true)
+    setMsg('')
+    try {
+      const r = await qaReviewWarehouseInspection(id, action, qaRemarks)
+      setInspection(r.data)
+      setMsg(`Inspection ${action === 'approve' ? 'approved' : 'rejected'}. Warehouse team has been notified.`)
+      setQaAction('')
+    } catch (err) {
+      setMsg('Failed: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setQaReviewing(false)
+    }
+  }
+
   async function handleDeleteImage(imageId) {
     if (!window.confirm('Delete this image?')) return
     try {
@@ -209,7 +255,11 @@ export default function WarehouseInspectionFillPage() {
     sections[r.section].push(r)
   })
 
-  const isComplete = inspection?.status !== 'in_progress'
+  const isComplete = !['in_progress', 'pending'].includes(inspection?.status)
+  const canSubmitForQA = ['warehouse', 'admin'].includes(user?.role) &&
+    ['in_progress', 'pass', 'fail'].includes(inspection?.status)
+  const canQAReview = ['qa', 'admin'].includes(user?.role) &&
+    inspection?.status === 'submitted_for_qa'
   const st = inspection ? (STATUS_COLOR[inspection.status] || { bg: '#f1f5f9', color: '#475569', label: inspection.status }) : null
 
   const card = { background: '#fff', borderRadius: '12px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', padding: '20px' }
@@ -399,12 +449,98 @@ export default function WarehouseInspectionFillPage() {
                     style={{ padding: '10px 20px', borderRadius: '8px', background: '#059669', color: '#fff', border: 'none', fontWeight: '600', fontSize: '14px', cursor: completing ? 'default' : 'pointer', opacity: completing ? 0.7 : 1 }}>
                     {completing ? 'Completing…' : 'Mark as Complete'}
                   </button>
+                  {canSubmitForQA && (
+                    <button onClick={handleSubmitForQA} disabled={submittingForQA}
+                      style={{ padding: '10px 20px', borderRadius: '8px', background: '#1d4ed8', color: '#fff', border: 'none', fontWeight: '600', fontSize: '14px', cursor: submittingForQA ? 'default' : 'pointer', opacity: submittingForQA ? 0.7 : 1 }}>
+                      {submittingForQA ? 'Submitting…' : '📋 Submit for QA Review'}
+                    </button>
+                  )}
                 </div>
               </div>
             )}
 
-            {isComplete && (
-              <div style={{ ...card, background: inspection.status === 'pass' ? '#d1fae5' : '#fee2e2', border: `1px solid ${inspection.status === 'pass' ? '#6ee7b7' : '#fca5a5'}` }}>
+            {/* Submit for QA — for pass/fail statuses */}
+            {canSubmitForQA && isComplete && (
+              <div style={{ ...card, marginTop: '16px', borderLeft: '4px solid #1d4ed8' }}>
+                <div style={{ fontWeight: '700', fontSize: '15px', color: '#1d4ed8', marginBottom: '8px' }}>Submit for QA Review</div>
+                <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#64748b' }}>
+                  Submit this completed inspection for QA team review. They will be notified by email and in-app notification.
+                </p>
+                <button onClick={handleSubmitForQA} disabled={submittingForQA}
+                  style={{ padding: '10px 20px', borderRadius: '8px', background: '#1d4ed8', color: '#fff', border: 'none', fontWeight: '600', fontSize: '14px', cursor: submittingForQA ? 'default' : 'pointer', opacity: submittingForQA ? 0.7 : 1 }}>
+                  {submittingForQA ? 'Submitting…' : '📋 Submit for QA Review'}
+                </button>
+              </div>
+            )}
+
+            {/* QA Review panel */}
+            {canQAReview && (
+              <div style={{ ...card, marginTop: '16px', borderLeft: '4px solid #f59e0b', background: '#fffbeb' }}>
+                <div style={{ fontWeight: '700', fontSize: '15px', color: '#92400e', marginBottom: '8px' }}>⚠️ QA Review Required</div>
+                <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#64748b' }}>
+                  This inspection was submitted by the warehouse team. Review and approve or reject.
+                </p>
+                <label style={{ display: 'block', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>QA Remarks {qaAction === 'reject' ? '(required)' : '(optional)'}</span>
+                  <textarea value={qaRemarks} onChange={e => setQaRemarks(e.target.value)} rows={3}
+                    placeholder="Add your review remarks…"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} />
+                </label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={() => handleQAReview('approve')} disabled={qaReviewing}
+                    style={{ padding: '10px 24px', borderRadius: '8px', background: '#059669', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: qaReviewing ? 'default' : 'pointer', opacity: qaReviewing ? 0.7 : 1 }}>
+                    {qaReviewing ? 'Processing…' : '✓ Approve'}
+                  </button>
+                  <button onClick={() => handleQAReview('reject')} disabled={qaReviewing}
+                    style={{ padding: '10px 24px', borderRadius: '8px', background: '#dc2626', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: qaReviewing ? 'default' : 'pointer', opacity: qaReviewing ? 0.7 : 1 }}>
+                    {qaReviewing ? 'Processing…' : '✕ Reject'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Status banner for submitted/reviewed */}
+            {['submitted_for_qa', 'qa_approved', 'qa_rejected'].includes(inspection?.status) && (
+              <div style={{ ...card, marginTop: '16px',
+                background: inspection.status === 'qa_approved' ? '#d1fae5' : inspection.status === 'qa_rejected' ? '#fee2e2' : '#eff6ff',
+                border: `1px solid ${inspection.status === 'qa_approved' ? '#6ee7b7' : inspection.status === 'qa_rejected' ? '#fca5a5' : '#93c5fd'}` }}>
+                <div style={{ fontWeight: '700', fontSize: '16px', color: inspection.status === 'qa_approved' ? '#065f46' : inspection.status === 'qa_rejected' ? '#991b1b' : '#1d4ed8' }}>
+                  {inspection.status === 'qa_approved' ? '✓ QA Approved' : inspection.status === 'qa_rejected' ? '✕ QA Rejected' : '📋 Submitted for QA Review'}
+                </div>
+                {inspection.qa_remarks && (
+                  <div style={{ marginTop: '8px', fontSize: '13px', color: '#374151' }}>
+                    <strong>QA Remarks:</strong> {inspection.qa_remarks}
+                  </div>
+                )}
+                {inspection.qa_reviewed_at && (
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#64748b' }}>
+                    Reviewed: {new Date(inspection.qa_reviewed_at).toLocaleString()}
+                  </div>
+                )}
+                {inspection.submitted_at && inspection.status === 'submitted_for_qa' && (
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#64748b' }}>
+                    Submitted: {new Date(inspection.submitted_at).toLocaleString()}
+                  </div>
+                )}
+                {/* QA Reject → allow warehouse to re-open */}
+                {inspection.status === 'qa_rejected' && ['warehouse', 'admin'].includes(user?.role) && (
+                  <button onClick={async () => {
+                    if (!window.confirm('Re-open this inspection for editing?')) return
+                    try {
+                      const r = await (await import('../api/client.js')).default.patch(`/warehouse-inspections/${id}/reopen`)
+                      setInspection(r.data)
+                      setMsg('Inspection re-opened for editing.')
+                    } catch (err) { setMsg('Failed: ' + (err.response?.data?.error || err.message)) }
+                  }}
+                    style={{ marginTop: '12px', padding: '8px 18px', borderRadius: '8px', background: '#1C1208', color: '#fff', border: 'none', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}>
+                    Re-open for Editing
+                  </button>
+                )}
+              </div>
+            )}
+
+            {['pass', 'fail'].includes(inspection?.status) && (
+              <div style={{ ...card, marginTop: '16px', background: inspection.status === 'pass' ? '#d1fae5' : '#fee2e2', border: `1px solid ${inspection.status === 'pass' ? '#6ee7b7' : '#fca5a5'}` }}>
                 <div style={{ fontWeight: '700', fontSize: '16px', color: inspection.status === 'pass' ? '#065f46' : '#991b1b' }}>
                   {inspection.status === 'pass' ? '✓ Inspection Passed' : '✗ Inspection Failed'}
                 </div>

@@ -419,6 +419,86 @@ function emailDocReviewed({ supplierName, itemName, docType, action, remarks, re
   };
 }
 
+function emailWhSubmittedForQA({ poNo, itemName, supplierName, stage, failedCheckpoints, inspectionId }) {
+  const url = inspectionId ? `${APP_URL}/warehouse-inspections/${inspectionId}` : `${APP_URL}/warehouse-inspections`;
+  const stageLabel = stage ? stage.charAt(0).toUpperCase() + stage.slice(1) : '—';
+  const failedSection = failedCheckpoints && failedCheckpoints.length > 0
+    ? `<div style="margin:16px 0;">
+        <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#991b1b;">⚠️ ${failedCheckpoints.length} Failed Checkpoint${failedCheckpoints.length > 1 ? 's' : ''}</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #fca5a5;border-radius:8px;overflow:hidden;">
+          <tr style="background:#fef2f2;">
+            <th style="padding:8px 12px;font-size:11px;font-weight:700;color:#991b1b;text-align:left;border-bottom:1px solid #fca5a5;">Section</th>
+            <th style="padding:8px 12px;font-size:11px;font-weight:700;color:#991b1b;text-align:left;border-bottom:1px solid #fca5a5;">Checkpoint</th>
+            <th style="padding:8px 12px;font-size:11px;font-weight:700;color:#991b1b;text-align:left;border-bottom:1px solid #fca5a5;">Criticality</th>
+          </tr>
+          ${failedCheckpoints.map(cp => `<tr style="border-bottom:1px solid #fee2e2;">
+            <td style="padding:8px 12px;font-size:12px;color:#374151;font-weight:600;">${cp.section || '—'}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#374151;">${cp.checkpoint_text || '—'}</td>
+            <td style="padding:8px 12px;"><span style="background:${cp.criticality === 'critical' ? '#fee2e2' : '#fef3c7'};color:${cp.criticality === 'critical' ? '#dc2626' : '#d97706'};padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;">${cp.criticality}</span></td>
+          </tr>`).join('')}
+        </table>
+      </div>`
+    : `<p style="color:#059669;font-size:13px;margin:12px 0;">✅ All checkpoints passed.</p>`;
+  return {
+    subject: `Warehouse Inspection Submitted for QA Review — ${itemName || poNo} | ${stageLabel}`,
+    html: layout('Warehouse Inspection Submitted for QA Review', `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">A warehouse inspection has been submitted and is <strong>pending your QA review</strong>.</p>
+      ${jobInfoTable([
+        ['PO Number', poNo || '—'],
+        ['Item', itemName || '—'],
+        ['Supplier', supplierName || '—'],
+        ['Stage', stageLabel],
+      ])}
+      ${failedSection}
+      ${ctaButton('Review Inspection →', url)}
+    `),
+  };
+}
+
+function emailWhQAApproved({ poNo, itemName, supplierName, stage, reviewerName, remarks, inspectionId }) {
+  const url = inspectionId ? `${APP_URL}/warehouse-inspections/${inspectionId}` : `${APP_URL}/warehouse-inspections`;
+  return {
+    subject: `Warehouse Inspection Approved — ${itemName || poNo} | ${stage || ''}`,
+    html: layout('Warehouse Inspection Approved by QA', `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">Your warehouse inspection has been ${badge('APPROVED', '#15803d', '#f0fdf4')} by QA.</p>
+      ${jobInfoTable([
+        ['PO Number', poNo || '—'],
+        ['Item', itemName || '—'],
+        ['Supplier', supplierName || '—'],
+        ['Stage', stage || '—'],
+        ['Reviewed By', reviewerName || '—'],
+      ])}
+      ${remarks ? `<div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#15803d;">QA Remarks:</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${remarks}</p>
+      </div>` : ''}
+      ${ctaButton('View Inspection →', url)}
+    `),
+  };
+}
+
+function emailWhQARejected({ poNo, itemName, supplierName, stage, reviewerName, remarks, inspectionId }) {
+  const url = inspectionId ? `${APP_URL}/warehouse-inspections/${inspectionId}` : `${APP_URL}/warehouse-inspections`;
+  return {
+    subject: `Warehouse Inspection Rejected — ${itemName || poNo} | ${stage || ''}`,
+    html: layout('Warehouse Inspection Rejected by QA', `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">Your warehouse inspection has been ${badge('REJECTED', '#991b1b', '#fef2f2')} by QA. Please review the remarks and take action.</p>
+      ${jobInfoTable([
+        ['PO Number', poNo || '—'],
+        ['Item', itemName || '—'],
+        ['Supplier', supplierName || '—'],
+        ['Stage', stage || '—'],
+        ['Reviewed By', reviewerName || '—'],
+      ])}
+      ${remarks ? `<div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#991b1b;">QA Remarks:</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${remarks}</p>
+      </div>` : ''}
+      ${ctaButton('View Inspection →', url)}
+    `),
+  };
+}
+
 function emailInspectionOverdueDigest({ jobs }) {
   const rows = jobs.map(j => {
     const daysOverdue = Math.floor((Date.now() - new Date(j.inspection_date)) / (1000 * 60 * 60 * 24))
@@ -521,6 +601,9 @@ function emailPaymentOverdueDigest({ advices, targetRole }) {
 
 module.exports = {
   sendEmail,
+  emailWhSubmittedForQA,
+  emailWhQAApproved,
+  emailWhQARejected,
   emailJobMapped,
   emailSubmittedForQA,
   emailQAApproved,

@@ -1,6 +1,9 @@
 const db = require('../db');
 const {
   sendEmail,
+  emailWhSubmittedForQA,
+  emailWhQAApproved,
+  emailWhQARejected,
   emailJobMapped,
   emailSubmittedForQA,
   emailQAApproved,
@@ -12,6 +15,9 @@ const {
 } = require('./email');
 
 const EVENT_MESSAGES = {
+  WH_SUBMITTED_FOR_QA: 'A warehouse inspection has been submitted for QA review.',
+  WH_QA_APPROVED:      'A warehouse inspection has been approved by QA.',
+  WH_QA_REJECTED:      'A warehouse inspection has been rejected by QA. Please review the remarks.',
   JOB_MAPPED:              'A new inspection job has been mapped and assigned.',
   SUBMITTED_FOR_QA:        'An inspection checklist has been submitted and is pending QA review.',
   QA_APPROVED:             'The inspection has been approved by QA.',
@@ -28,6 +34,35 @@ function buildEmailForEvent(eventType, extraMessage) {
   try { data = JSON.parse(extraMessage); } catch {}
 
   switch (eventType) {
+    case 'WH_SUBMITTED_FOR_QA':
+      return emailWhSubmittedForQA({
+        poNo: data.po_no || '—',
+        itemName: data.item_name || '—',
+        supplierName: data.supplier_name || '—',
+        stage: data.stage,
+        failedCheckpoints: data.failed_checkpoints || [],
+        inspectionId: data.wh_inspection_id,
+      });
+    case 'WH_QA_APPROVED':
+      return emailWhQAApproved({
+        poNo: data.po_no || '—',
+        itemName: data.item_name || '—',
+        supplierName: data.supplier_name || '—',
+        stage: data.stage,
+        reviewerName: data.reviewer_name,
+        remarks: data.remarks,
+        inspectionId: data.wh_inspection_id,
+      });
+    case 'WH_QA_REJECTED':
+      return emailWhQARejected({
+        poNo: data.po_no || '—',
+        itemName: data.item_name || '—',
+        supplierName: data.supplier_name || '—',
+        stage: data.stage,
+        reviewerName: data.reviewer_name,
+        remarks: data.remarks,
+        inspectionId: data.wh_inspection_id,
+      });
     case 'JOB_MAPPED':
       return emailJobMapped({
         jobRef: data.job_ref || data.jobRef || '—',
@@ -134,6 +169,14 @@ function buildReadableMessage(eventType, extraMessage) {
   const ref = data.ref || '';
 
   switch (eventType) {
+    case 'WH_SUBMITTED_FOR_QA': {
+      const stageLabel = data.stage ? data.stage.charAt(0).toUpperCase() + data.stage.slice(1) : '';
+      return `Warehouse inspection submitted for QA review — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}${stageLabel ? ` (${stageLabel})` : ''}.${data.failed_checkpoints?.length ? ` ⚠️ ${data.failed_checkpoints.length} failed.` : ' ✅ All passed.'}`;
+    }
+    case 'WH_QA_APPROVED':
+      return `Warehouse inspection approved by QA — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Reviewed by ${data.reviewer_name || '—'}.`;
+    case 'WH_QA_REJECTED':
+      return `Warehouse inspection rejected by QA — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Reviewed by ${data.reviewer_name || '—'}.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
     case 'JOB_MAPPED':
       return `New inspection job mapped${jobRef ? ` — ${jobRef}` : ''}. Item: ${data.item_name || '—'}. Agency: ${data.agency_name || 'Self Inspection'}.`;
     case 'SUBMITTED_FOR_QA':

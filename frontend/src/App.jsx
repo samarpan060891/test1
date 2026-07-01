@@ -42,7 +42,7 @@ export default function App() {
         <Route
           path="/map-inspection"
           element={
-            <ProtectedRoute allowedRoles={['qa', 'buying']}>
+            <ProtectedRoute allowedRoles={['qa', 'buying', 'warehouse', 'admin']}>
               <MapInspectionPage />
             </ProtectedRoute>
           }
@@ -114,7 +114,7 @@ export default function App() {
         <Route
           path="/scorecard"
           element={
-            <ProtectedRoute allowedRoles={['admin','qa','buying','imports','accounts','supplier_user']}>
+            <ProtectedRoute allowedRoles={['admin','qa','buying','imports','accounts','supplier_user','warehouse']}>
               <SupplierScorecardPage />
             </ProtectedRoute>
           }

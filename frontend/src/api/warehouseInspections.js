@@ -48,3 +48,9 @@ export const uploadWarehouseImage = (id, file, sectionKey) => {
 
 export const deleteWarehouseImage = (id, imageId) =>
   client.delete(`/warehouse-inspections/${id}/images/${imageId}`)
+
+export const submitWarehouseForQA = (id) =>
+  client.post(`/warehouse-inspections/${id}/submit-for-qa`)
+
+export const qaReviewWarehouseInspection = (id, action, remarks) =>
+  client.post(`/warehouse-inspections/${id}/qa-review`, { action, remarks })

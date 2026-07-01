@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
+const { sendNotification } = require('../services/notifications');
 
 const router = express.Router();
 router.use(authenticate);
@@ -269,6 +270,139 @@ router.patch('/:id/complete', async (req, res) => {
       WHERE wh_inspection_id = $3
       RETURNING *
     `, [status, remarks || null, req.params.id]);
+
+    res.json(updated[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PATCH /api/warehouse-inspections/:id/reopen — re-open a QA-rejected inspection for editing
+router.patch('/:id/reopen', async (req, res) => {
+  try {
+    if (!['warehouse', 'admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied' });
+
+    const { rows } = await db.query(
+      `SELECT status FROM qc_inspection.warehouse_inspection WHERE wh_inspection_id = $1`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    if (rows[0].status !== 'qa_rejected')
+      return res.status(400).json({ error: 'Only QA-rejected inspections can be re-opened' });
+
+    const { rows: updated } = await db.query(`
+      UPDATE qc_inspection.warehouse_inspection
+      SET status = 'in_progress', qa_reviewer_id = NULL, qa_remarks = NULL, qa_reviewed_at = NULL, submitted_at = NULL
+      WHERE wh_inspection_id = $1
+      RETURNING *
+    `, [req.params.id]);
+    res.json(updated[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/warehouse-inspections/:id/submit-for-qa — warehouse submits for QA review
+router.post('/:id/submit-for-qa', async (req, res) => {
+  try {
+    if (!['warehouse', 'admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied' });
+
+    const { rows: wiRows } = await db.query(
+      `SELECT wi.*, im.name AS item_name, p.supplier_name
+       FROM qc_inspection.warehouse_inspection wi
+       JOIN qc_inspection.item_master im ON im.item_code = wi.item_code
+       JOIN qc_inspection.po_master p ON p.po_no = wi.po_no
+       WHERE wi.wh_inspection_id = $1`,
+      [req.params.id]
+    );
+    if (!wiRows.length) return res.status(404).json({ error: 'Not found' });
+    const wi = wiRows[0];
+
+    if (!['in_progress', 'pass', 'fail'].includes(wi.status))
+      return res.status(400).json({ error: 'Inspection must be in progress or completed before submitting for QA' });
+
+    const { rows: failedRows } = await db.query(`
+      SELECT wct.section, wct.checkpoint AS checkpoint_text, wct.criticality, wir.remarks AS remark
+      FROM qc_inspection.warehouse_inspection_response wir
+      JOIN qc_inspection.warehouse_checklist_template wct ON wct.checkpoint_id = wir.checkpoint_id
+      WHERE wir.wh_inspection_id = $1 AND wir.result = 'fail'
+      ORDER BY wct.sort_order
+    `, [req.params.id]);
+
+    const { rows: updated } = await db.query(`
+      UPDATE qc_inspection.warehouse_inspection
+      SET status = 'submitted_for_qa', submitted_at = NOW()
+      WHERE wh_inspection_id = $1
+      RETURNING *
+    `, [req.params.id]);
+
+    const { rows: qaUsers } = await db.query(
+      `SELECT email FROM qc_inspection.team_stakeholder WHERE role IN ('qa', 'admin')`
+    );
+    const qaEmails = qaUsers.map(u => u.email).filter(Boolean);
+
+    const extraMsg = JSON.stringify({
+      wh_inspection_id: req.params.id,
+      po_no: wi.po_no,
+      item_name: wi.item_name,
+      supplier_name: wi.supplier_name,
+      stage: wi.stage,
+      failed_checkpoints: failedRows,
+    });
+
+    await sendNotification(null, 'WH_SUBMITTED_FOR_QA', 'qa', qaEmails, extraMsg);
+
+    res.json(updated[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/warehouse-inspections/:id/qa-review — QA approves or rejects
+router.post('/:id/qa-review', async (req, res) => {
+  try {
+    if (!['qa', 'admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied' });
+
+    const { action, remarks } = req.body;
+    if (!['approve', 'reject'].includes(action))
+      return res.status(400).json({ error: 'action must be approve or reject' });
+
+    const { rows: wiRows } = await db.query(
+      `SELECT wi.*, im.name AS item_name, p.supplier_name
+       FROM qc_inspection.warehouse_inspection wi
+       JOIN qc_inspection.item_master im ON im.item_code = wi.item_code
+       JOIN qc_inspection.po_master p ON p.po_no = wi.po_no
+       WHERE wi.wh_inspection_id = $1`,
+      [req.params.id]
+    );
+    if (!wiRows.length) return res.status(404).json({ error: 'Not found' });
+    const wi = wiRows[0];
+
+    if (wi.status !== 'submitted_for_qa')
+      return res.status(400).json({ error: 'Inspection must be submitted for QA before review' });
+
+    const newStatus = action === 'approve' ? 'qa_approved' : 'qa_rejected';
+    const { rows: updated } = await db.query(`
+      UPDATE qc_inspection.warehouse_inspection
+      SET status = $1, qa_reviewer_id = $2, qa_remarks = $3, qa_reviewed_at = NOW()
+      WHERE wh_inspection_id = $4
+      RETURNING *
+    `, [newStatus, req.user.user_id, remarks || null, req.params.id]);
+
+    const { rows: whUsers } = await db.query(
+      `SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'warehouse'`
+    );
+    const whEmails = whUsers.map(u => u.email).filter(Boolean);
+
+    const eventType = action === 'approve' ? 'WH_QA_APPROVED' : 'WH_QA_REJECTED';
+    const extraMsg = JSON.stringify({
+      wh_inspection_id: req.params.id,
+      po_no: wi.po_no,
+      item_name: wi.item_name,
+      supplier_name: wi.supplier_name,
+      stage: wi.stage,
+      reviewer_name: req.user.name || req.user.email,
+      remarks: remarks || null,
+    });
+
+    await sendNotification(null, eventType, 'warehouse', whEmails, extraMsg);
 
     res.json(updated[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
