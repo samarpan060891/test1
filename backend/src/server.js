@@ -697,6 +697,18 @@ async function runMigrations() {
     )
   `, 'warehouse_inspection_image table');
 
+  // Add item_code column to warehouse_checklist_template for per-item checkpoints
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_checklist_template
+      ADD COLUMN IF NOT EXISTS item_code TEXT
+  `, 'add item_code to warehouse_checklist_template');
+
+  // Unique constraint on response to allow ON CONFLICT DO NOTHING in sync
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection_response
+      ADD CONSTRAINT wir_unique_inspection_checkpoint UNIQUE (wh_inspection_id, checkpoint_id)
+  `, 'add unique constraint to warehouse_inspection_response');
+
   // Update trigger_source constraint to include incoming_goods
   await safeQuery(`
     ALTER TABLE qc_inspection.warehouse_inspection

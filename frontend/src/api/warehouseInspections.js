@@ -12,8 +12,17 @@ export const getWarehouseResponses = (id) =>
 export const getWarehousePriorQC = (id) =>
   client.get(`/warehouse-inspections/${id}/prior-qc`)
 
-export const getChecklistTemplates = (stage) =>
-  client.get('/warehouse-inspections/checklist-templates', { params: { stage } })
+export const getChecklistTemplates = (stage, item_code) =>
+  client.get('/warehouse-inspections/checklist-templates', { params: { stage, item_code } })
+
+export const addCheckpointTemplate = (data) =>
+  client.post('/warehouse-inspections/checkpoint-templates', data)
+
+export const deleteCheckpointTemplate = (checkpointId) =>
+  client.delete(`/warehouse-inspections/checkpoint-templates/${checkpointId}`)
+
+export const syncInspectionResponses = (id) =>
+  client.post(`/warehouse-inspections/${id}/sync-responses`)
 
 export const createWarehouseInspection = (data) =>
   client.post('/warehouse-inspections', data)

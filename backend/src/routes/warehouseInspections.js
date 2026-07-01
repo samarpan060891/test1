@@ -49,17 +49,51 @@ router.get('/', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GET /api/warehouse-inspections/checklist-templates?stage=inbound
+// GET /api/warehouse-inspections/checklist-templates?stage=inbound&item_code=XYZ
 router.get('/checklist-templates', async (req, res) => {
   try {
-    const { stage } = req.query;
+    const { stage, item_code } = req.query;
     const { rows } = await db.query(
       `SELECT * FROM qc_inspection.warehouse_checklist_template
        WHERE ($1::text IS NULL OR stage = $1)
+         AND ($2::text IS NULL OR item_code IS NULL OR item_code = $2)
        ORDER BY sort_order ASC`,
-      [stage || null]
+      [stage || null, item_code || null]
     );
     res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/warehouse-inspections/checkpoint-templates — add item-specific checkpoint
+router.post('/checkpoint-templates', async (req, res) => {
+  try {
+    if (!['admin', 'qa'].includes(req.user.role))
+      return res.status(403).json({ error: 'Admin or QA only' });
+    const { stage, section, checkpoint, criticality, item_code, sort_order } = req.body;
+    if (!stage || !section || !checkpoint)
+      return res.status(400).json({ error: 'stage, section and checkpoint are required' });
+    const { rows } = await db.query(`
+      INSERT INTO qc_inspection.warehouse_checklist_template
+        (stage, section, checkpoint, criticality, item_code, sort_order)
+      VALUES ($1, $2, $3, $4, $5, COALESCE($6, 999))
+      RETURNING *
+    `, [stage, section, checkpoint, criticality || 'major', item_code || null, sort_order || null]);
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// DELETE /api/warehouse-inspections/checkpoint-templates/:checkpointId — remove item-specific checkpoint
+router.delete('/checkpoint-templates/:checkpointId', async (req, res) => {
+  try {
+    if (!['admin', 'qa'].includes(req.user.role))
+      return res.status(403).json({ error: 'Admin or QA only' });
+    // Only allow deleting item-specific (non-generic) checkpoints via this route
+    const { rowCount } = await db.query(
+      `DELETE FROM qc_inspection.warehouse_checklist_template WHERE checkpoint_id = $1 AND item_code IS NOT NULL`,
+      [req.params.checkpointId]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Checkpoint not found or is a generic checkpoint' });
+    res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -84,11 +118,11 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/responses', async (req, res) => {
   try {
     const { rows } = await db.query(`
-      SELECT wir.*, wct.section, wct.checkpoint, wct.criticality, wct.sort_order
+      SELECT wir.*, wct.section, wct.checkpoint, wct.criticality, wct.sort_order, wct.item_code
       FROM qc_inspection.warehouse_inspection_response wir
       JOIN qc_inspection.warehouse_checklist_template wct ON wct.checkpoint_id = wir.checkpoint_id
       WHERE wir.wh_inspection_id = $1
-      ORDER BY wct.sort_order ASC
+      ORDER BY wct.item_code NULLS FIRST, wct.sort_order ASC
     `, [req.params.id]);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -155,10 +189,12 @@ router.post('/', async (req, res) => {
 
     const inspection = rows[0];
 
-    // Auto-create blank responses for all checkpoints of this stage
+    // Auto-create blank responses for generic + item-specific checkpoints of this stage
     const { rows: checkpoints } = await db.query(
-      `SELECT checkpoint_id FROM qc_inspection.warehouse_checklist_template WHERE stage = $1 ORDER BY sort_order`,
-      [stage]
+      `SELECT checkpoint_id FROM qc_inspection.warehouse_checklist_template
+       WHERE stage = $1 AND (item_code IS NULL OR item_code = $2)
+       ORDER BY sort_order`,
+      [stage, item_code]
     );
     for (const cp of checkpoints) {
       await db.query(
@@ -168,6 +204,35 @@ router.post('/', async (req, res) => {
     }
 
     res.json(inspection);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/warehouse-inspections/:id/sync-responses — add missing checkpoint rows
+router.post('/:id/sync-responses', async (req, res) => {
+  try {
+    if (!WAREHOUSE_ROLES.includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied' });
+    const { rows: wi } = await db.query(
+      `SELECT stage, item_code FROM qc_inspection.warehouse_inspection WHERE wh_inspection_id = $1`,
+      [req.params.id]
+    );
+    if (!wi.length) return res.status(404).json({ error: 'Not found' });
+    const { stage, item_code } = wi[0];
+    const { rows: checkpoints } = await db.query(
+      `SELECT checkpoint_id FROM qc_inspection.warehouse_checklist_template
+       WHERE stage = $1 AND (item_code IS NULL OR item_code = $2)`,
+      [stage, item_code]
+    );
+    let added = 0;
+    for (const cp of checkpoints) {
+      const { rowCount } = await db.query(
+        `INSERT INTO qc_inspection.warehouse_inspection_response (wh_inspection_id, checkpoint_id)
+         VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [req.params.id, cp.checkpoint_id]
+      );
+      added += rowCount;
+    }
+    res.json({ ok: true, added });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

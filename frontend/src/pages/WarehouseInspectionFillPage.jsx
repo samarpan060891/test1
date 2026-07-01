@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import {
   getWarehouseInspection,
   getWarehouseResponses,
@@ -11,6 +12,9 @@ import {
   getWarehouseImageFile,
   uploadWarehouseImage,
   deleteWarehouseImage,
+  addCheckpointTemplate,
+  deleteCheckpointTemplate,
+  syncInspectionResponses,
 } from '../api/warehouseInspections.js'
 
 const RESULT_OPTIONS = ['', 'pass', 'fail', 'na']
@@ -29,13 +33,15 @@ const STATUS_COLOR = {
 export default function WarehouseInspectionFillPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const canManageCheckpoints = user?.role === 'admin' || user?.role === 'qa'
 
   const [inspection, setInspection] = useState(null)
   const [responses, setResponses] = useState([])
   const [priorQC, setPriorQC] = useState([])
   const [images, setImages] = useState([])
   const [imageURLs, setImageURLs] = useState({})
-  const [activeTab, setTab] = useState('checklist') // 'checklist' | 'prior' | 'photos'
+  const [activeTab, setTab] = useState('checklist')
   const [saving, setSaving] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [remarks, setRemarks] = useState('')
@@ -43,11 +49,19 @@ export default function WarehouseInspectionFillPage() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
 
+  // Item-specific checkpoint management
+  const [showAddCheckpoint, setShowAddCheckpoint] = useState(false)
+  const [newCp, setNewCp] = useState({ section: '', checkpoint: '', criticality: 'major' })
+  const [addingCp, setAddingCp] = useState(false)
+  const [cpMsg, setCpMsg] = useState('')
+
   useEffect(() => {
     fetchAll()
   }, [id])
 
   async function fetchAll() {
+    // Sync first so any newly added item-specific checkpoints get response rows
+    await syncInspectionResponses(id).catch(() => {})
     const [insRes, respRes, priorRes, imgRes] = await Promise.allSettled([
       getWarehouseInspection(id),
       getWarehouseResponses(id),
@@ -64,6 +78,44 @@ export default function WarehouseInspectionFillPage() {
       const imgs = imgRes.value.data || []
       setImages(imgs)
       loadImageURLs(imgs)
+    }
+  }
+
+  async function handleAddCheckpoint(e) {
+    e.preventDefault()
+    if (!newCp.section.trim() || !newCp.checkpoint.trim()) {
+      setCpMsg('Section and checkpoint text are required')
+      return
+    }
+    setAddingCp(true)
+    setCpMsg('')
+    try {
+      await addCheckpointTemplate({
+        stage: inspection.stage,
+        section: newCp.section.trim(),
+        checkpoint: newCp.checkpoint.trim(),
+        criticality: newCp.criticality,
+        item_code: inspection.item_code,
+      })
+      setNewCp({ section: '', checkpoint: '', criticality: 'major' })
+      setShowAddCheckpoint(false)
+      // Re-sync and reload responses so the new checkpoint appears
+      await fetchAll()
+      setCpMsg('Checkpoint added')
+    } catch (err) {
+      setCpMsg(err.response?.data?.error || 'Failed to add')
+    } finally {
+      setAddingCp(false)
+    }
+  }
+
+  async function handleDeleteCheckpoint(checkpointId) {
+    if (!window.confirm('Remove this item-specific checkpoint from ALL inspections of this item?')) return
+    try {
+      await deleteCheckpointTemplate(checkpointId)
+      await fetchAll()
+    } catch (err) {
+      setMsg(err.response?.data?.error || 'Failed to delete checkpoint')
     }
   }
 
@@ -271,6 +323,63 @@ export default function WarehouseInspectionFillPage() {
                 </div>
               </div>
             ))}
+
+            {/* Item-specific checkpoint management (admin/qa only) */}
+            {canManageCheckpoints && (
+              <div style={{ ...card, marginBottom: '16px', borderLeft: '3px solid #1e3a5f' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '14px', color: '#1e3a5f' }}>Item-Specific Checkpoints</div>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                      Add checkpoints that apply only to <strong>{inspection.item_code}</strong> for {inspection.stage} inspections
+                    </div>
+                  </div>
+                  <button onClick={() => { setShowAddCheckpoint(v => !v); setCpMsg('') }}
+                    style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 14px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                    {showAddCheckpoint ? 'Cancel' : '+ Add'}
+                  </button>
+                </div>
+
+                {/* List of existing item-specific checkpoints */}
+                {responses.filter(r => r.item_code).length > 0 && (
+                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {responses.filter(r => r.item_code).map(r => (
+                      <div key={r.checkpoint_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: '#eff6ff', borderRadius: '6px', fontSize: '13px' }}>
+                        <span style={{ color: '#1e3b5f' }}><strong>{r.section}</strong>: {r.checkpoint}</span>
+                        <button onClick={() => handleDeleteCheckpoint(r.checkpoint_id)}
+                          style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '14px', fontWeight: '700', padding: '0 4px' }}>
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {showAddCheckpoint && (
+                  <form onSubmit={handleAddCheckpoint} style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <input value={newCp.section} onChange={e => setNewCp(p => ({ ...p, section: e.target.value }))}
+                        placeholder="Section (e.g. Product Check)"
+                        style={{ flex: 1, minWidth: '140px', padding: '7px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px' }} />
+                      <select value={newCp.criticality} onChange={e => setNewCp(p => ({ ...p, criticality: e.target.value }))}
+                        style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                        <option value="critical">Critical</option>
+                        <option value="major">Major</option>
+                        <option value="minor">Minor</option>
+                      </select>
+                    </div>
+                    <input value={newCp.checkpoint} onChange={e => setNewCp(p => ({ ...p, checkpoint: e.target.value }))}
+                      placeholder="Checkpoint description"
+                      style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px' }} />
+                    {cpMsg && <div style={{ fontSize: '12px', color: '#dc2626' }}>{cpMsg}</div>}
+                    <button type="submit" disabled={addingCp}
+                      style={{ alignSelf: 'flex-start', padding: '7px 16px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: addingCp ? 'default' : 'pointer', opacity: addingCp ? 0.7 : 1 }}>
+                      {addingCp ? 'Adding…' : 'Add Checkpoint'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
 
             {/* Summary + actions */}
             {!isComplete && (
