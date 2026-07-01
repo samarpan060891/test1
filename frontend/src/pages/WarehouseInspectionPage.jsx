@@ -104,12 +104,15 @@ export default function WarehouseInspectionPage() {
             <option value="pass">Pass</option>
             <option value="fail">Fail</option>
           </select>
-          <input
-            placeholder="Filter by PO No."
-            value={filters.po_no}
-            onChange={e => setFilters(f => ({ ...f, po_no: e.target.value }))}
-            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px', minWidth: '160px' }}
-          />
+          <select value={filters.po_no} onChange={e => setFilters(f => ({ ...f, po_no: e.target.value }))}
+            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px', minWidth: '180px' }}>
+            <option value="">All POs</option>
+            {poList.map(p => (
+              <option key={p.po_no} value={p.po_no}>
+                {p.po_no}{p.description ? ` — ${p.description}` : ''}
+              </option>
+            ))}
+          </select>
           <button onClick={fetchInspections} style={{ padding: '7px 14px', borderRadius: '6px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontSize: '13px', cursor: 'pointer' }}>
             Refresh
           </button>
