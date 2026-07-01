@@ -34,7 +34,7 @@ const STATUS_COLOR = {
   in_progress:      { bg: '#fef3c7', color: '#92400e',  label: 'In Progress' },
   pass:             { bg: '#d1fae5', color: '#065f46',  label: 'Pass' },
   fail:             { bg: '#fee2e2', color: '#991b1b',  label: 'Fail' },
-  submitted_for_qa: { bg: '#eff6ff', color: '#1d4ed8',  label: 'Submitted for QA' },
+  submitted_for_qa: { bg: '#eff6ff', color: '#1d4ed8',  label: 'Pending QA Review' },
   qa_approved:      { bg: '#d1fae5', color: '#065f46',  label: 'QA Approved' },
   qa_rejected:      { bg: '#fee2e2', color: '#991b1b',  label: 'QA Rejected' },
 }
