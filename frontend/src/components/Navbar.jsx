@@ -41,7 +41,7 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path
 
   const navLinks = [
-    { to: '/dashboard',          label: t('nav_dashboard'),           key: 'dash',    show: role !== 'warehouse' },
+    { to: '/dashboard',          label: t('nav_dashboard'),           key: 'dash',    show: true },
     { to: '/po-log',             label: t('nav_po_log'),              key: 'po',      show: true },
     { to: '/map-inspection',     label: t('nav_map_inspection'),      key: 'map',     show: role === 'qa' || role === 'buying' },
     { to: '/checklist-templates',label: t('nav_checklist_templates'), key: 'tmpl',    show: role === 'qa' || role === 'admin' },
