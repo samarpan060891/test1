@@ -496,10 +496,12 @@ export default function WarehouseInspectionFillPage() {
                     style={{ padding: '10px 20px', borderRadius: '8px', background: '#1C1208', color: '#fff', border: 'none', fontWeight: '600', fontSize: '14px', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
                     {saving ? 'Saving…' : 'Save Progress'}
                   </button>
+                  {user?.role !== 'warehouse' && (
                   <button onClick={handleComplete} disabled={completing}
                     style={{ padding: '10px 20px', borderRadius: '8px', background: '#059669', color: '#fff', border: 'none', fontWeight: '600', fontSize: '14px', cursor: completing ? 'default' : 'pointer', opacity: completing ? 0.7 : 1 }}>
                     {completing ? 'Completing…' : 'Mark as Complete'}
                   </button>
+                  )}
                   {canSubmitForQA && (
                     <button onClick={handleSubmitForQA} disabled={submittingForQA}
                       style={{ padding: '10px 20px', borderRadius: '8px', background: '#1d4ed8', color: '#fff', border: 'none', fontWeight: '600', fontSize: '14px', cursor: submittingForQA ? 'default' : 'pointer', opacity: submittingForQA ? 0.7 : 1 }}>
@@ -662,7 +664,7 @@ export default function WarehouseInspectionFillPage() {
                           <div key={j.job_id || i} style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', borderLeft: `3px solid ${stageColor}` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                               <div>
-                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{j.job_ref || String(j.job_id).slice(0,8)}</div>
+                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{j.job_ref || (j.job_id ? `WH-INSP-${String(j.job_id).slice(0,6)}` : 'WH-INSP')}</div>
                                 <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{j.inspection_stage?.replace(/_/g,' ')} · {j.po_no}</div>
                                 {j.agency_name && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>{j.agency_name}</div>}
                               </div>

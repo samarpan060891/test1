@@ -12,7 +12,7 @@ const STATUS_META = {
   in_progress:      { bg: '#fef3c7', color: '#92400e',  label: 'In Progress' },
   pass:             { bg: '#f0fdf4', color: '#15803d',  label: 'Pass' },
   fail:             { bg: '#fef2f2', color: '#dc2626',  label: 'Fail' },
-  submitted_for_qa: { bg: '#eff6ff', color: '#1d4ed8',  label: 'Submitted for QA' },
+  submitted_for_qa: { bg: '#eff6ff', color: '#1d4ed8',  label: 'Pending QA Review' },
   qa_approved:      { bg: '#f0fdf4', color: '#15803d',  label: 'QA Approved' },
   qa_rejected:      { bg: '#fef2f2', color: '#dc2626',  label: 'QA Rejected' },
 }
