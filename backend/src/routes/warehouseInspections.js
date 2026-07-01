@@ -189,19 +189,14 @@ router.post('/', async (req, res) => {
 
     const inspection = rows[0];
 
-    // Auto-create blank responses for generic + item-specific checkpoints of this stage
-    const { rows: checkpoints } = await db.query(
-      `SELECT checkpoint_id FROM qc_inspection.warehouse_checklist_template
-       WHERE stage = $1 AND (item_code IS NULL OR item_code = $2)
-       ORDER BY sort_order`,
-      [stage, item_code]
-    );
-    for (const cp of checkpoints) {
-      await db.query(
-        `INSERT INTO qc_inspection.warehouse_inspection_response (wh_inspection_id, checkpoint_id) VALUES ($1, $2)`,
-        [inspection.wh_inspection_id, cp.checkpoint_id]
-      );
-    }
+    // Create blank responses in a single INSERT ... SELECT instead of a loop
+    await db.query(`
+      INSERT INTO qc_inspection.warehouse_inspection_response (wh_inspection_id, checkpoint_id)
+      SELECT $1, checkpoint_id
+      FROM qc_inspection.warehouse_checklist_template
+      WHERE stage = $2 AND (item_code IS NULL OR item_code = $3)
+      ON CONFLICT (wh_inspection_id, checkpoint_id) DO NOTHING
+    `, [inspection.wh_inspection_id, stage, item_code]);
 
     res.json(inspection);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -218,21 +213,14 @@ router.post('/:id/sync-responses', async (req, res) => {
     );
     if (!wi.length) return res.status(404).json({ error: 'Not found' });
     const { stage, item_code } = wi[0];
-    const { rows: checkpoints } = await db.query(
-      `SELECT checkpoint_id FROM qc_inspection.warehouse_checklist_template
-       WHERE stage = $1 AND (item_code IS NULL OR item_code = $2)`,
-      [stage, item_code]
-    );
-    let added = 0;
-    for (const cp of checkpoints) {
-      const { rowCount } = await db.query(
-        `INSERT INTO qc_inspection.warehouse_inspection_response (wh_inspection_id, checkpoint_id)
-         VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-        [req.params.id, cp.checkpoint_id]
-      );
-      added += rowCount;
-    }
-    res.json({ ok: true, added });
+    const { rowCount } = await db.query(`
+      INSERT INTO qc_inspection.warehouse_inspection_response (wh_inspection_id, checkpoint_id)
+      SELECT $1, checkpoint_id
+      FROM qc_inspection.warehouse_checklist_template
+      WHERE stage = $2 AND (item_code IS NULL OR item_code = $3)
+      ON CONFLICT (wh_inspection_id, checkpoint_id) DO NOTHING
+    `, [req.params.id, stage, item_code]);
+    res.json({ ok: true, added: rowCount });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
