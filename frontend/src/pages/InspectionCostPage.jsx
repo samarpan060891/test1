@@ -12,7 +12,6 @@ import * as XLSX from 'xlsx'
 import { getAdvices, createAdvice, approveAdvice, rejectAdvice, getContracts, createContract, uploadInvoice, getInvoiceUrl } from '../api/inspectionCosts.js'
 import { getJobs } from '../api/inspectionJobs.js'
 import { getAgencies } from '../api/admin.js'
-import InspectionSummaryCard from '../components/InspectionSummaryCard.jsx'
 
 const STATUS_META = {
   pending_qa:       { bg: '#FEF0EB', color: '#E8470F',  key: 'status_pending_qa' },
@@ -343,11 +342,6 @@ export default function InspectionCostPage() {
     <div className="page">
       <Navbar />
       <div className="page-content">
-        {/* Summary Card — topmost */}
-        {!loading && advices.length > 0 && (
-          <InspectionSummaryCard advices={advices} />
-        )}
-
         {/* Header */}
         <div className="flex-between mb-4" style={{ flexWrap: 'wrap', gap: '10px' }}>
           <div>
