@@ -279,7 +279,7 @@ function CountryFlag({ name }) {
 }
 
 const PENDING_JOB_LABELS = {
-  mapped_awaiting_inspection: { label: 'Awaiting Inspection', color: '#1d4ed8', bg: '#eff6ff', dot: '#3b82f6' },
+  mapped_awaiting_inspection: { label: 'Pending Agency', color: '#1d4ed8', bg: '#eff6ff', dot: '#3b82f6' },
   submitted_pending_qa:       { label: 'Pending QA Review',   color: '#92400e', bg: '#fefce8', dot: '#d97706' },
   deviation_requested:        { label: 'Pending Buyer Deviation', color: '#92400e', bg: '#fef3c7', dot: '#d97706' },
   deviation_reviewed:         { label: 'Pending Final QA Review',  color: '#1d4ed8', bg: '#eff6ff', dot: '#3b82f6' },
@@ -456,7 +456,7 @@ export default function DashboardPage() {
   const toggleFilter = (key) => setActiveFilter(p => p === key ? null : key)
 
   const STATUS_LABELS = {
-    mapped_awaiting_inspection: 'Awaiting Inspection',
+    mapped_awaiting_inspection: 'Pending Agency',
     submitted_pending_qa:       'Pending QA Review',
     deviation_requested:        'Pending Buyer Deviation',
     deviation_reviewed:         'Pending Final QA Review',

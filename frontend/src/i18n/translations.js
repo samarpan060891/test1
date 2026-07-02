@@ -265,7 +265,7 @@ const translations = {
     common_failed_load: 'Failed to load data.',
 
     // Status labels
-    status_awaiting_inspection: 'Awaiting Inspection',
+    status_awaiting_inspection: 'Pending Agency',
     status_pending_qa_review: 'Pending QA Review',
     status_approved: 'Approved',
     status_rejected: 'Rejected',
