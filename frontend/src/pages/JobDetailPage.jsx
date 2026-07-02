@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
-import { getJob } from '../api/inspectionJobs.js'
+import { getJob, buyerReviewJobDeviation } from '../api/inspectionJobs.js'
 import { getLogs, createLog } from '../api/logEntries.js'
 import { getResponses } from '../api/inspectionResponses.js'
 import { searchAgencies } from '../api/masters.js'
@@ -19,6 +19,8 @@ import * as XLSX from 'xlsx'
 const STATUS_META = {
   mapped_awaiting_inspection: { key: 'status_awaiting_inspection', bg: '#FEF0EB', color: '#E8470F' },
   submitted_pending_qa:       { key: 'status_pending_qa_review',  bg: '#fefce8', color: '#92400e' },
+  deviation_requested:        { key: null, label: 'Pending Buyer Deviation', bg: '#fef3c7', color: '#92400e' },
+  deviation_reviewed:         { key: null, label: 'Pending Final QA Review',  bg: '#eff6ff', color: '#1d4ed8' },
   qa_approved:                { key: 'status_approved',           bg: '#f0fdf4', color: '#15803d' },
   qa_rejected:                { key: 'status_rejected',           bg: '#fef2f2', color: '#dc2626' },
 }
@@ -42,7 +44,7 @@ function StatusBadge({ status, t }) {
   const m = STATUS_META[status] || { key: null, bg: '#f1f5f9', color: '#475569' }
   return (
     <span style={{ background: m.bg, color: m.color, padding: '5px 14px', borderRadius: '9999px', fontSize: '13px', fontWeight: '700' }}>
-      {m.key ? t(m.key) : status}
+      {m.key ? t(m.key) : (m.label || status)}
     </span>
   )
 }
@@ -94,6 +96,11 @@ export default function JobDetailPage() {
   const [reinspectError, setReinspectError] = useState('')
   const [logFocused, setLogFocused] = useState(false)
 
+  // Buyer deviation state
+  const [buyerRemarks, setBuyerRemarks] = useState('')
+  const [buyerReviewing, setBuyerReviewing] = useState(false)
+  const [deviationMsg, setDeviationMsg] = useState('')
+
   const [docs, setDocs] = useState([])
   const [docsLoading, setDocsLoading] = useState(false)
   const [viewFile, setViewFile] = useState(null) // { url, type, name }
@@ -131,6 +138,26 @@ export default function JobDetailPage() {
       })
       .catch(() => setError('Failed to load job details.'))
       .finally(() => setJobLoading(false))
+  }
+
+  const handleBuyerDeviation = async (action) => {
+    if (action === 'reject' && !buyerRemarks.trim()) {
+      setDeviationMsg('Please provide remarks when rejecting the deviation.')
+      return
+    }
+    if (!window.confirm(`${action === 'approve' ? 'Approve' : 'Reject'} this deviation request?`)) return
+    setBuyerReviewing(true)
+    setDeviationMsg('')
+    try {
+      await buyerReviewJobDeviation(id, action, buyerRemarks)
+      setBuyerRemarks('')
+      setDeviationMsg(`Deviation ${action === 'approve' ? 'approved' : 'rejected'}. QA has been notified for the final decision.`)
+      fetchJob(); fetchLogs()
+    } catch (err) {
+      setDeviationMsg('Failed: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setBuyerReviewing(false)
+    }
   }
 
   const fetchHistory = (item_code) => {
@@ -426,6 +453,11 @@ export default function JobDetailPage() {
                   🔍 {t('job_review')}
                 </button>
               )}
+              {user?.role === 'qa' && job.status === 'deviation_reviewed' && (
+                <button onClick={() => navigate(`/jobs/${jobId}/review`)} className="btn" style={{ background: '#7c3aed', color: '#fff' }}>
+                  ⚖️ Make Final Decision
+                </button>
+              )}
               <Link to={`/po-log?job_id=${job?.job_ref || jobId}`} className="btn btn-ghost">
                 📂 {t('nav_po_log')}
               </Link>
@@ -438,6 +470,64 @@ export default function JobDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Deviation workflow context + Buying action */}
+        {['deviation_requested', 'deviation_reviewed'].includes(job.status) && (
+          <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', padding: '20px', marginBottom: '20px' }}>
+            <div style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a', marginBottom: '12px' }}>⤴ Deviation Workflow</div>
+
+            {job.deviation_reason && (
+              <div style={{ borderLeft: '4px solid #f59e0b', background: '#fffbeb', padding: '10px 14px', borderRadius: '0 8px 8px 0', marginBottom: '12px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#92400e', marginBottom: '2px' }}>Deviation Requested by QA</div>
+                <div style={{ fontSize: '13px', color: '#0f172a' }}>{job.deviation_reason}</div>
+                {job.deviation_requested_at && <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>Requested: {new Date(job.deviation_requested_at).toLocaleString()}</div>}
+              </div>
+            )}
+
+            {/* Buying decision result (after buying responded) */}
+            {job.status === 'deviation_reviewed' && job.buyer_decision && (
+              <div style={{ borderLeft: `4px solid ${job.buyer_decision === 'approved' ? '#059669' : '#dc2626'}`, background: job.buyer_decision === 'approved' ? '#f0fdf4' : '#fef2f2', padding: '10px 14px', borderRadius: '0 8px 8px 0', marginBottom: '12px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: job.buyer_decision === 'approved' ? '#15803d' : '#991b1b' }}>
+                  {job.buyer_decision === 'approved' ? '✓ Buying Approved the Deviation' : '✕ Buying Rejected the Deviation'}
+                </div>
+                {job.buyer_remarks && <div style={{ fontSize: '13px', color: '#0f172a', marginTop: '2px' }}><strong>Buying Remarks:</strong> {job.buyer_remarks}</div>}
+                {job.buyer_decided_at && <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>Decided: {new Date(job.buyer_decided_at).toLocaleString()}</div>}
+                {user?.role === 'qa' && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>Use "Make Final Decision" above to approve or reject the inspection.</div>}
+              </div>
+            )}
+
+            {deviationMsg && (
+              <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#eff6ff', color: '#1d4ed8', fontSize: '13px', marginBottom: '12px' }}>{deviationMsg}</div>
+            )}
+
+            {/* Buying approve/reject panel */}
+            {['buying', 'admin'].includes(user?.role) && job.status === 'deviation_requested' && (
+              <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '14px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#075985', marginBottom: '8px' }}>🏷 Your Decision on the Deviation</div>
+                <textarea value={buyerRemarks} onChange={e => setBuyerRemarks(e.target.value)} rows={3}
+                  placeholder="Buying remarks (required to reject)…"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box', marginBottom: '10px' }} />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={() => handleBuyerDeviation('approve')} disabled={buyerReviewing}
+                    style={{ padding: '10px 22px', borderRadius: '8px', background: '#059669', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: buyerReviewing ? 'default' : 'pointer', opacity: buyerReviewing ? 0.7 : 1 }}>
+                    {buyerReviewing ? 'Processing…' : '✓ Approve Deviation'}
+                  </button>
+                  <button onClick={() => handleBuyerDeviation('reject')} disabled={buyerReviewing}
+                    style={{ padding: '10px 22px', borderRadius: '8px', background: '#dc2626', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: buyerReviewing ? 'default' : 'pointer', opacity: buyerReviewing ? 0.7 : 1 }}>
+                    {buyerReviewing ? 'Processing…' : '✕ Reject Deviation'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* QA/admin waiting on Buying */}
+            {['qa', 'admin'].includes(user?.role) && job.status === 'deviation_requested' && (
+              <div style={{ fontSize: '13px', color: '#0c4a6e', background: '#f0f9ff', borderRadius: '8px', padding: '10px 14px' }}>
+                ⏳ Awaiting Buying's decision. Once they respond, this job returns for your final QA decision.
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Re-inspection Modal */}
         {showReinspect && (

@@ -548,7 +548,7 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
 
     const job = jobResult.rows[0];
 
-    if (job.status !== 'submitted_pending_qa') {
+    if (!['submitted_pending_qa', 'deviation_reviewed'].includes(job.status)) {
       await client.query('ROLLBACK'); return res.status(400).json({ error: `Cannot make decision on job in status: ${job.status}` });
     }
 
@@ -609,6 +609,132 @@ router.put('/:id/decision', authorize('qa'), async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     client.release();
+  }
+});
+
+// Helper: job context with PO buyer + supplier/agency labels for notifications
+async function loadJobContext(jobId) {
+  const { rows } = await db.query(
+    `SELECT j.*, s.name AS supplier_name, a.name AS agency_name,
+            p.buyer_id AS po_buyer_id, b.email AS po_buyer_email, b.name AS po_buyer_name
+     FROM qc_inspection.inspection_job j
+     JOIN qc_inspection.supplier_master s ON s.supplier_code = j.supplier_code
+     LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+     JOIN qc_inspection.po_master p ON p.po_no = j.po_no
+     LEFT JOIN qc_inspection.team_stakeholder b ON b.user_id = p.buyer_id
+     WHERE j.job_id = $1`, [jobId]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * POST /api/inspection-jobs/:id/request-deviation — QA asks Buying for a deviation
+ */
+router.post('/:id/request-deviation', authorize('qa'), async (req, res) => {
+  const { reason } = req.body;
+  if (!reason || !reason.trim())
+    return res.status(400).json({ error: 'A deviation reason is required' });
+
+  try {
+    const job = await loadJobContext(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    if (job.status !== 'submitted_pending_qa')
+      return res.status(400).json({ error: `Deviation can only be requested while the job is pending QA review. Current status: ${job.status}` });
+
+    const { rows: updated } = await db.query(
+      `UPDATE qc_inspection.inspection_job
+       SET status = 'deviation_requested', deviation_reason = $1,
+           deviation_requested_by = $2, deviation_requested_at = NOW(), status_updated_at = NOW()
+       WHERE job_id = $3 RETURNING *`,
+      [reason.trim(), req.user.user_id, req.params.id]
+    );
+
+    await db.query(
+      `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [job.po_no, job.job_id, req.user.user_id, req.user.role,
+       `Deviation requested from Buying. Reason: ${reason.trim()}`]
+    );
+
+    const jobItems = await getJobItemsFor(job.job_id);
+    const itemsLabel = jobItems.map(i => i.item_name).join(', ') || job.item_code;
+    const extraMsg = JSON.stringify({
+      job_id: job.job_id,
+      job_ref: job.job_ref || null,
+      po_no: job.po_no,
+      item_name: itemsLabel,
+      supplier_name: job.supplier_name,
+      agency_name: job.agency_name || null,
+      requester_name: req.user.name || req.user.email,
+      reason: reason.trim(),
+    });
+
+    if (job.po_buyer_id && job.po_buyer_email) {
+      sendNotification(job.job_id, 'JOB_DEVIATION_REQUESTED', 'buying', [job.po_buyer_email], extraMsg, null, null, null, job.po_buyer_id);
+    } else {
+      const { rows: admins } = await db.query(`SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'admin'`);
+      sendNotification(job.job_id, 'JOB_DEVIATION_NO_BUYER', 'admin', admins.map(a => a.email).filter(Boolean), extraMsg);
+    }
+
+    res.json(updated[0]);
+  } catch (err) {
+    console.error('Request deviation error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/inspection-jobs/:id/buyer-deviation — Buying approves/rejects the deviation
+ */
+router.post('/:id/buyer-deviation', authorize('buying'), async (req, res) => {
+  const { action, remarks } = req.body;
+  if (!['approve', 'reject'].includes(action))
+    return res.status(400).json({ error: 'action must be approve or reject' });
+
+  try {
+    const job = await loadJobContext(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    if (job.status !== 'deviation_requested')
+      return res.status(400).json({ error: 'No pending deviation request for this job' });
+
+    const decision = action === 'approve' ? 'approved' : 'rejected';
+    const { rows: updated } = await db.query(
+      `UPDATE qc_inspection.inspection_job
+       SET status = 'deviation_reviewed', buyer_decision = $1,
+           buyer_reviewer_id = $2, buyer_remarks = $3, buyer_decided_at = NOW(), status_updated_at = NOW()
+       WHERE job_id = $4 RETURNING *`,
+      [decision, req.user.user_id, remarks || null, req.params.id]
+    );
+
+    await db.query(
+      `INSERT INTO qc_inspection.log_entry (po_no, job_id, author_id, author_role, message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [job.po_no, job.job_id, req.user.user_id, req.user.role,
+       `Deviation ${decision} by Buying.${remarks ? ' Remarks: ' + remarks : ''}`]
+    );
+
+    const jobItems = await getJobItemsFor(job.job_id);
+    const itemsLabel = jobItems.map(i => i.item_name).join(', ') || job.item_code;
+    const eventType = action === 'approve' ? 'JOB_DEVIATION_APPROVED' : 'JOB_DEVIATION_REJECTED';
+    const extraMsg = JSON.stringify({
+      job_id: job.job_id,
+      job_ref: job.job_ref || null,
+      po_no: job.po_no,
+      item_name: itemsLabel,
+      supplier_name: job.supplier_name,
+      agency_name: job.agency_name || null,
+      buyer_name: req.user.name || req.user.email,
+      deviation_reason: job.deviation_reason,
+      remarks: remarks || null,
+    });
+
+    const qaUsers = await db.query(`SELECT email FROM qc_inspection.team_stakeholder WHERE role IN ('qa', 'admin')`);
+    sendNotification(job.job_id, eventType, 'qa', qaUsers.rows.map(u => u.email).filter(Boolean), extraMsg);
+
+    res.json(updated[0]);
+  } catch (err) {
+    console.error('Buyer deviation error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

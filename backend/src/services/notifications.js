@@ -7,6 +7,9 @@ const {
   emailWhDeviationRequested,
   emailWhDeviationDecided,
   emailWhDeviationNoBuyer,
+  emailJobDeviationRequested,
+  emailJobDeviationDecided,
+  emailJobDeviationNoBuyer,
   emailJobMapped,
   emailSubmittedForQA,
   emailQAApproved,
@@ -25,6 +28,10 @@ const EVENT_MESSAGES = {
   WH_DEVIATION_NO_BUYER:  'QA requested a deviation but no buyer is assigned to the PO. Please assign a buyer.',
   WH_DEVIATION_APPROVED:  'Buying has approved the deviation request. Awaiting final QA decision.',
   WH_DEVIATION_REJECTED:  'Buying has rejected the deviation request. Awaiting final QA decision.',
+  JOB_DEVIATION_REQUESTED: 'QA has requested a deviation approval from Buying for an inspection job.',
+  JOB_DEVIATION_NO_BUYER:  'QA requested a deviation but no buyer is assigned to the PO. Please assign a buyer.',
+  JOB_DEVIATION_APPROVED:  'Buying has approved the deviation request. Awaiting final QA decision.',
+  JOB_DEVIATION_REJECTED:  'Buying has rejected the deviation request. Awaiting final QA decision.',
   JOB_MAPPED:              'A new inspection job has been mapped and assigned.',
   SUBMITTED_FOR_QA:        'An inspection checklist has been submitted and is pending QA review.',
   QA_APPROVED:             'The inspection has been approved by QA.',
@@ -102,6 +109,42 @@ function buildEmailForEvent(eventType, extraMessage) {
         deviationReason: data.deviation_reason,
         remarks: data.remarks,
         inspectionId: data.wh_inspection_id,
+      });
+    case 'JOB_DEVIATION_REQUESTED':
+      return emailJobDeviationRequested({
+        jobRef: data.job_ref || '—',
+        poNo: data.po_no || '—',
+        itemName: data.item_name || '—',
+        supplierName: data.supplier_name || '—',
+        agencyName: data.agency_name,
+        requesterName: data.requester_name,
+        reason: data.reason,
+        jobId: data.job_id,
+      });
+    case 'JOB_DEVIATION_NO_BUYER':
+      return emailJobDeviationNoBuyer({
+        jobRef: data.job_ref || '—',
+        poNo: data.po_no || '—',
+        itemName: data.item_name || '—',
+        supplierName: data.supplier_name || '—',
+        agencyName: data.agency_name,
+        requesterName: data.requester_name,
+        reason: data.reason,
+        jobId: data.job_id,
+      });
+    case 'JOB_DEVIATION_APPROVED':
+    case 'JOB_DEVIATION_REJECTED':
+      return emailJobDeviationDecided({
+        decision: eventType === 'JOB_DEVIATION_APPROVED' ? 'approved' : 'rejected',
+        jobRef: data.job_ref || '—',
+        poNo: data.po_no || '—',
+        itemName: data.item_name || '—',
+        supplierName: data.supplier_name || '—',
+        agencyName: data.agency_name,
+        buyerName: data.buyer_name,
+        deviationReason: data.deviation_reason,
+        remarks: data.remarks,
+        jobId: data.job_id,
       });
     case 'JOB_MAPPED':
       return emailJobMapped({
@@ -225,6 +268,14 @@ function buildReadableMessage(eventType, extraMessage) {
       return `Deviation approved by Buying — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Decided by ${data.buyer_name || '—'}. Awaiting final QA decision.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
     case 'WH_DEVIATION_REJECTED':
       return `Deviation rejected by Buying — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Decided by ${data.buyer_name || '—'}. Awaiting final QA decision.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
+    case 'JOB_DEVIATION_REQUESTED':
+      return `Deviation approval requested by QA${jobRef ? ` — ${jobRef}` : ''}. Item: ${data.item_name || '—'}. Requested by ${data.requester_name || '—'}.${data.reason ? ` Reason: ${data.reason}` : ''}`;
+    case 'JOB_DEVIATION_NO_BUYER':
+      return `⚠️ Deviation requested but no buyer is assigned to PO ${data.po_no || '—'}${jobRef ? ` (${jobRef})` : ''}. Please assign a buyer to the PO so they can review the deviation.`;
+    case 'JOB_DEVIATION_APPROVED':
+      return `Deviation approved by Buying${jobRef ? ` — ${jobRef}` : ''}. Decided by ${data.buyer_name || '—'}. Awaiting final QA decision.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
+    case 'JOB_DEVIATION_REJECTED':
+      return `Deviation rejected by Buying${jobRef ? ` — ${jobRef}` : ''}. Decided by ${data.buyer_name || '—'}. Awaiting final QA decision.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
     case 'JOB_MAPPED':
       return `New inspection job mapped${jobRef ? ` — ${jobRef}` : ''}. Item: ${data.item_name || '—'}. Agency: ${data.agency_name || 'Self Inspection'}.`;
     case 'SUBMITTED_FOR_QA':

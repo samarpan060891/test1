@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
-import { getJob, makeDecision } from '../api/inspectionJobs.js'
+import { getJob, makeDecision, requestJobDeviation } from '../api/inspectionJobs.js'
 import { getTemplate } from '../api/checklistTemplates.js'
 import { getResponses } from '../api/inspectionResponses.js'
 
@@ -83,6 +83,7 @@ export default function QAReviewPage() {
 
   const [outcome, setOutcome] = useState('')
   const [remarks, setRemarks] = useState('')
+  const [deviationReason, setDeviationReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -141,13 +142,21 @@ export default function QAReviewPage() {
   const handleDecision = async (e) => {
     e.preventDefault()
     if (!outcome) {
-      setSubmitError('Please select Approve or Reject.')
+      setSubmitError('Please select Approve, Reject, or Request Deviation.')
+      return
+    }
+    if (outcome === 'deviation' && !deviationReason.trim()) {
+      setSubmitError('Please provide a reason for the deviation request.')
       return
     }
     setSubmitting(true)
     setSubmitError('')
     try {
-      await makeDecision(id, { outcome, remarks })
+      if (outcome === 'deviation') {
+        await requestJobDeviation(id, deviationReason)
+      } else {
+        await makeDecision(id, { outcome, remarks })
+      }
       setSuccess(true)
       setTimeout(() => navigate(`/jobs/${id}`), 2000)
     } catch (err) {
@@ -157,6 +166,9 @@ export default function QAReviewPage() {
       setSubmitting(false)
     }
   }
+
+  const isDeviationReviewed = job?.status === 'deviation_reviewed'
+  const canRequestDeviation = job?.status === 'submitted_pending_qa'
 
   if (loading) {
     return (
@@ -188,13 +200,15 @@ export default function QAReviewPage() {
         <div style={{ maxWidth: '500px', margin: '80px auto', padding: '0 24px', textAlign: 'center' }}>
           <div style={{ backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 1px 8px rgba(0,0,0,0.1)', padding: '48px' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>
-              {outcome === 'approved' ? '✅' : '❌'}
+              {outcome === 'deviation' ? '⤴' : outcome === 'approved' ? '✅' : '❌'}
             </div>
             <h2 style={{ margin: '0 0 10px', fontSize: '22px', fontWeight: '700', color: '#111827' }}>
-              {t('qa_decision_submitted') || 'Decision Submitted!'}
+              {outcome === 'deviation' ? 'Deviation Requested' : (t('qa_decision_submitted') || 'Decision Submitted!')}
             </h2>
             <p style={{ color: '#6b7280', fontSize: '15px' }}>
-              {outcome === 'approved' ? t('status_approved') : t('status_rejected')}
+              {outcome === 'deviation'
+                ? 'Sent to Buying for approval. They have been notified.'
+                : outcome === 'approved' ? t('status_approved') : t('status_rejected')}
             </p>
           </div>
         </div>
@@ -265,6 +279,29 @@ export default function QAReviewPage() {
                   {aql.reason}
                 </p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Deviation context — QA making final decision after Buying responded */}
+        {isDeviationReviewed && (
+          <div style={{ marginBottom: '24px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+            {job?.deviation_reason && (
+              <div style={{ background: '#fffbeb', padding: '14px 18px', borderLeft: '4px solid #f59e0b' }}>
+                <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: '700', color: '#92400e' }}>⤴ Deviation Requested by QA</p>
+                <p style={{ margin: 0, fontSize: '13px', color: '#0f172a' }}>{job.deviation_reason}</p>
+              </div>
+            )}
+            <div style={{
+              background: job?.buyer_decision === 'approved' ? '#f0fdf4' : '#fef2f2',
+              padding: '14px 18px',
+              borderLeft: `4px solid ${job?.buyer_decision === 'approved' ? '#059669' : '#dc2626'}`
+            }}>
+              <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: '700', color: job?.buyer_decision === 'approved' ? '#15803d' : '#991b1b' }}>
+                {job?.buyer_decision === 'approved' ? '✓ Buying Approved the Deviation' : '✕ Buying Rejected the Deviation'}
+              </p>
+              {job?.buyer_remarks && <p style={{ margin: 0, fontSize: '13px', color: '#0f172a' }}><strong>Buying Remarks:</strong> {job.buyer_remarks}</p>}
+              <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#64748b' }}>Your final Approve/Reject decision is required below.</p>
             </div>
           </div>
         )}
@@ -363,7 +400,8 @@ export default function QAReviewPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {[
                     { value: 'approved', label: t('costs_approve'), icon: '✓', color: '#059669', bg: '#f0fdf4', border: '#86efac' },
-                    { value: 'rejected', label: t('costs_reject'), icon: '✗', color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' }
+                    { value: 'rejected', label: t('costs_reject'), icon: '✗', color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
+                    ...(canRequestDeviation ? [{ value: 'deviation', label: 'Request Deviation from Buying', icon: '⤴', color: '#b45309', bg: '#fffbeb', border: '#fcd34d' }] : [])
                   ].map(opt => (
                     <label key={opt.value} style={{
                       display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer',
@@ -392,7 +430,26 @@ export default function QAReviewPage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
+              {outcome === 'deviation' && (
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#b45309' }}>
+                    Deviation Reason (sent to Buying) <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <textarea
+                    value={deviationReason}
+                    onChange={e => setDeviationReason(e.target.value)}
+                    placeholder="Explain the deviation you want Buying to approve…"
+                    rows={4}
+                    style={{
+                      width: '100%', padding: '10px 12px', border: '1px solid #fcd34d',
+                      borderRadius: '6px', fontSize: '13px', resize: 'vertical',
+                      boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', color: '#374151'
+                    }}
+                  />
+                </div>
+              )}
+
+              <div style={{ marginBottom: '20px', display: outcome === 'deviation' ? 'none' : 'block' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#374151' }}>
                   {t('job_qa_remarks')}
                 </label>
@@ -415,13 +472,15 @@ export default function QAReviewPage() {
                 style={{
                   width: '100%',
                   backgroundColor: submitting || !outcome ? '#9ca3af'
-                    : outcome === 'approved' ? '#059669' : '#dc2626',
+                    : outcome === 'approved' ? '#059669' : outcome === 'deviation' ? '#f59e0b' : '#dc2626',
                   color: '#fff', border: 'none', padding: '11px',
                   borderRadius: '7px', fontSize: '14px', fontWeight: '600',
                   cursor: (submitting || !outcome) ? 'not-allowed' : 'pointer'
                 }}
               >
-                {submitting ? t('common_saving') : (t('qa_submit_decision') || 'Submit Decision')}
+                {submitting ? t('common_saving')
+                  : outcome === 'deviation' ? 'Send Deviation Request'
+                  : (t('qa_submit_decision') || 'Submit Decision')}
               </button>
             </form>
           </div>

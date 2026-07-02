@@ -533,6 +533,24 @@ async function runMigrations() {
     `ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS status_updated_at TIMESTAMPTZ`,
     'status_updated_at col'
   );
+
+  // Buyer deviation workflow for agency inspections (QA → Buying → QA)
+  await safeQuery(
+    `ALTER TABLE qc_inspection.inspection_job DROP CONSTRAINT IF EXISTS inspection_job_status_check`,
+    'drop inspection_job status check'
+  );
+  await safeQuery(
+    `ALTER TABLE qc_inspection.inspection_job ADD CONSTRAINT inspection_job_status_check
+       CHECK (status IN ('mapped_awaiting_inspection','submitted_pending_qa','deviation_requested','deviation_reviewed','qa_approved','qa_rejected'))`,
+    'add inspection_job status check with deviation states'
+  );
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS deviation_reason TEXT`, 'job deviation_reason');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS deviation_requested_by UUID REFERENCES qc_inspection.team_stakeholder(user_id)`, 'job deviation_requested_by');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS deviation_requested_at TIMESTAMPTZ`, 'job deviation_requested_at');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS buyer_decision TEXT CHECK (buyer_decision IN ('approved','rejected'))`, 'job buyer_decision');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS buyer_reviewer_id UUID REFERENCES qc_inspection.team_stakeholder(user_id)`, 'job buyer_reviewer_id');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS buyer_remarks TEXT`, 'job buyer_remarks');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS buyer_decided_at TIMESTAMPTZ`, 'job buyer_decided_at');
   // Backfill: use submitted_at for submitted jobs, updated_at otherwise
   await safeQuery(`
     UPDATE qc_inspection.inspection_job

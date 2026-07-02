@@ -16,6 +16,8 @@ import { useResizableColumns } from '../hooks/useResizableColumns.js'
 const STATUS_KEYS = {
   mapped_awaiting_inspection: { key: 'status_awaiting_inspection', bg: '#eff6ff', color: '#1d4ed8' },
   submitted_pending_qa:       { key: 'status_pending_qa_review',   bg: '#fefce8', color: '#92400e' },
+  deviation_requested:        { key: null, label: 'Pending Buyer Deviation', bg: '#fef3c7', color: '#92400e' },
+  deviation_reviewed:         { key: null, label: 'Pending Final QA Review',  bg: '#eff6ff', color: '#1d4ed8' },
   qa_approved:                { key: 'status_approved',            bg: '#f0fdf4', color: '#15803d' },
   qa_rejected:                { key: 'status_rejected',            bg: '#fef2f2', color: '#dc2626' },
 }
@@ -40,7 +42,7 @@ function StatusBadge({ status, t }) {
   const m = STATUS_KEYS[status] || { key: null, bg: '#f1f5f9', color: '#475569' }
   return (
     <span style={{ background: m.bg, color: m.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>
-      {m.key ? t(m.key) : status}
+      {m.key ? t(m.key) : (m.label || status)}
     </span>
   )
 }
@@ -279,6 +281,8 @@ function CountryFlag({ name }) {
 const PENDING_JOB_LABELS = {
   mapped_awaiting_inspection: { label: 'Awaiting Inspection', color: '#1d4ed8', bg: '#eff6ff', dot: '#3b82f6' },
   submitted_pending_qa:       { label: 'Pending QA Review',   color: '#92400e', bg: '#fefce8', dot: '#d97706' },
+  deviation_requested:        { label: 'Pending Buyer Deviation', color: '#92400e', bg: '#fef3c7', dot: '#d97706' },
+  deviation_reviewed:         { label: 'Pending Final QA Review',  color: '#1d4ed8', bg: '#eff6ff', dot: '#3b82f6' },
 }
 
 function CountryBreakdown({ jobs, advices, period, jobDateField = 'mapped_at', t }) {
@@ -431,11 +435,12 @@ export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = useState(null)
 
   const totalJobs = jobs.length
-  const pendingQA = jobs.filter(j => j.status === 'submitted_pending_qa').length
+  const PENDING_QA_STATUSES = ['submitted_pending_qa', 'deviation_reviewed']
+  const pendingQA = jobs.filter(j => PENDING_QA_STATUSES.includes(j.status)).length
   const approved  = jobs.filter(j => j.status === 'qa_approved').length
   const rejected  = jobs.filter(j => j.status === 'qa_rejected').length
 
-  const cardFilteredJobs = activeFilter === 'pending' ? jobs.filter(j => j.status === 'submitted_pending_qa')
+  const cardFilteredJobs = activeFilter === 'pending' ? jobs.filter(j => PENDING_QA_STATUSES.includes(j.status))
     : activeFilter === 'approved' ? jobs.filter(j => j.status === 'qa_approved')
     : activeFilter === 'rejected' ? jobs.filter(j => j.status === 'qa_rejected')
     : jobs
@@ -445,6 +450,8 @@ export default function DashboardPage() {
   const STATUS_LABELS = {
     mapped_awaiting_inspection: 'Awaiting Inspection',
     submitted_pending_qa:       'Pending QA Review',
+    deviation_requested:        'Pending Buyer Deviation',
+    deviation_reviewed:         'Pending Final QA Review',
     qa_approved:                'Approved',
     qa_rejected:                'Rejected',
   }
