@@ -855,7 +855,7 @@ async function runMigrations() {
   // Seed warehouse user
   try {
     const bcryptLocal = require('bcryptjs');
-    const whHash = await bcryptLocal.hash('Warehouse@123', 10);
+    const whHash = await bcryptLocal.hash('Password@123', 10);
     await db.query(
       `INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role)
        VALUES ($1, $2, $3, $4)
