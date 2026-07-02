@@ -451,17 +451,6 @@ router.post('/:id/request-deviation', async (req, res) => {
       RETURNING *
     `, [reason.trim(), req.user.user_id, req.params.id]);
 
-    // Notify the PO's assigned buyer; fall back to all buying users
-    let buyers = [];
-    if (wi.po_buyer_id && wi.po_buyer_email) {
-      buyers = [{ user_id: wi.po_buyer_id, email: wi.po_buyer_email }];
-    } else {
-      const { rows } = await db.query(
-        `SELECT user_id, email FROM qc_inspection.team_stakeholder WHERE role = 'buying'`
-      );
-      buyers = rows;
-    }
-
     const extraMsg = JSON.stringify({
       wh_inspection_id: req.params.id,
       po_no: wi.po_no,
@@ -472,8 +461,16 @@ router.post('/:id/request-deviation', async (req, res) => {
       reason: reason.trim(),
     });
 
-    for (const b of buyers) {
-      await sendNotification(null, 'WH_DEVIATION_REQUESTED', 'buying', [b.email], extraMsg, null, null, null, b.user_id);
+    if (wi.po_buyer_id && wi.po_buyer_email) {
+      // Notify the PO's assigned buyer, tagged with their user_id for the bell
+      await sendNotification(null, 'WH_DEVIATION_REQUESTED', 'buying', [wi.po_buyer_email], extraMsg, null, null, null, wi.po_buyer_id);
+    } else {
+      // No buyer assigned to this PO — ask admins to assign one
+      const { rows: admins } = await db.query(
+        `SELECT email FROM qc_inspection.team_stakeholder WHERE role = 'admin'`
+      );
+      const adminEmails = admins.map(a => a.email).filter(Boolean);
+      await sendNotification(null, 'WH_DEVIATION_NO_BUYER', 'admin', adminEmails, extraMsg);
     }
 
     res.json(updated[0]);

@@ -524,6 +524,31 @@ function emailWhDeviationRequested({ poNo, itemName, supplierName, stage, reques
   };
 }
 
+function emailWhDeviationNoBuyer({ poNo, itemName, supplierName, stage, requesterName, reason, inspectionId }) {
+  const url = inspectionId ? `${APP_URL}/warehouse-inspections/${inspectionId}` : `${APP_URL}/warehouse-inspections`;
+  return {
+    subject: `Action Needed — Assign a Buyer for Deviation | PO ${poNo}`,
+    html: layout('Deviation Requested — No Buyer Assigned', `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">
+        QA has requested a ${badge('DEVIATION', '#92400e', '#fef3c7')} for a warehouse inspection, but
+        <strong>no buyer is assigned to this PO</strong>. Please assign a buyer to the PO so they can review the deviation.
+      </p>
+      ${jobInfoTable([
+        ['PO Number', poNo || '—'],
+        ['Item', itemName || '—'],
+        ['Supplier', supplierName || '—'],
+        ['Stage', stage || '—'],
+        ['Requested By', requesterName || '—'],
+      ])}
+      ${reason ? `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#92400e;">Deviation Reason:</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${reason}</p>
+      </div>` : ''}
+      ${ctaButton('Open Inspection →', url)}
+    `),
+  };
+}
+
 function emailWhDeviationDecided({ decision, poNo, itemName, supplierName, stage, buyerName, deviationReason, remarks, inspectionId }) {
   const url = inspectionId ? `${APP_URL}/warehouse-inspections/${inspectionId}` : `${APP_URL}/warehouse-inspections`;
   const approved = decision === 'approved';
@@ -661,6 +686,7 @@ module.exports = {
   emailWhQARejected,
   emailWhDeviationRequested,
   emailWhDeviationDecided,
+  emailWhDeviationNoBuyer,
   emailJobMapped,
   emailSubmittedForQA,
   emailQAApproved,

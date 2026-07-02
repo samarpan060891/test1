@@ -6,6 +6,7 @@ const {
   emailWhQARejected,
   emailWhDeviationRequested,
   emailWhDeviationDecided,
+  emailWhDeviationNoBuyer,
   emailJobMapped,
   emailSubmittedForQA,
   emailQAApproved,
@@ -21,6 +22,7 @@ const EVENT_MESSAGES = {
   WH_QA_APPROVED:      'A warehouse inspection has been approved by QA.',
   WH_QA_REJECTED:      'A warehouse inspection has been rejected by QA. Please review the remarks.',
   WH_DEVIATION_REQUESTED: 'QA has requested a deviation approval from Buying for a warehouse inspection.',
+  WH_DEVIATION_NO_BUYER:  'QA requested a deviation but no buyer is assigned to the PO. Please assign a buyer.',
   WH_DEVIATION_APPROVED:  'Buying has approved the deviation request. Awaiting final QA decision.',
   WH_DEVIATION_REJECTED:  'Buying has rejected the deviation request. Awaiting final QA decision.',
   JOB_MAPPED:              'A new inspection job has been mapped and assigned.',
@@ -70,6 +72,16 @@ function buildEmailForEvent(eventType, extraMessage) {
       });
     case 'WH_DEVIATION_REQUESTED':
       return emailWhDeviationRequested({
+        poNo: data.po_no || '—',
+        itemName: data.item_name || '—',
+        supplierName: data.supplier_name || '—',
+        stage: data.stage,
+        requesterName: data.requester_name,
+        reason: data.reason,
+        inspectionId: data.wh_inspection_id,
+      });
+    case 'WH_DEVIATION_NO_BUYER':
+      return emailWhDeviationNoBuyer({
         poNo: data.po_no || '—',
         itemName: data.item_name || '—',
         supplierName: data.supplier_name || '—',
@@ -207,6 +219,8 @@ function buildReadableMessage(eventType, extraMessage) {
       return `Warehouse inspection rejected by QA — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Reviewed by ${data.reviewer_name || '—'}.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
     case 'WH_DEVIATION_REQUESTED':
       return `Deviation approval requested by QA — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Requested by ${data.requester_name || '—'}.${data.reason ? ` Reason: ${data.reason}` : ''}`;
+    case 'WH_DEVIATION_NO_BUYER':
+      return `⚠️ Deviation requested but no buyer is assigned to PO ${data.po_no || '—'} (Item: ${data.item_name || '—'}). Please assign a buyer to the PO so they can review the deviation.`;
     case 'WH_DEVIATION_APPROVED':
       return `Deviation approved by Buying — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Decided by ${data.buyer_name || '—'}. Awaiting final QA decision.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
     case 'WH_DEVIATION_REJECTED':
