@@ -287,8 +287,8 @@ router.patch('/:id/reopen', async (req, res) => {
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
-    if (rows[0].status !== 'qa_rejected')
-      return res.status(400).json({ error: 'Only QA-rejected inspections can be re-opened' });
+    if (!['qa_rejected', 'submitted_for_qa'].includes(rows[0].status))
+      return res.status(400).json({ error: 'Only submitted or QA-rejected inspections can be re-opened' });
 
     const { rows: updated } = await db.query(`
       UPDATE qc_inspection.warehouse_inspection

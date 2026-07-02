@@ -751,19 +751,28 @@ export default function WarehouseInspectionFillPage() {
                     Submitted: {new Date(inspection.submitted_at).toLocaleString()}
                   </div>
                 )}
-                {/* QA Reject → allow warehouse to re-open */}
-                {inspection.status === 'qa_rejected' && ['warehouse', 'admin'].includes(user?.role) && (
-                  <button onClick={async () => {
-                    if (!window.confirm('Re-open this inspection for editing?')) return
-                    try {
-                      const r = await client.patch(`/warehouse-inspections/${id}/reopen`)
-                      setInspection(r.data)
-                      setMsg('Inspection re-opened for editing.')
-                    } catch (err) { setMsg('Failed: ' + (err.response?.data?.error || err.message)) }
-                  }}
-                    style={{ marginTop: '12px', padding: '8px 18px', borderRadius: '8px', background: '#1C1208', color: '#fff', border: 'none', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}>
-                    Re-open for Editing
-                  </button>
+                {/* Warehouse can re-open a rejected OR still-pending inspection to edit responses */}
+                {['qa_rejected', 'submitted_for_qa'].includes(inspection.status) && ['warehouse', 'admin'].includes(user?.role) && (
+                  <>
+                    {inspection.status === 'submitted_for_qa' && (
+                      <div style={{ marginTop: '10px', fontSize: '12px', color: '#64748b' }}>
+                        Need to fix the responses? Re-open to edit — this withdraws it from QA review until you submit again.
+                      </div>
+                    )}
+                    <button onClick={async () => {
+                      if (!window.confirm(inspection.status === 'submitted_for_qa'
+                        ? 'Re-open for editing? This will withdraw the inspection from QA review until you re-submit.'
+                        : 'Re-open this inspection for editing?')) return
+                      try {
+                        const r = await client.patch(`/warehouse-inspections/${id}/reopen`)
+                        setInspection(r.data)
+                        setMsg('Inspection re-opened for editing.')
+                      } catch (err) { setMsg('Failed: ' + (err.response?.data?.error || err.message)) }
+                    }}
+                      style={{ marginTop: '10px', padding: '8px 18px', borderRadius: '8px', background: '#1C1208', color: '#fff', border: 'none', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}>
+                      ✏️ Re-open for Editing
+                    </button>
+                  </>
                 )}
               </div>
             )}
