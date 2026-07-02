@@ -436,7 +436,6 @@ export default function DashboardPage() {
 
   const totalJobs = jobs.length
   const PENDING_QA_STATUSES = ['submitted_pending_qa', 'deviation_reviewed']
-  const pendingQA = jobs.filter(j => PENDING_QA_STATUSES.includes(j.status)).length
   const approved  = jobs.filter(j => j.status === 'qa_approved').length
   const rejected  = jobs.filter(j => j.status === 'qa_rejected').length
 
@@ -448,14 +447,6 @@ export default function DashboardPage() {
   const buyingCharges   = advices.filter(a => a.status === 'pending_buying').length
   const importsCharges  = advices.filter(a => a.status === 'pending_imports').length
   const accountsCharges = advices.filter(a => a.status === 'pending_accounts').length
-
-  const stakeholderPending = [
-    { role: 'agency_user', label: 'Agency / Supplier', accent: '#d97706', value: awaitingInspection, sub: 'Awaiting inspection' },
-    { role: 'qa',          label: 'QA',                 accent: '#7c3aed', value: qaInspection + qaCharges,    sub: `${qaInspection} review · ${qaCharges} charges` },
-    { role: 'buying',      label: 'Buying',             accent: '#0284c7', value: buyingDeviation + buyingCharges, sub: `${buyingDeviation} deviation · ${buyingCharges} charges` },
-    { role: 'imports',     label: 'Imports',            accent: '#7e22ce', value: importsCharges,  sub: 'Charges approval' },
-    { role: 'accounts',    label: 'Accounts',           accent: '#0f766e', value: accountsCharges, sub: 'Payment' },
-  ]
 
   const cardFilteredJobs = activeFilter === 'pending' ? jobs.filter(j => PENDING_QA_STATUSES.includes(j.status))
     : activeFilter === 'approved' ? jobs.filter(j => j.status === 'qa_approved')
@@ -605,56 +596,45 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Stats — click to filter jobs table */}
-        <div className="stat-grid mb-4">
-          {[
-            { key: null,       cls: 'blue',  accent: '#E8470F', label: t('dashboard_total_jobs'),   value: totalJobs },
-            { key: 'pending',  cls: 'amber', accent: '#d97706', label: t('dashboard_pending_qa'),   value: pendingQA },
-            { key: 'approved', cls: 'green', accent: '#059669', label: t('dashboard_approved'),     value: approved  },
-            { key: 'rejected', cls: 'red',   accent: '#dc2626', label: t('dashboard_rejected'),     value: rejected  },
-          ].map(({ key, cls, accent, label, value }) => {
-            const isActive = activeFilter === key
-            return (
-              <div
-                key={String(key)}
-                className={`stat-card ${cls}`}
-                onClick={() => toggleFilter(key)}
-                style={{
-                  cursor: 'pointer',
-                  transform: isActive ? 'translateY(-2px)' : undefined,
-                  transition: 'transform 0.1s',
-                  userSelect: 'none',
-                }}
-              >
-                <div className="stat-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  {label}
-                  {isActive && <span style={{ fontSize: '10px', fontWeight: '700', opacity: 0.7 }}>✕ FILTER</span>}
-                </div>
-                <div className="stat-value">{value}</div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Pending tasks by stakeholder */}
+        {/* Unified overview — totals + pending by stakeholder (click filterable cards to filter the jobs table) */}
         <div style={{ marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-            Pending by Stakeholder
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-            {stakeholderPending.map(s => (
-              <div key={s.role} style={{
-                background: '#fff', borderRadius: '12px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
-                padding: '14px 16px', borderTop: `3px solid ${s.accent}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</span>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.value > 0 ? s.accent : '#cbd5e1', flexShrink: 0 }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px' }}>
+            {[
+              { key: 'total',    label: t('dashboard_total_jobs'), value: totalJobs, accent: '#E8470F', filterKey: null },
+              { key: 'approved', label: t('dashboard_approved'),   value: approved,  accent: '#059669', filterKey: 'approved' },
+              { key: 'rejected', label: t('dashboard_rejected'),   value: rejected,  accent: '#dc2626', filterKey: 'rejected' },
+              { key: 'agency',   label: 'Agency / Supplier', value: awaitingInspection, accent: '#d97706', sub: 'Awaiting inspection' },
+              { key: 'qa',       label: 'QA', value: qaInspection + qaCharges, accent: '#7c3aed', filterKey: 'pending', sub: `${qaInspection} review · ${qaCharges} charges` },
+              { key: 'buying',   label: 'Buying', value: buyingDeviation + buyingCharges, accent: '#0284c7', sub: `${buyingDeviation} deviation · ${buyingCharges} charges` },
+              { key: 'imports',  label: 'Imports',  value: importsCharges,  accent: '#7e22ce', sub: 'Charges approval' },
+              { key: 'accounts', label: 'Accounts', value: accountsCharges, accent: '#0f766e', sub: 'Payment' },
+            ].map(c => {
+              const clickable = c.filterKey !== undefined
+              const isActive = clickable && activeFilter === c.filterKey
+              return (
+                <div
+                  key={c.key}
+                  onClick={clickable ? () => toggleFilter(c.filterKey) : undefined}
+                  style={{
+                    background: '#fff', borderRadius: '12px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
+                    padding: '14px 16px', borderTop: `3px solid ${c.accent}`,
+                    cursor: clickable ? 'pointer' : 'default',
+                    outline: isActive ? `2px solid ${c.accent}` : 'none',
+                    transform: isActive ? 'translateY(-2px)' : undefined,
+                    transition: 'transform 0.1s', userSelect: 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{c.label}</span>
+                    {isActive
+                      ? <span style={{ fontSize: '10px', fontWeight: '700', color: c.accent }}>✕ FILTER</span>
+                      : <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: c.value > 0 ? c.accent : '#cbd5e1', flexShrink: 0 }} />}
+                  </div>
+                  <div style={{ fontSize: '30px', fontWeight: '800', color: c.value > 0 ? c.accent : '#94a3b8', lineHeight: 1.1, marginTop: '4px' }}>{c.value}</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', minHeight: '14px' }}>{c.sub || ''}</div>
                 </div>
-                <div style={{ fontSize: '30px', fontWeight: '800', color: s.value > 0 ? s.accent : '#94a3b8', lineHeight: 1.1, marginTop: '4px' }}>{s.value}</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{s.sub}</div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
