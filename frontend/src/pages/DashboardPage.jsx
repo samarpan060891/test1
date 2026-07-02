@@ -440,6 +440,23 @@ export default function DashboardPage() {
   const approved  = jobs.filter(j => j.status === 'qa_approved').length
   const rejected  = jobs.filter(j => j.status === 'qa_rejected').length
 
+  // Pending tasks by stakeholder (inspection workflow from jobs + charges workflow from advices)
+  const awaitingInspection = jobs.filter(j => j.status === 'mapped_awaiting_inspection').length
+  const qaInspection       = jobs.filter(j => ['submitted_pending_qa', 'deviation_reviewed'].includes(j.status)).length
+  const buyingDeviation    = jobs.filter(j => j.status === 'deviation_requested').length
+  const qaCharges       = advices.filter(a => a.status === 'pending_qa').length
+  const buyingCharges   = advices.filter(a => a.status === 'pending_buying').length
+  const importsCharges  = advices.filter(a => a.status === 'pending_imports').length
+  const accountsCharges = advices.filter(a => a.status === 'pending_accounts').length
+
+  const stakeholderPending = [
+    { role: 'agency_user', label: 'Agency / Supplier', accent: '#d97706', value: awaitingInspection, sub: 'Awaiting inspection' },
+    { role: 'qa',          label: 'QA',                 accent: '#7c3aed', value: qaInspection + qaCharges,    sub: `${qaInspection} review · ${qaCharges} charges` },
+    { role: 'buying',      label: 'Buying',             accent: '#0284c7', value: buyingDeviation + buyingCharges, sub: `${buyingDeviation} deviation · ${buyingCharges} charges` },
+    { role: 'imports',     label: 'Imports',            accent: '#7e22ce', value: importsCharges,  sub: 'Charges approval' },
+    { role: 'accounts',    label: 'Accounts',           accent: '#0f766e', value: accountsCharges, sub: 'Payment' },
+  ]
+
   const cardFilteredJobs = activeFilter === 'pending' ? jobs.filter(j => PENDING_QA_STATUSES.includes(j.status))
     : activeFilter === 'approved' ? jobs.filter(j => j.status === 'qa_approved')
     : activeFilter === 'rejected' ? jobs.filter(j => j.status === 'qa_rejected')
@@ -617,6 +634,28 @@ export default function DashboardPage() {
               </div>
             )
           })}
+        </div>
+
+        {/* Pending tasks by stakeholder */}
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+            Pending by Stakeholder
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+            {stakeholderPending.map(s => (
+              <div key={s.role} style={{
+                background: '#fff', borderRadius: '12px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
+                padding: '14px 16px', borderTop: `3px solid ${s.accent}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</span>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.value > 0 ? s.accent : '#cbd5e1', flexShrink: 0 }} />
+                </div>
+                <div style={{ fontSize: '30px', fontWeight: '800', color: s.value > 0 ? s.accent : '#94a3b8', lineHeight: 1.1, marginTop: '4px' }}>{s.value}</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Country-Wise Breakdown */}
