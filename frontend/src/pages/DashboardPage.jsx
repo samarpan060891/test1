@@ -719,16 +719,19 @@ export default function DashboardPage() {
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.item_name || job.item_code || '—'}</td>
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.supplier_name || job.supplier_code || '—'}</td>
                         <td style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.agency_name || '—'}</td>
-                        <td style={{ whiteSpace: 'nowrap' }}>
-                          <StatusBadge status={job.status} t={t} />
-                          {job.status === 'mapped_awaiting_inspection' && (
-                            <DaysTag days={daysSince(job.inspection_date)} warn={0} danger={7} />
-                          )}
-                          {job.status === 'submitted_pending_qa' && (
-                            <DaysTag days={daysSince(job.submitted_at)} />
-                          )}
+                        <td>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px' }}>
+                            <StatusBadge status={job.status} t={t} />
+                            {job.status === 'mapped_awaiting_inspection' && (
+                              <DaysTag days={daysSince(job.inspection_date)} warn={0} danger={7} />
+                            )}
+                            {job.status === 'submitted_pending_qa' && (
+                              <DaysTag days={daysSince(job.submitted_at)} />
+                            )}
+                          </div>
                         </td>
-                        <td style={{ whiteSpace: 'nowrap' }}>
+                        <td>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px' }}>
                           <PaymentBadge status={job.payment_status} t={t} />
                           {job.payment_status === 'pending_buying' && (
                             <DaysTag days={daysSince(job.advice_qa_approved_at)} />
@@ -739,6 +742,7 @@ export default function DashboardPage() {
                           {job.payment_status === 'pending_accounts' && (
                             <DaysTag days={daysSince(job.imports_approved_at)} />
                           )}
+                          </div>
                         </td>
                         <td style={{ color: '#94a3b8' }}>
                           {job.inspection_date ? new Date(job.inspection_date).toLocaleDateString() : '—'}
