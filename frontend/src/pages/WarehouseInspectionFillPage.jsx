@@ -251,6 +251,12 @@ export default function WarehouseInspectionFillPage() {
   }
 
   async function handleSubmitForQA() {
+    const unanswered = responses.filter(r => !r.result)
+    if (unanswered.length > 0) {
+      setMsg(`Please mark Pass/Fail/NA for all checkpoints before submitting. ${unanswered.length} still pending.`)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     if (!window.confirm('Submit this inspection for QA review? QA will be notified by email.')) return
     setSubmittingForQA(true)
     setMsg('')

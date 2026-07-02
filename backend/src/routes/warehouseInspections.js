@@ -321,6 +321,16 @@ router.post('/:id/submit-for-qa', async (req, res) => {
     if (!['in_progress', 'pass', 'fail'].includes(wi.status))
       return res.status(400).json({ error: 'Inspection must be in progress or completed before submitting for QA' });
 
+    // Guard: every checkpoint must have a result before submitting for QA
+    const { rows: pendingRows } = await db.query(
+      `SELECT COUNT(*)::int AS pending
+       FROM qc_inspection.warehouse_inspection_response
+       WHERE wh_inspection_id = $1 AND result IS NULL`,
+      [req.params.id]
+    );
+    if (pendingRows[0].pending > 0)
+      return res.status(400).json({ error: `Cannot submit: ${pendingRows[0].pending} checkpoint(s) still pending. Please mark Pass/Fail/NA for all checkpoints.` });
+
     const { rows: failedRows } = await db.query(`
       SELECT wct.section, wct.checkpoint AS checkpoint_text, wct.criticality, wir.remarks AS remark
       FROM qc_inspection.warehouse_inspection_response wir
