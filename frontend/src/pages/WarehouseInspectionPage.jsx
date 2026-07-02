@@ -13,6 +13,8 @@ const STATUS_META = {
   pass:             { bg: '#f0fdf4', color: '#15803d',  label: 'Pass' },
   fail:             { bg: '#fef2f2', color: '#dc2626',  label: 'Fail' },
   submitted_for_qa: { bg: '#eff6ff', color: '#1d4ed8',  label: 'Pending QA Review' },
+  deviation_requested: { bg: '#fef3c7', color: '#92400e', label: 'Pending Buyer Deviation' },
+  deviation_reviewed:  { bg: '#eff6ff', color: '#1d4ed8', label: 'Pending Final QA Review' },
   qa_approved:      { bg: '#f0fdf4', color: '#15803d',  label: 'QA Approved' },
   qa_rejected:      { bg: '#fef2f2', color: '#dc2626',  label: 'QA Rejected' },
 }
@@ -161,6 +163,8 @@ export default function WarehouseInspectionPage() {
     { label: 'All Inspections', key: null,               cls: 'blue',  accent: '#E8470F' },
     { label: 'In Progress',     key: 'in_progress',      cls: 'amber', accent: '#d97706' },
     { label: 'Submitted QA',   key: 'submitted_for_qa', cls: 'blue',  accent: '#1d4ed8' },
+    { label: 'Buyer Deviation', key: 'deviation_requested', cls: 'amber', accent: '#d97706' },
+    { label: 'Final QA Review', key: 'deviation_reviewed',  cls: 'blue',  accent: '#1d4ed8' },
     { label: 'QA Approved',    key: 'qa_approved',      cls: 'green', accent: '#059669' },
     { label: 'QA Rejected',    key: 'qa_rejected',      cls: 'red',   accent: '#dc2626' },
     { label: 'Pass',            key: 'pass',             cls: 'green', accent: '#059669' },
@@ -231,7 +235,9 @@ export default function WarehouseInspectionPage() {
             <option value="in_progress">In Progress</option>
             <option value="pass">Pass</option>
             <option value="fail">Fail</option>
-            <option value="submitted_for_qa">Submitted for QA</option>
+            <option value="submitted_for_qa">Pending QA Review</option>
+            <option value="deviation_requested">Pending Buyer Deviation</option>
+            <option value="deviation_reviewed">Pending Final QA Review</option>
             <option value="qa_approved">QA Approved</option>
             <option value="qa_rejected">QA Rejected</option>
           </select>

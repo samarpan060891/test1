@@ -772,7 +772,7 @@ async function runMigrations() {
   await safeQuery(`
     ALTER TABLE qc_inspection.warehouse_inspection
       ADD CONSTRAINT warehouse_inspection_status_check
-        CHECK (status IN ('pending','in_progress','pass','fail','submitted_for_qa','qa_approved','qa_rejected'))
+        CHECK (status IN ('pending','in_progress','pass','fail','submitted_for_qa','deviation_requested','deviation_reviewed','qa_approved','qa_rejected'))
   `, 'add updated warehouse_inspection status check');
 
   // Add qa_reviewer_id and qa_remarks columns for QA approval flow
@@ -792,6 +792,36 @@ async function runMigrations() {
     ALTER TABLE qc_inspection.warehouse_inspection
       ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ
   `, 'add submitted_at to warehouse_inspection');
+
+  // Buyer deviation workflow columns (QA → Buying → QA)
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS deviation_reason TEXT
+  `, 'add deviation_reason to warehouse_inspection');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS deviation_requested_by UUID REFERENCES qc_inspection.team_stakeholder(user_id)
+  `, 'add deviation_requested_by to warehouse_inspection');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS deviation_requested_at TIMESTAMPTZ
+  `, 'add deviation_requested_at to warehouse_inspection');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS buyer_decision TEXT CHECK (buyer_decision IN ('approved','rejected'))
+  `, 'add buyer_decision to warehouse_inspection');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS buyer_reviewer_id UUID REFERENCES qc_inspection.team_stakeholder(user_id)
+  `, 'add buyer_reviewer_id to warehouse_inspection');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS buyer_remarks TEXT
+  `, 'add buyer_remarks to warehouse_inspection');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS buyer_decided_at TIMESTAMPTZ
+  `, 'add buyer_decided_at to warehouse_inspection');
 
   // Update trigger_source constraint to include incoming_goods
   await safeQuery(`

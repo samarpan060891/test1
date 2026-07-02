@@ -21,6 +21,8 @@ import {
   syncInspectionResponses,
   submitWarehouseForQA,
   qaReviewWarehouseInspection,
+  requestWarehouseDeviation,
+  buyerReviewWarehouseDeviation,
 } from '../api/warehouseInspections.js'
 
 const RESULT_OPTIONS = ['', 'pass', 'fail', 'na']
@@ -35,6 +37,8 @@ const STATUS_COLOR = {
   pass:             { bg: '#d1fae5', color: '#065f46',  label: 'Pass' },
   fail:             { bg: '#fee2e2', color: '#991b1b',  label: 'Fail' },
   submitted_for_qa: { bg: '#eff6ff', color: '#1d4ed8',  label: 'Pending QA Review' },
+  deviation_requested: { bg: '#fef3c7', color: '#92400e', label: 'Pending Buyer Deviation' },
+  deviation_reviewed:  { bg: '#eff6ff', color: '#1d4ed8', label: 'Pending Final QA Review' },
   qa_approved:      { bg: '#d1fae5', color: '#065f46',  label: 'QA Approved' },
   qa_rejected:      { bg: '#fee2e2', color: '#991b1b',  label: 'QA Rejected' },
 }
@@ -76,6 +80,13 @@ export default function WarehouseInspectionFillPage() {
   const [qaAction, setQaAction] = useState('')
   const [qaRemarks, setQaRemarks] = useState('')
   const [qaReviewing, setQaReviewing] = useState(false)
+
+  // Deviation workflow state
+  const [showDeviation, setShowDeviation] = useState(false)
+  const [deviationReason, setDeviationReason] = useState('')
+  const [requestingDeviation, setRequestingDeviation] = useState(false)
+  const [buyerRemarks, setBuyerRemarks] = useState('')
+  const [buyerReviewing, setBuyerReviewing] = useState(false)
 
   // Item-specific checkpoint management
   const [showAddCheckpoint, setShowAddCheckpoint] = useState(false)
@@ -280,6 +291,47 @@ export default function WarehouseInspectionFillPage() {
     }
   }
 
+  async function handleRequestDeviation() {
+    if (!deviationReason.trim()) {
+      setMsg('Please provide a reason for the deviation request.')
+      return
+    }
+    if (!window.confirm('Send this deviation request to Buying? They will be notified to approve or reject.')) return
+    setRequestingDeviation(true)
+    setMsg('')
+    try {
+      const r = await requestWarehouseDeviation(id, deviationReason)
+      setInspection(r.data)
+      setShowDeviation(false)
+      setDeviationReason('')
+      setMsg('Deviation request sent to Buying. They have been notified.')
+    } catch (err) {
+      setMsg('Failed: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setRequestingDeviation(false)
+    }
+  }
+
+  async function handleBuyerDeviation(action) {
+    if (action === 'reject' && !buyerRemarks.trim()) {
+      setMsg('Please provide remarks when rejecting the deviation.')
+      return
+    }
+    if (!window.confirm(`${action === 'approve' ? 'Approve' : 'Reject'} this deviation request?`)) return
+    setBuyerReviewing(true)
+    setMsg('')
+    try {
+      const r = await buyerReviewWarehouseDeviation(id, action, buyerRemarks)
+      setInspection(r.data)
+      setBuyerRemarks('')
+      setMsg(`Deviation ${action === 'approve' ? 'approved' : 'rejected'}. QA has been notified for the final decision.`)
+    } catch (err) {
+      setMsg('Failed: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setBuyerReviewing(false)
+    }
+  }
+
   async function handleDeleteImage(imageId) {
     if (!window.confirm('Delete this image?')) return
     try {
@@ -309,7 +361,9 @@ export default function WarehouseInspectionFillPage() {
   const canSubmitForQA = ['warehouse', 'admin'].includes(user?.role) &&
     ['in_progress', 'pass', 'fail'].includes(inspection?.status)
   const canQAReview = ['qa', 'admin'].includes(user?.role) &&
-    inspection?.status === 'submitted_for_qa'
+    ['submitted_for_qa', 'deviation_reviewed'].includes(inspection?.status)
+  const canBuyerReview = ['buying', 'admin'].includes(user?.role) &&
+    inspection?.status === 'deviation_requested'
   const st = inspection ? (STATUS_COLOR[inspection.status] || { bg: '#f1f5f9', color: '#475569', label: inspection.status }) : null
 
   const card = { background: '#fff', borderRadius: '12px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', padding: '20px' }
@@ -552,12 +606,80 @@ export default function WarehouseInspectionFillPage() {
               </div>
             )}
 
+            {/* Deviation request details — shown to Buying (for action) and QA (final review) */}
+            {['deviation_requested', 'deviation_reviewed'].includes(inspection?.status) && inspection?.deviation_reason && (
+              <div style={{ ...card, marginTop: '16px', borderLeft: '4px solid #f59e0b' }}>
+                <div style={{ fontWeight: '700', fontSize: '14px', color: '#92400e', marginBottom: '6px' }}>⤴ Deviation Requested by QA</div>
+                <div style={{ fontSize: '13px', color: '#475569', background: '#fffbeb', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fde68a' }}>{inspection.deviation_reason}</div>
+                {inspection.deviation_requested_at && (
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#94a3b8' }}>Requested: {new Date(inspection.deviation_requested_at).toLocaleString()}</div>
+                )}
+              </div>
+            )}
+
+            {/* QA/admin waiting on Buying */}
+            {['qa', 'admin'].includes(user?.role) && inspection?.status === 'deviation_requested' && (
+              <div style={{ ...card, marginTop: '16px', borderLeft: '4px solid #0284c7', background: '#f0f9ff' }}>
+                <div style={{ fontWeight: '700', fontSize: '14px', color: '#075985', marginBottom: '4px' }}>⏳ Awaiting Buying's Deviation Decision</div>
+                <p style={{ margin: 0, fontSize: '13px', color: '#0c4a6e' }}>
+                  Buying has been notified. Once they approve or reject the deviation, this inspection will return here for your final decision.
+                </p>
+              </div>
+            )}
+
+            {/* Buying deviation decision panel */}
+            {canBuyerReview && (
+              <div style={{ ...card, marginTop: '16px', borderLeft: '4px solid #0284c7', background: '#f0f9ff' }}>
+                <div style={{ fontWeight: '700', fontSize: '15px', color: '#075985', marginBottom: '8px' }}>🏷 Deviation Approval Required (Buying)</div>
+                <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#64748b' }}>
+                  QA has requested a deviation for this inspection. Approve or reject the deviation. Your decision guides QA's final call.
+                </p>
+                <label style={{ display: 'block', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Buying Remarks (required to reject)</span>
+                  <textarea value={buyerRemarks} onChange={e => setBuyerRemarks(e.target.value)} rows={3}
+                    placeholder="Add your remarks…"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} />
+                </label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={() => handleBuyerDeviation('approve')} disabled={buyerReviewing}
+                    style={{ padding: '10px 24px', borderRadius: '8px', background: '#059669', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: buyerReviewing ? 'default' : 'pointer', opacity: buyerReviewing ? 0.7 : 1 }}>
+                    {buyerReviewing ? 'Processing…' : '✓ Approve Deviation'}
+                  </button>
+                  <button onClick={() => handleBuyerDeviation('reject')} disabled={buyerReviewing}
+                    style={{ padding: '10px 24px', borderRadius: '8px', background: '#dc2626', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: buyerReviewing ? 'default' : 'pointer', opacity: buyerReviewing ? 0.7 : 1 }}>
+                    {buyerReviewing ? 'Processing…' : '✕ Reject Deviation'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Buying's decision shown to QA on final review */}
+            {inspection?.status === 'deviation_reviewed' && inspection?.buyer_decision && (
+              <div style={{ ...card, marginTop: '16px',
+                borderLeft: `4px solid ${inspection.buyer_decision === 'approved' ? '#059669' : '#dc2626'}`,
+                background: inspection.buyer_decision === 'approved' ? '#f0fdf4' : '#fef2f2' }}>
+                <div style={{ fontWeight: '700', fontSize: '14px', color: inspection.buyer_decision === 'approved' ? '#15803d' : '#991b1b', marginBottom: '6px' }}>
+                  {inspection.buyer_decision === 'approved' ? '✓ Buying Approved the Deviation' : '✕ Buying Rejected the Deviation'}
+                </div>
+                {inspection.buyer_remarks && (
+                  <div style={{ fontSize: '13px', color: '#374151' }}><strong>Buying Remarks:</strong> {inspection.buyer_remarks}</div>
+                )}
+                {inspection.buyer_decided_at && (
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#94a3b8' }}>Decided: {new Date(inspection.buyer_decided_at).toLocaleString()}</div>
+                )}
+              </div>
+            )}
+
             {/* QA Review panel */}
             {canQAReview && (
               <div style={{ ...card, marginTop: '16px', borderLeft: '4px solid #f59e0b', background: '#fffbeb' }}>
-                <div style={{ fontWeight: '700', fontSize: '15px', color: '#92400e', marginBottom: '8px' }}>⚠️ QA Review Required</div>
+                <div style={{ fontWeight: '700', fontSize: '15px', color: '#92400e', marginBottom: '8px' }}>
+                  {inspection?.status === 'deviation_reviewed' ? '⚠️ Final QA Decision Required' : '⚠️ QA Review Required'}
+                </div>
                 <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#64748b' }}>
-                  This inspection was submitted by the warehouse team. Review and approve or reject.
+                  {inspection?.status === 'deviation_reviewed'
+                    ? 'Buying has responded to the deviation request. Make the final decision — approve or reject.'
+                    : 'This inspection was submitted by the warehouse team. Approve, reject, or request a deviation from Buying.'}
                 </p>
                 <label style={{ display: 'block', marginBottom: '12px' }}>
                   <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>QA Remarks {qaAction === 'reject' ? '(required)' : '(optional)'}</span>
@@ -565,7 +687,7 @@ export default function WarehouseInspectionFillPage() {
                     placeholder="Add your review remarks…"
                     style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} />
                 </label>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <button onClick={() => handleQAReview('approve')} disabled={qaReviewing}
                     style={{ padding: '10px 24px', borderRadius: '8px', background: '#059669', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: qaReviewing ? 'default' : 'pointer', opacity: qaReviewing ? 0.7 : 1 }}>
                     {qaReviewing ? 'Processing…' : '✓ Approve'}
@@ -574,7 +696,29 @@ export default function WarehouseInspectionFillPage() {
                     style={{ padding: '10px 24px', borderRadius: '8px', background: '#dc2626', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: qaReviewing ? 'default' : 'pointer', opacity: qaReviewing ? 0.7 : 1 }}>
                     {qaReviewing ? 'Processing…' : '✕ Reject'}
                   </button>
+                  {inspection?.status === 'submitted_for_qa' && (
+                    <button onClick={() => setShowDeviation(v => !v)} disabled={qaReviewing}
+                      style={{ padding: '10px 24px', borderRadius: '8px', background: '#fff', color: '#b45309', border: '1.5px solid #f59e0b', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}>
+                      {showDeviation ? 'Cancel Deviation' : '⤴ Request Deviation from Buying'}
+                    </button>
+                  )}
                 </div>
+
+                {/* Deviation reason input */}
+                {showDeviation && inspection?.status === 'submitted_for_qa' && (
+                  <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px dashed #fde68a' }}>
+                    <label style={{ display: 'block', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#92400e', display: 'block', marginBottom: '6px' }}>Deviation Reason (sent to Buying) *</span>
+                      <textarea value={deviationReason} onChange={e => setDeviationReason(e.target.value)} rows={3}
+                        placeholder="Explain the deviation you want Buying to approve…"
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fcd34d', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} />
+                    </label>
+                    <button onClick={handleRequestDeviation} disabled={requestingDeviation}
+                      style={{ padding: '10px 20px', borderRadius: '8px', background: '#f59e0b', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: requestingDeviation ? 'default' : 'pointer', opacity: requestingDeviation ? 0.7 : 1 }}>
+                      {requestingDeviation ? 'Sending…' : 'Send Deviation Request to Buying'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

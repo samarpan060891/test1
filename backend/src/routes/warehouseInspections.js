@@ -378,7 +378,7 @@ router.post('/:id/qa-review', async (req, res) => {
     if (!wiRows.length) return res.status(404).json({ error: 'Not found' });
     const wi = wiRows[0];
 
-    if (wi.status !== 'submitted_for_qa')
+    if (!['submitted_for_qa', 'deviation_reviewed'].includes(wi.status))
       return res.status(400).json({ error: 'Inspection must be submitted for QA before review' });
 
     const newStatus = action === 'approve' ? 'qa_approved' : 'qa_rejected';
@@ -406,6 +406,124 @@ router.post('/:id/qa-review', async (req, res) => {
     });
 
     await sendNotification(null, eventType, 'warehouse', whEmails, extraMsg);
+
+    res.json(updated[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Helper: load inspection with PO + supplier + assigned buyer info
+async function loadInspectionContext(id) {
+  const { rows } = await db.query(`
+    SELECT wi.*, im.name AS item_name, s.name AS supplier_name,
+           p.buyer_id AS po_buyer_id,
+           b.email AS po_buyer_email, b.name AS po_buyer_name
+    FROM qc_inspection.warehouse_inspection wi
+    JOIN qc_inspection.item_master im ON im.item_code = wi.item_code
+    JOIN qc_inspection.po_master p ON p.po_no = wi.po_no
+    LEFT JOIN qc_inspection.supplier_master s ON s.supplier_code = p.supplier_code
+    LEFT JOIN qc_inspection.team_stakeholder b ON b.user_id = p.buyer_id
+    WHERE wi.wh_inspection_id = $1
+  `, [id]);
+  return rows[0] || null;
+}
+
+// POST /api/warehouse-inspections/:id/request-deviation — QA asks Buying for a deviation
+router.post('/:id/request-deviation', async (req, res) => {
+  try {
+    if (!['qa', 'admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied' });
+
+    const { reason } = req.body;
+    if (!reason || !reason.trim())
+      return res.status(400).json({ error: 'A deviation reason is required' });
+
+    const wi = await loadInspectionContext(req.params.id);
+    if (!wi) return res.status(404).json({ error: 'Not found' });
+
+    if (wi.status !== 'submitted_for_qa')
+      return res.status(400).json({ error: 'Deviation can only be requested while the inspection is pending QA review' });
+
+    const { rows: updated } = await db.query(`
+      UPDATE qc_inspection.warehouse_inspection
+      SET status = 'deviation_requested', deviation_reason = $1,
+          deviation_requested_by = $2, deviation_requested_at = NOW()
+      WHERE wh_inspection_id = $3
+      RETURNING *
+    `, [reason.trim(), req.user.user_id, req.params.id]);
+
+    // Notify the PO's assigned buyer; fall back to all buying users
+    let buyers = [];
+    if (wi.po_buyer_id && wi.po_buyer_email) {
+      buyers = [{ user_id: wi.po_buyer_id, email: wi.po_buyer_email }];
+    } else {
+      const { rows } = await db.query(
+        `SELECT user_id, email FROM qc_inspection.team_stakeholder WHERE role = 'buying'`
+      );
+      buyers = rows;
+    }
+
+    const extraMsg = JSON.stringify({
+      wh_inspection_id: req.params.id,
+      po_no: wi.po_no,
+      item_name: wi.item_name,
+      supplier_name: wi.supplier_name,
+      stage: wi.stage,
+      requester_name: req.user.name || req.user.email,
+      reason: reason.trim(),
+    });
+
+    for (const b of buyers) {
+      await sendNotification(null, 'WH_DEVIATION_REQUESTED', 'buying', [b.email], extraMsg, null, null, null, b.user_id);
+    }
+
+    res.json(updated[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/warehouse-inspections/:id/buyer-deviation — Buying approves/rejects the deviation
+router.post('/:id/buyer-deviation', async (req, res) => {
+  try {
+    if (!['buying', 'admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied' });
+
+    const { action, remarks } = req.body;
+    if (!['approve', 'reject'].includes(action))
+      return res.status(400).json({ error: 'action must be approve or reject' });
+
+    const wi = await loadInspectionContext(req.params.id);
+    if (!wi) return res.status(404).json({ error: 'Not found' });
+
+    if (wi.status !== 'deviation_requested')
+      return res.status(400).json({ error: 'No pending deviation request for this inspection' });
+
+    const decision = action === 'approve' ? 'approved' : 'rejected';
+    const { rows: updated } = await db.query(`
+      UPDATE qc_inspection.warehouse_inspection
+      SET status = 'deviation_reviewed', buyer_decision = $1,
+          buyer_reviewer_id = $2, buyer_remarks = $3, buyer_decided_at = NOW()
+      WHERE wh_inspection_id = $4
+      RETURNING *
+    `, [decision, req.user.user_id, remarks || null, req.params.id]);
+
+    // Notify QA users so they can make the final decision
+    const { rows: qaUsers } = await db.query(
+      `SELECT email FROM qc_inspection.team_stakeholder WHERE role IN ('qa', 'admin')`
+    );
+    const qaEmails = qaUsers.map(u => u.email).filter(Boolean);
+
+    const eventType = action === 'approve' ? 'WH_DEVIATION_APPROVED' : 'WH_DEVIATION_REJECTED';
+    const extraMsg = JSON.stringify({
+      wh_inspection_id: req.params.id,
+      po_no: wi.po_no,
+      item_name: wi.item_name,
+      supplier_name: wi.supplier_name,
+      stage: wi.stage,
+      buyer_name: req.user.name || req.user.email,
+      deviation_reason: wi.deviation_reason,
+      remarks: remarks || null,
+    });
+
+    await sendNotification(null, eventType, 'qa', qaEmails, extraMsg);
 
     res.json(updated[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }

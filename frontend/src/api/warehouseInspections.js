@@ -54,3 +54,9 @@ export const submitWarehouseForQA = (id) =>
 
 export const qaReviewWarehouseInspection = (id, action, remarks) =>
   client.post(`/warehouse-inspections/${id}/qa-review`, { action, remarks })
+
+export const requestWarehouseDeviation = (id, reason) =>
+  client.post(`/warehouse-inspections/${id}/request-deviation`, { reason })
+
+export const buyerReviewWarehouseDeviation = (id, action, remarks) =>
+  client.post(`/warehouse-inspections/${id}/buyer-deviation`, { action, remarks })

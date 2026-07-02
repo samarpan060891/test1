@@ -499,6 +499,61 @@ function emailWhQARejected({ poNo, itemName, supplierName, stage, reviewerName, 
   };
 }
 
+function emailWhDeviationRequested({ poNo, itemName, supplierName, stage, requesterName, reason, inspectionId }) {
+  const url = inspectionId ? `${APP_URL}/warehouse-inspections/${inspectionId}` : `${APP_URL}/warehouse-inspections`;
+  return {
+    subject: `Deviation Approval Requested — ${itemName || poNo} | ${stage || ''}`,
+    html: layout('Deviation Approval Requested by QA', `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">
+        QA has requested a ${badge('DEVIATION', '#92400e', '#fef3c7')} approval for a warehouse inspection.
+        Please review and <strong>approve or reject</strong> the deviation.
+      </p>
+      ${jobInfoTable([
+        ['PO Number', poNo || '—'],
+        ['Item', itemName || '—'],
+        ['Supplier', supplierName || '—'],
+        ['Stage', stage || '—'],
+        ['Requested By', requesterName || '—'],
+      ])}
+      ${reason ? `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#92400e;">Deviation Reason:</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${reason}</p>
+      </div>` : ''}
+      ${ctaButton('Review Deviation →', url)}
+    `),
+  };
+}
+
+function emailWhDeviationDecided({ decision, poNo, itemName, supplierName, stage, buyerName, deviationReason, remarks, inspectionId }) {
+  const url = inspectionId ? `${APP_URL}/warehouse-inspections/${inspectionId}` : `${APP_URL}/warehouse-inspections`;
+  const approved = decision === 'approved';
+  const statusBadge = approved ? badge('APPROVED', '#15803d', '#f0fdf4') : badge('REJECTED', '#991b1b', '#fef2f2');
+  return {
+    subject: `Deviation ${approved ? 'Approved' : 'Rejected'} by Buying — ${itemName || poNo} | ${stage || ''}`,
+    html: layout(`Deviation ${approved ? 'Approved' : 'Rejected'} by Buying`, `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">
+        The deviation request has been ${statusBadge} by Buying. Please make the <strong>final QA decision</strong> on this inspection.
+      </p>
+      ${jobInfoTable([
+        ['PO Number', poNo || '—'],
+        ['Item', itemName || '—'],
+        ['Supplier', supplierName || '—'],
+        ['Stage', stage || '—'],
+        ['Decided By', buyerName || '—'],
+      ])}
+      ${deviationReason ? `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#92400e;">Deviation Reason (QA):</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${deviationReason}</p>
+      </div>` : ''}
+      ${remarks ? `<div style="background:${approved ? '#f0fdf4' : '#fef2f2'};border-left:4px solid ${approved ? '#16a34a' : '#dc2626'};padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:${approved ? '#15803d' : '#991b1b'};">Buying Remarks:</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#0f172a;">${remarks}</p>
+      </div>` : ''}
+      ${ctaButton('Make Final Decision →', url)}
+    `),
+  };
+}
+
 function emailInspectionOverdueDigest({ jobs }) {
   const rows = jobs.map(j => {
     const daysOverdue = Math.floor((Date.now() - new Date(j.inspection_date)) / (1000 * 60 * 60 * 24))
@@ -604,6 +659,8 @@ module.exports = {
   emailWhSubmittedForQA,
   emailWhQAApproved,
   emailWhQARejected,
+  emailWhDeviationRequested,
+  emailWhDeviationDecided,
   emailJobMapped,
   emailSubmittedForQA,
   emailQAApproved,

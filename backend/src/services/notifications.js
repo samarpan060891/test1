@@ -4,6 +4,8 @@ const {
   emailWhSubmittedForQA,
   emailWhQAApproved,
   emailWhQARejected,
+  emailWhDeviationRequested,
+  emailWhDeviationDecided,
   emailJobMapped,
   emailSubmittedForQA,
   emailQAApproved,
@@ -18,6 +20,9 @@ const EVENT_MESSAGES = {
   WH_SUBMITTED_FOR_QA: 'A warehouse inspection has been submitted for QA review.',
   WH_QA_APPROVED:      'A warehouse inspection has been approved by QA.',
   WH_QA_REJECTED:      'A warehouse inspection has been rejected by QA. Please review the remarks.',
+  WH_DEVIATION_REQUESTED: 'QA has requested a deviation approval from Buying for a warehouse inspection.',
+  WH_DEVIATION_APPROVED:  'Buying has approved the deviation request. Awaiting final QA decision.',
+  WH_DEVIATION_REJECTED:  'Buying has rejected the deviation request. Awaiting final QA decision.',
   JOB_MAPPED:              'A new inspection job has been mapped and assigned.',
   SUBMITTED_FOR_QA:        'An inspection checklist has been submitted and is pending QA review.',
   QA_APPROVED:             'The inspection has been approved by QA.',
@@ -60,6 +65,29 @@ function buildEmailForEvent(eventType, extraMessage) {
         supplierName: data.supplier_name || '—',
         stage: data.stage,
         reviewerName: data.reviewer_name,
+        remarks: data.remarks,
+        inspectionId: data.wh_inspection_id,
+      });
+    case 'WH_DEVIATION_REQUESTED':
+      return emailWhDeviationRequested({
+        poNo: data.po_no || '—',
+        itemName: data.item_name || '—',
+        supplierName: data.supplier_name || '—',
+        stage: data.stage,
+        requesterName: data.requester_name,
+        reason: data.reason,
+        inspectionId: data.wh_inspection_id,
+      });
+    case 'WH_DEVIATION_APPROVED':
+    case 'WH_DEVIATION_REJECTED':
+      return emailWhDeviationDecided({
+        decision: eventType === 'WH_DEVIATION_APPROVED' ? 'approved' : 'rejected',
+        poNo: data.po_no || '—',
+        itemName: data.item_name || '—',
+        supplierName: data.supplier_name || '—',
+        stage: data.stage,
+        buyerName: data.buyer_name,
+        deviationReason: data.deviation_reason,
         remarks: data.remarks,
         inspectionId: data.wh_inspection_id,
       });
@@ -177,6 +205,12 @@ function buildReadableMessage(eventType, extraMessage) {
       return `Warehouse inspection approved by QA — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Reviewed by ${data.reviewer_name || '—'}.`;
     case 'WH_QA_REJECTED':
       return `Warehouse inspection rejected by QA — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Reviewed by ${data.reviewer_name || '—'}.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
+    case 'WH_DEVIATION_REQUESTED':
+      return `Deviation approval requested by QA — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Requested by ${data.requester_name || '—'}.${data.reason ? ` Reason: ${data.reason}` : ''}`;
+    case 'WH_DEVIATION_APPROVED':
+      return `Deviation approved by Buying — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Decided by ${data.buyer_name || '—'}. Awaiting final QA decision.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
+    case 'WH_DEVIATION_REJECTED':
+      return `Deviation rejected by Buying — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Decided by ${data.buyer_name || '—'}. Awaiting final QA decision.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
     case 'JOB_MAPPED':
       return `New inspection job mapped${jobRef ? ` — ${jobRef}` : ''}. Item: ${data.item_name || '—'}. Agency: ${data.agency_name || 'Self Inspection'}.`;
     case 'SUBMITTED_FOR_QA':
