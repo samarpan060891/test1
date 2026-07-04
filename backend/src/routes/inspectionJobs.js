@@ -697,6 +697,10 @@ router.post('/:id/buyer-deviation', authorize('buying'), async (req, res) => {
     if (job.status !== 'deviation_requested')
       return res.status(400).json({ error: 'No pending deviation request for this job' });
 
+    // Only the PO's assigned buyer may decide the deviation
+    if (job.po_buyer_id && job.po_buyer_id !== req.user.user_id)
+      return res.status(403).json({ error: 'This PO is assigned to a different buyer' });
+
     const decision = action === 'approve' ? 'approved' : 'rejected';
     const { rows: updated } = await db.query(
       `UPDATE qc_inspection.inspection_job

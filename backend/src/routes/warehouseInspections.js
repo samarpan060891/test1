@@ -18,6 +18,14 @@ const upload = multer({
 
 const WAREHOUSE_ROLES = ['warehouse', 'admin', 'qa', 'buying'];
 
+// All warehouse-inspection routes (including reads) are limited to these roles;
+// individual write endpoints apply narrower checks on top.
+router.use((req, res, next) => {
+  if (!WAREHOUSE_ROLES.includes(req.user.role))
+    return res.status(403).json({ error: 'Access denied' });
+  next();
+});
+
 // GET /api/warehouse-inspections — list all (with PO + item info)
 router.get('/', async (req, res) => {
   try {
@@ -502,6 +510,10 @@ router.post('/:id/buyer-deviation', async (req, res) => {
 
     if (wi.status !== 'deviation_requested')
       return res.status(400).json({ error: 'No pending deviation request for this inspection' });
+
+    // Only the PO's assigned buyer (or admin) may decide the deviation
+    if (req.user.role === 'buying' && wi.po_buyer_id && wi.po_buyer_id !== req.user.user_id)
+      return res.status(403).json({ error: 'This PO is assigned to a different buyer' });
 
     const decision = action === 'approve' ? 'approved' : 'rejected';
     const { rows: updated } = await db.query(`

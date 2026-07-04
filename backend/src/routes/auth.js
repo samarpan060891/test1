@@ -69,8 +69,8 @@ router.put('/change-password', authenticate, async (req, res) => {
   const { current_password, new_password } = req.body;
   if (!current_password || !new_password)
     return res.status(400).json({ error: 'current_password and new_password are required' });
-  if (new_password.length < 6)
-    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  if (new_password.length < 8)
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
 
   try {
     const result = await db.query(

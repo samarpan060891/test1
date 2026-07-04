@@ -127,10 +127,11 @@ async function runMigrations() {
   for (const u of defaultUsers) {
     try {
       const hash = await bcrypt.hash('Password@123', 10);
+      // Insert-only: never overwrite an existing user's password on restart
       await db.query(
         `INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role)
          VALUES ($1, $2, $3, $4)
-         ON CONFLICT (email) DO UPDATE SET password_hash = $3, role = $4`,
+         ON CONFLICT (email) DO NOTHING`,
         [u.name, u.email, hash, u.role]
       );
     } catch (err) {
@@ -856,10 +857,11 @@ async function runMigrations() {
   try {
     const bcryptLocal = require('bcryptjs');
     const whHash = await bcryptLocal.hash('Password@123', 10);
+    // Insert-only: never overwrite an existing user's password on restart
     await db.query(
       `INSERT INTO qc_inspection.team_stakeholder (name, email, password_hash, role)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (email) DO UPDATE SET password_hash = $3, role = $4`,
+       ON CONFLICT (email) DO NOTHING`,
       ['Warehouse User', 'warehouse@homesrus.com', whHash, 'warehouse']
     );
   } catch (err) { console.warn('⚠️  Could not upsert warehouse user:', err.message); }

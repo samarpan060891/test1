@@ -29,9 +29,9 @@ async function sendEmail({ to, subject, html }) {
 
   try {
     const { data, error } = await client.emails.send({
-      from: 'QC Inspection Portal <onboarding@resend.dev>',
+      from: process.env.EMAIL_FROM || 'QC Inspection Portal <onboarding@resend.dev>',
       to: recipients,
-      cc: ['samarpan01@gmail.com'],
+      ...(process.env.EMAIL_CC ? { cc: process.env.EMAIL_CC.split(',').map(s => s.trim()) } : {}),
       subject: process.env.TEST_EMAIL_TO ? `[TEST] ${subject}` : subject,
       html: testBanner + html,
     });

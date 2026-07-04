@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -19,8 +21,33 @@ const checklistImagesRoutes = require('./routes/checklistImages');
 const warehouseInspectionRoutes = require('./routes/warehouseInspections');
 
 const app = express();
+app.set('trust proxy', 1); // behind Railway's proxy — needed for correct client IPs in rate limiting
 
 // ── Middleware ──────────────────────────────────────────────────────────────
+app.use(helmet({
+  // API serves JSON + image blobs consumed by a separate frontend origin
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+
+// Brute-force protection on login: 20 attempts per 15 minutes per IP
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
+});
+app.use('/api/auth/login', loginLimiter);
+
+// General API limiter — generous ceiling to stop runaway clients, not normal use
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
+
 app.use(cors({
   origin: (origin, callback) => {
     const allowed = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -75,7 +102,10 @@ app.use((req, res) => {
 // ── Global error handler ─────────────────────────────────────────────────────
 app.use((err, req, res, _next) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error', detail: err.message });
+  res.status(500).json({
+    error: 'Internal server error',
+    ...(process.env.NODE_ENV !== 'production' ? { detail: err.message } : {}),
+  });
 });
 
 module.exports = app;
