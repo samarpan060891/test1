@@ -40,6 +40,10 @@ router.get('/', async (req, res) => {
       SELECT
         wi.*,
         p.status      AS po_status,
+        p.quantity    AS po_qty,
+        p.unit_price,
+        (COALESCE(p.quantity, 0) * COALESCE(p.unit_price, 0))       AS po_value,
+        (COALESCE(wi.defect_qty, 0) * COALESCE(p.unit_price, 0))    AS defect_value,
         im.name       AS item_name,
         ts.name       AS inspector_name,
         COUNT(wir.response_id)                            AS total_checkpoints,
@@ -51,7 +55,7 @@ router.get('/', async (req, res) => {
       LEFT JOIN qc_inspection.team_stakeholder ts ON ts.user_id = wi.inspector_id
       LEFT JOIN qc_inspection.warehouse_inspection_response wir ON wir.wh_inspection_id = wi.wh_inspection_id
       ${where}
-      GROUP BY wi.wh_inspection_id, p.status, im.name, ts.name
+      GROUP BY wi.wh_inspection_id, p.status, p.quantity, p.unit_price, im.name, ts.name
       ORDER BY wi.created_at DESC
     `, params);
     res.json(rows);
@@ -110,7 +114,8 @@ router.delete('/checkpoint-templates/:checkpointId', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(`
-      SELECT wi.*, p.status AS po_status, p.supplier_code, s.name AS supplier_name,
+      SELECT wi.*, p.status AS po_status, p.supplier_code, p.quantity AS po_qty, p.unit_price,
+             s.name AS supplier_name,
              im.name AS item_name, ts.name AS inspector_name
       FROM qc_inspection.warehouse_inspection wi
       JOIN qc_inspection.po_master p ON p.po_no = wi.po_no
@@ -240,7 +245,7 @@ router.put('/:id/responses', async (req, res) => {
     if (!WAREHOUSE_ROLES.includes(req.user.role))
       return res.status(403).json({ error: 'Access denied' });
 
-    const { responses } = req.body; // [{ checkpoint_id, result, remarks }]
+    const { responses, checked_qty, defect_qty } = req.body; // [{ checkpoint_id, result, remarks }]
     if (!Array.isArray(responses)) return res.status(400).json({ error: 'responses must be an array' });
 
     for (const r of responses) {
@@ -250,6 +255,19 @@ router.put('/:id/responses', async (req, res) => {
         WHERE wh_inspection_id = $3 AND checkpoint_id = $4
       `, [r.result || null, r.remarks || null, req.params.id, r.checkpoint_id]);
     }
+
+    // Optional quantity fields saved alongside responses
+    if (checked_qty !== undefined || defect_qty !== undefined) {
+      const cq = checked_qty === undefined || checked_qty === null || checked_qty === '' ? null : parseInt(checked_qty, 10);
+      const dq = defect_qty === undefined || defect_qty === null || defect_qty === '' ? null : parseInt(defect_qty, 10);
+      if ((cq !== null && (isNaN(cq) || cq < 0)) || (dq !== null && (isNaN(dq) || dq < 0)))
+        return res.status(400).json({ error: 'Quantities must be non-negative numbers' });
+      await db.query(
+        `UPDATE qc_inspection.warehouse_inspection SET checked_qty = $1, defect_qty = $2 WHERE wh_inspection_id = $3`,
+        [cq, dq, req.params.id]
+      );
+    }
+
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

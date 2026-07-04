@@ -812,6 +812,16 @@ async function runMigrations() {
       ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ
   `, 'add submitted_at to warehouse_inspection');
 
+  // Quantity tracking for warehouse inspections
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS checked_qty INT
+  `, 'add checked_qty to warehouse_inspection');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.warehouse_inspection
+      ADD COLUMN IF NOT EXISTS defect_qty INT
+  `, 'add defect_qty to warehouse_inspection');
+
   // Buyer deviation workflow columns (QA → Buying → QA)
   await safeQuery(`
     ALTER TABLE qc_inspection.warehouse_inspection

@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
+import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
 import { listWarehouseInspections, createWarehouseInspection } from '../api/warehouseInspections.js'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 import client from '../api/client.js'
 import * as XLSX from 'xlsx'
 
@@ -48,9 +50,11 @@ const tdStyle = {
 
 export default function WarehouseInspectionPage() {
   const navigate = useNavigate()
+  const { formatAmount } = useCurrency()
   const [inspections, setInspections] = useState([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ stage: '', status: '', po_no: '' })
+  const [colFilters, setColFilters] = useState({})
   const [showCreate, setShowCreate] = useState(false)
   const [listError, setListError] = useState('')
 
@@ -140,7 +144,12 @@ export default function WarehouseInspectionPage() {
       'Stage':         ins.stage,
       'Inspector':     ins.inspector_name || '',
       'Trigger':       ins.trigger_source || '',
-      'Status':        ins.status,
+      'PO Qty':        ins.po_qty ?? '',
+      'QC Check Qty':  ins.checked_qty ?? '',
+      'Defect Qty':    ins.defect_qty ?? '',
+      'PO Value':      ins.po_value != null ? parseFloat(ins.po_value) : '',
+      'Defect Value':  ins.defect_value != null ? parseFloat(ins.defect_value) : '',
+      'Status':        STATUS_META[ins.status]?.label || ins.status,
       'Pass':          parseInt(ins.pass_count) || 0,
       'Fail':          parseInt(ins.fail_count) || 0,
       'Total Checkpoints': parseInt(ins.total_checkpoints) || 0,
@@ -153,11 +162,21 @@ export default function WarehouseInspectionPage() {
   }
 
   // Apply stat card filter on top of API filters
-  const displayInspections = activeFilter
+  const cardFiltered = activeFilter
     ? inspections.filter(ins =>
         ins.status === activeFilter || ins.stage === activeFilter
       )
     : inspections
+
+  // Per-column Excel-style filters
+  const setColFilter = (key, vals) => setColFilters(p => ({ ...p, [key]: vals }))
+  const hasColFilter = Object.values(colFilters).some(v => v?.length > 0)
+  const clearColFilters = () => setColFilters({})
+  const displayInspections = cardFiltered.filter(ins =>
+    Object.entries(colFilters).every(([key, vals]) =>
+      !vals?.length || vals.includes(String(ins[key] ?? ''))
+    )
+  )
 
   const STAT_CARDS = [
     { label: 'All Inspections', key: null,               cls: 'blue',  accent: '#E8470F' },
@@ -294,15 +313,53 @@ export default function WarehouseInspectionPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
                 <thead>
                   <tr>
-                    <th style={thStyle}>PO No.</th>
-                    <th style={thStyle}>Item</th>
-                    <th style={thStyle}>Stage</th>
-                    <th style={thStyle}>Inspector</th>
-                    <th style={thStyle}>Trigger</th>
+                    <th style={thStyle}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>PO No.
+                        <ColumnFilterDropdown colKey="po_no" data={cardFiltered} value={colFilters.po_no || []} onChange={v => setColFilter('po_no', v)} label="PO No." />
+                      </span>
+                    </th>
+                    <th style={thStyle}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>Item
+                        <ColumnFilterDropdown colKey="item_name" data={cardFiltered} value={colFilters.item_name || []} onChange={v => setColFilter('item_name', v)} label="Item" />
+                      </span>
+                    </th>
+                    <th style={thStyle}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>Stage
+                        <ColumnFilterDropdown colKey="stage" data={cardFiltered} value={colFilters.stage || []} onChange={v => setColFilter('stage', v)} label="Stage" />
+                      </span>
+                    </th>
+                    <th style={thStyle}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>Inspector
+                        <ColumnFilterDropdown colKey="inspector_name" data={cardFiltered} value={colFilters.inspector_name || []} onChange={v => setColFilter('inspector_name', v)} label="Inspector" />
+                      </span>
+                    </th>
+                    <th style={thStyle}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>Trigger
+                        <ColumnFilterDropdown colKey="trigger_source" data={cardFiltered} value={colFilters.trigger_source || []} onChange={v => setColFilter('trigger_source', v)} label="Trigger" valueLabel={v => v.replace(/_/g, ' ')} />
+                      </span>
+                    </th>
+                    <th style={{ ...thStyle, textAlign: 'right' }}>PO Qty</th>
+                    <th style={{ ...thStyle, textAlign: 'right' }}>QC Check Qty</th>
+                    <th style={{ ...thStyle, textAlign: 'right' }}>Defect Qty</th>
+                    <th style={{ ...thStyle, textAlign: 'right' }}>PO Value</th>
+                    <th style={{ ...thStyle, textAlign: 'right' }}>Defect Value</th>
                     <th style={thStyle}>Progress</th>
-                    <th style={thStyle}>Status</th>
+                    <th style={thStyle}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>Status
+                        <ColumnFilterDropdown colKey="status" data={cardFiltered} value={colFilters.status || []} onChange={v => setColFilter('status', v)} label="Status" valueLabel={v => STATUS_META[v]?.label || v} />
+                      </span>
+                    </th>
                     <th style={thStyle}>Date</th>
-                    <th style={{ ...thStyle, textAlign: 'center' }}>Action</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>Action
+                        {hasColFilter && (
+                          <button onClick={clearColFilters} title="Clear all column filters"
+                            style={{ fontSize: '9px', color: '#E8470F', background: '#FEF0EB', border: '1px solid #fca5a5', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', padding: '1px 5px' }}>
+                            ✕ Clear
+                          </button>
+                        )}
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -334,6 +391,17 @@ export default function WarehouseInspectionPage() {
                         <td style={{ ...tdStyle, color: '#475569' }}>{ins.inspector_name || '—'}</td>
                         <td style={{ ...tdStyle, color: '#475569', fontSize: '12px' }}>
                           {ins.trigger_source ? ins.trigger_source.replace(/_/g, ' ') : '—'}
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: 'right', color: '#475569' }}>{ins.po_qty ?? '—'}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right', color: '#475569' }}>{ins.checked_qty ?? '—'}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right', fontWeight: (ins.defect_qty || 0) > 0 ? '700' : '400', color: (ins.defect_qty || 0) > 0 ? '#dc2626' : '#475569' }}>
+                          {ins.defect_qty ?? '—'}
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: 'right', color: '#475569', whiteSpace: 'nowrap' }}>
+                          {ins.po_value != null ? formatAmount(parseFloat(ins.po_value)) : '—'}
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: parseFloat(ins.defect_value || 0) > 0 ? '700' : '400', color: parseFloat(ins.defect_value || 0) > 0 ? '#dc2626' : '#475569' }}>
+                          {ins.defect_value != null ? formatAmount(parseFloat(ins.defect_value)) : '—'}
                         </td>
                         <td style={{ ...tdStyle, minWidth: '120px' }}>
                           {total > 0 ? (

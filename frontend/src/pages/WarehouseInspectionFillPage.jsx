@@ -71,6 +71,8 @@ export default function WarehouseInspectionFillPage() {
   const [saving, setSaving] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [remarks, setRemarks] = useState('')
+  const [checkedQty, setCheckedQty] = useState('')
+  const [defectQty, setDefectQty] = useState('')
   const [msg, setMsg] = useState('')
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
@@ -116,6 +118,8 @@ export default function WarehouseInspectionFillPage() {
       const ins = insRes.value.data
       setInspection(ins)
       setRemarks(ins.remarks || '')
+      setCheckedQty(ins.checked_qty ?? '')
+      setDefectQty(ins.defect_qty ?? '')
       // Load full QC history panel data
       if (ins.item_code) {
         setHistLoading(true)
@@ -203,7 +207,7 @@ export default function WarehouseInspectionFillPage() {
         checkpoint_id: r.checkpoint_id,
         result: r.result || null,
         remarks: r.remarks || null,
-      })))
+      })), { checked_qty: checkedQty, defect_qty: defectQty })
       setMsg('Saved successfully')
     } catch (err) {
       setMsg('Save failed: ' + (err.response?.data?.error || err.message))
@@ -266,7 +270,7 @@ export default function WarehouseInspectionFillPage() {
         checkpoint_id: r.checkpoint_id,
         result: r.result || null,
         remarks: r.remarks || null,
-      })))
+      })), { checked_qty: checkedQty, defect_qty: defectQty })
       const r = await submitWarehouseForQA(id)
       setInspection(r.data)
       setMsg('Submitted for QA review. QA team has been notified.')
@@ -549,17 +553,64 @@ export default function WarehouseInspectionFillPage() {
               </div>
             )}
 
-            {/* Overall remarks read-only (completed inspections) */}
-            {isComplete && inspection?.remarks && (
+            {/* Quantities + overall remarks read-only (completed inspections) */}
+            {isComplete && (
               <div style={{ ...card, marginTop: '16px' }}>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Overall Remarks</div>
-                <div style={{ fontSize: '13px', color: '#475569', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>{inspection.remarks}</div>
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'PO Qty', value: inspection.po_qty ?? '—' },
+                    { label: 'QC Check Qty', value: inspection.checked_qty ?? '—' },
+                    { label: 'Defect Qty', value: inspection.defect_qty ?? '—', danger: (inspection.defect_qty || 0) > 0 },
+                    { label: 'PO Value', value: inspection.unit_price != null && inspection.po_qty != null ? formatAmount(inspection.po_qty * inspection.unit_price) : '—' },
+                    { label: 'Defect Value', value: inspection.unit_price != null ? formatAmount((inspection.defect_qty || 0) * inspection.unit_price) : '—', danger: (inspection.defect_qty || 0) > 0 },
+                  ].map(f => (
+                    <div key={f.label}>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>{f.label}</div>
+                      <div style={{ fontSize: '15px', fontWeight: '700', color: f.danger ? '#dc2626' : '#1e293b' }}>{f.value}</div>
+                    </div>
+                  ))}
+                </div>
+                {inspection?.remarks && (
+                  <div style={{ marginTop: '14px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>Overall Remarks</div>
+                    <div style={{ fontSize: '13px', color: '#475569', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>{inspection.remarks}</div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Summary + actions */}
             {!isComplete && canFill && (
               <div style={{ ...card, marginTop: '16px' }}>
+                {/* Quantities */}
+                <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                  <div>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>PO Qty</span>
+                    <div style={{ padding: '8px 12px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '13px', color: '#475569', minWidth: '90px' }}>
+                      {inspection.po_qty ?? '—'}
+                    </div>
+                  </div>
+                  <label>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>QC Check Qty</span>
+                    <input type="number" min="0" value={checkedQty} onChange={e => setCheckedQty(e.target.value)}
+                      placeholder="e.g. 50"
+                      style={{ width: '110px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', boxSizing: 'border-box' }} />
+                  </label>
+                  <label>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Defect Qty</span>
+                    <input type="number" min="0" value={defectQty} onChange={e => setDefectQty(e.target.value)}
+                      placeholder="e.g. 2"
+                      style={{ width: '110px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', boxSizing: 'border-box' }} />
+                  </label>
+                  {inspection.unit_price != null && (
+                    <div>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Defect Value</span>
+                      <div style={{ padding: '8px 12px', borderRadius: '8px', background: '#fef2f2', border: '1px solid #fecaca', fontSize: '13px', fontWeight: '600', color: '#991b1b', minWidth: '90px' }}>
+                        {formatAmount((parseInt(defectQty, 10) || 0) * parseFloat(inspection.unit_price || 0))}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <label style={{ display: 'block', marginBottom: '14px' }}>
                   <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Overall Remarks</span>
                   <textarea value={remarks} onChange={e => setRemarks(e.target.value)} rows={3}

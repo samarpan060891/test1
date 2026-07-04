@@ -27,8 +27,8 @@ export const syncInspectionResponses = (id) =>
 export const createWarehouseInspection = (data) =>
   client.post('/warehouse-inspections', data)
 
-export const saveWarehouseResponses = (id, responses) =>
-  client.put(`/warehouse-inspections/${id}/responses`, { responses })
+export const saveWarehouseResponses = (id, responses, quantities = {}) =>
+  client.put(`/warehouse-inspections/${id}/responses`, { responses, ...quantities })
 
 export const completeWarehouseInspection = (id, remarks) =>
   client.patch(`/warehouse-inspections/${id}/complete`, { remarks })
