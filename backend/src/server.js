@@ -927,6 +927,44 @@ async function runMigrations() {
     console.error('⚠️  [MIGRATION] wct_seed_v1 failed:', err.message);
   }
 
+  // Defect claim workflow: Warehouse raises → QA root cause → Buying penalties + final submission
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.defect_claim (
+      claim_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      claim_ref         TEXT UNIQUE,
+      po_no             TEXT NOT NULL REFERENCES qc_inspection.po_master(po_no),
+      item_code         TEXT NOT NULL,
+      supplier_code     TEXT,
+      wh_inspection_id  UUID REFERENCES qc_inspection.warehouse_inspection(wh_inspection_id),
+      defect_qty        INT,
+      claim_amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
+      description       TEXT,
+      status            TEXT NOT NULL DEFAULT 'pending_qa'
+                        CHECK (status IN ('pending_qa','pending_buying','submitted','settled','withdrawn')),
+      -- Warehouse
+      raised_by         UUID REFERENCES qc_inspection.team_stakeholder(user_id),
+      raised_at         TIMESTAMPTZ DEFAULT NOW(),
+      -- QA
+      root_cause        TEXT,
+      corrective_action TEXT,
+      qa_reviewed_by    UUID REFERENCES qc_inspection.team_stakeholder(user_id),
+      qa_reviewed_at    TIMESTAMPTZ,
+      -- Buying
+      penalty_amount    NUMERIC(12,2) NOT NULL DEFAULT 0,
+      penalty_reason    TEXT,
+      buying_submitted_by UUID REFERENCES qc_inspection.team_stakeholder(user_id),
+      buying_submitted_at TIMESTAMPTZ,
+      -- Lifecycle
+      return_remarks    TEXT,
+      settled_at        TIMESTAMPTZ,
+      created_at        TIMESTAMPTZ DEFAULT NOW()
+    )
+  `, 'defect_claim table');
+  await safeQuery(
+    `CREATE SEQUENCE IF NOT EXISTS qc_inspection.defect_claim_ref_seq START 1`,
+    'defect_claim ref sequence'
+  );
+
   console.log('✅ Migrations applied');
 }
 

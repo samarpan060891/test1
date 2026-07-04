@@ -19,6 +19,7 @@ const itemHistoryRoutes = require('./routes/itemHistory');
 const scorecardRoutes = require('./routes/scorecard');
 const checklistImagesRoutes = require('./routes/checklistImages');
 const warehouseInspectionRoutes = require('./routes/warehouseInspections');
+const claimRoutes = require('./routes/claims');
 
 const app = express();
 app.set('trust proxy', 1); // behind Railway's proxy — needed for correct client IPs in rate limiting
@@ -88,6 +89,7 @@ app.use('/api/item-history', itemHistoryRoutes);
 app.use('/api/scorecard', scorecardRoutes);
 app.use('/api/checklist-images', checklistImagesRoutes);
 app.use('/api/warehouse-inspections', warehouseInspectionRoutes);
+app.use('/api/claims', claimRoutes);
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

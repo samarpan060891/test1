@@ -32,6 +32,11 @@ const EVENT_MESSAGES = {
   JOB_DEVIATION_NO_BUYER:  'QA requested a deviation but no buyer is assigned to the PO. Please assign a buyer.',
   JOB_DEVIATION_APPROVED:  'Buying has approved the deviation request. Awaiting final QA decision.',
   JOB_DEVIATION_REJECTED:  'Buying has rejected the deviation request. Awaiting final QA decision.',
+  CLAIM_RAISED:              'A defect claim has been raised by the warehouse and is pending QA review.',
+  CLAIM_SUBMITTED_TO_BUYING: 'QA has reviewed a defect claim and submitted it to Buying.',
+  CLAIM_RETURNED:            'A defect claim has been returned. Please review the remarks.',
+  CLAIM_FINAL_SUBMITTED:     'A final defect claim has been submitted to the supplier.',
+  CLAIM_SETTLED:             'A defect claim has been settled.',
   JOB_MAPPED:              'A new inspection job has been mapped and assigned.',
   SUBMITTED_FOR_QA:        'An inspection checklist has been submitted and is pending QA review.',
   QA_APPROVED:             'The inspection has been approved by QA.',
@@ -272,6 +277,16 @@ function buildReadableMessage(eventType, extraMessage) {
       return `Deviation approval requested by QA${jobRef ? ` — ${jobRef}` : ''}. Item: ${data.item_name || '—'}. Requested by ${data.requester_name || '—'}.${data.reason ? ` Reason: ${data.reason}` : ''}`;
     case 'JOB_DEVIATION_NO_BUYER':
       return `⚠️ Deviation requested but no buyer is assigned to PO ${data.po_no || '—'}${jobRef ? ` (${jobRef})` : ''}. Please assign a buyer to the PO so they can review the deviation.`;
+    case 'CLAIM_RAISED':
+      return `Defect claim ${data.claim_ref || ''} raised by ${data.raised_by || 'warehouse'} — PO ${data.po_no || '—'}, Item: ${data.item_name || '—'}. Amount: $${parseFloat(data.claim_amount || 0).toFixed(2)}. Pending QA root-cause review.`;
+    case 'CLAIM_SUBMITTED_TO_BUYING':
+      return `Defect claim ${data.claim_ref || ''} reviewed by QA (${data.qa_name || '—'}) — PO ${data.po_no || '—'}. Root cause: ${(data.root_cause || '').slice(0, 100)}. Pending Buying penalties & final submission.`;
+    case 'CLAIM_RETURNED':
+      return `Defect claim ${data.claim_ref || ''} returned to ${data.returned_to || '—'} by ${data.returned_by || '—'}. Remarks: ${data.remarks || '—'}`;
+    case 'CLAIM_FINAL_SUBMITTED':
+      return `Final defect claim ${data.claim_ref || ''} submitted to ${data.supplier_name || 'supplier'} — PO ${data.po_no || '—'}. Total: $${parseFloat(data.total_amount || 0).toFixed(2)}${parseFloat(data.penalty_amount || 0) > 0 ? ` (incl. $${parseFloat(data.penalty_amount).toFixed(2)} penalty)` : ''}.`;
+    case 'CLAIM_SETTLED':
+      return `Defect claim ${data.claim_ref || ''} settled — PO ${data.po_no || '—'}. Total recovered: $${parseFloat(data.total_amount || 0).toFixed(2)}.`;
     case 'JOB_DEVIATION_APPROVED':
       return `Deviation approved by Buying${jobRef ? ` — ${jobRef}` : ''}. Decided by ${data.buyer_name || '—'}. Awaiting final QA decision.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
     case 'JOB_DEVIATION_REJECTED':

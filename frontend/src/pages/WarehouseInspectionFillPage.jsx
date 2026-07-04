@@ -607,6 +607,12 @@ export default function WarehouseInspectionFillPage() {
                     <div style={{ fontSize: '13px', color: '#475569', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>{inspection.remarks}</div>
                   </div>
                 )}
+                {['warehouse', 'admin'].includes(user?.role) && (inspection.defect_qty || 0) > 0 && (
+                  <button onClick={() => navigate(`/claims?raise=1&po=${encodeURIComponent(inspection.po_no)}&item=${encodeURIComponent(inspection.item_code)}&wh=${inspection.wh_inspection_id}&qty=${inspection.defect_qty}&amt=${((inspection.defect_qty || 0) * parseFloat(inspection.unit_price || 0)).toFixed(2)}`)}
+                    style={{ marginTop: '14px', padding: '9px 18px', borderRadius: '8px', background: '#c2410c', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
+                    ⚖️ Raise Claim for {inspection.defect_qty} Defective Unit{inspection.defect_qty > 1 ? 's' : ''}
+                  </button>
+                )}
               </div>
             )}
 

@@ -20,6 +20,7 @@ import DocumentControlPage from './pages/DocumentControlPage.jsx'
 import SupplierScorecardPage from './pages/SupplierScorecardPage.jsx'
 import WarehouseInspectionPage from './pages/WarehouseInspectionPage.jsx'
 import WarehouseInspectionFillPage from './pages/WarehouseInspectionFillPage.jsx'
+import ClaimsPage from './pages/ClaimsPage.jsx'
 
 export default function App() {
   return (
@@ -161,6 +162,15 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['warehouse', 'admin', 'qa', 'buying']}>
               <WarehouseInspectionFillPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/claims"
+          element={
+            <ProtectedRoute allowedRoles={['warehouse', 'qa', 'buying', 'admin']}>
+              <ClaimsPage />
             </ProtectedRoute>
           }
         />

@@ -305,6 +305,106 @@ test('job buyer-deviation: assigned buyer decides → deviation_reviewed', async
   assert.equal(res.body.status, 'deviation_reviewed');
 });
 
+// ── Claims workflow ──────────────────────────────────────────────────────────
+
+const CLAIM = '/api/claims/33333333-3333-4333-8333-333333333333';
+const claimRow = (over = {}) => ({
+  claim_id: '33333333-3333-4333-8333-333333333333', claim_ref: 'CLM-2026-0001',
+  po_no: 'PO-1', item_code: 'ITM-1', supplier_code: 'S1', status: 'pending_qa',
+  claim_amount: 100, penalty_amount: 0, item_name: 'Item', supplier_name: 'Supp',
+  supplier_email: 's@x.y', po_buyer_id: null, po_buyer_email: null, ...over,
+});
+
+test('claims: supplier role cannot access', async () => {
+  const res = await request(app).get('/api/claims')
+    .set('Authorization', `Bearer ${tokenFor('supplier_user')}`);
+  assert.equal(res.status, 403);
+});
+
+test('claims: only warehouse can raise', async () => {
+  const res = await request(app).post('/api/claims')
+    .set('Authorization', `Bearer ${tokenFor('qa')}`)
+    .send({ po_no: 'PO-1', item_code: 'ITM-1', claim_amount: 10, description: 'broken' });
+  assert.equal(res.status, 403);
+});
+
+test('claims: raise requires a description', async () => {
+  const res = await request(app).post('/api/claims')
+    .set('Authorization', `Bearer ${tokenFor('warehouse')}`)
+    .send({ po_no: 'PO-1', item_code: 'ITM-1', claim_amount: 10 });
+  assert.equal(res.status, 400);
+});
+
+test('claims: qa-submit requires root cause', async () => {
+  const res = await request(app).post(`${CLAIM}/qa-submit`)
+    .set('Authorization', `Bearer ${tokenFor('qa')}`)
+    .send({ root_cause: ' ' });
+  assert.equal(res.status, 400);
+});
+
+test('claims: qa-submit only from pending_qa', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'submitted' })] });
+  const res = await request(app).post(`${CLAIM}/qa-submit`)
+    .set('Authorization', `Bearer ${tokenFor('qa')}`)
+    .send({ root_cause: 'supplier packing issue' });
+  assert.equal(res.status, 400);
+});
+
+test('claims: qa-submit moves claim to pending_buying', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_qa' })] });
+  onQuery(t => t.includes("SET status = 'pending_buying'"),
+    { rows: [claimRow({ status: 'pending_buying' })] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying' })] });
+  const res = await request(app).post(`${CLAIM}/qa-submit`)
+    .set('Authorization', `Bearer ${tokenFor('qa')}`)
+    .send({ root_cause: 'supplier packing issue' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'pending_buying');
+});
+
+test('claims: buying-submit requires reason when penalty added', async () => {
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ penalty_amount: 50 });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /reason/i);
+});
+
+test('claims: buying-submit finalises the claim', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying' })] });
+  onQuery(t => t.includes("SET status = 'submitted'"),
+    { rows: [claimRow({ status: 'submitted', penalty_amount: 50 })] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'submitted', penalty_amount: 50 })] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ penalty_amount: 50, penalty_reason: 'late + defective' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'submitted');
+});
+
+test('claims: wrong buyer cannot finalise', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying', po_buyer_id: '99999999-9999-4999-8999-999999999999' })] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({});
+  assert.equal(res.status, 403);
+});
+
+test('claims: settle only from submitted', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_qa' })] });
+  const res = await request(app).post(`${CLAIM}/settle`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({});
+  assert.equal(res.status, 400);
+});
+
 // ── Auth basics ──────────────────────────────────────────────────────────────
 
 test('login requires email and password', async () => {
