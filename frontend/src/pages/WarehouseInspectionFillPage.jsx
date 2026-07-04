@@ -261,6 +261,12 @@ export default function WarehouseInspectionFillPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
+    const failsWithoutRemark = responses.filter(r => r.result === 'fail' && !(r.remarks || '').trim())
+    if (failsWithoutRemark.length > 0) {
+      setMsg(`Please add a remark to every FAILED checkpoint before submitting. ${failsWithoutRemark.length} failed checkpoint(s) missing remarks.`)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     if (!window.confirm('Submit this inspection for QA review? QA will be notified by email.')) return
     setSubmittingForQA(true)
     setMsg('')
@@ -479,12 +485,22 @@ export default function WarehouseInspectionFillPage() {
                             <span style={{ ...rc, padding: '3px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>{rc.label}</span>
                           )}
                           {!isComplete && canFill ? (
-                            <input
-                              value={r.remarks || ''}
-                              onChange={e => updateResponse(r.checkpoint_id, 'remarks', e.target.value)}
-                              placeholder="Remarks (optional)"
-                              style={{ marginTop: '6px', width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px', color: '#374151', boxSizing: 'border-box' }}
-                            />
+                            <>
+                              <input
+                                value={r.remarks || ''}
+                                onChange={e => updateResponse(r.checkpoint_id, 'remarks', e.target.value)}
+                                placeholder={r.result === 'fail' ? 'Remarks (required for FAIL) *' : 'Remarks (optional)'}
+                                style={{ marginTop: '6px', width: '100%', padding: '6px 10px', borderRadius: '6px',
+                                  border: r.result === 'fail' && !(r.remarks || '').trim() ? '1.5px solid #dc2626' : '1px solid #e2e8f0',
+                                  background: r.result === 'fail' && !(r.remarks || '').trim() ? '#fef2f2' : '#fff',
+                                  fontSize: '12px', color: '#374151', boxSizing: 'border-box' }}
+                              />
+                              {r.result === 'fail' && !(r.remarks || '').trim() && (
+                                <div style={{ marginTop: '3px', fontSize: '11px', color: '#dc2626', fontWeight: '600' }}>
+                                  A remark is required for failed checkpoints
+                                </div>
+                              )}
+                            </>
                           ) : r.remarks ? (
                             <div style={{ marginTop: '4px', fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>{r.remarks}</div>
                           ) : null}

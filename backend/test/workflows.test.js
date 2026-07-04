@@ -87,10 +87,22 @@ test('warehouse submit-for-qa: rejected when checkpoints are unanswered', async 
   assert.match(res.body.error, /3 checkpoint/);
 });
 
+test('warehouse submit-for-qa: rejected when a failed checkpoint has no remark', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.warehouse_inspection wi'),
+    { rows: [whRow({ status: 'fail' })] });
+  onQuery(t => t.includes('result IS NULL'), { rows: [{ pending: 0 }] });
+  onQuery(t => t.includes("btrim(remarks) = ''"), { rows: [{ missing: 2 }] });
+  const res = await request(app).post(`${WH}/submit-for-qa`)
+    .set('Authorization', `Bearer ${tokenFor('warehouse')}`);
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /2 failed checkpoint.*missing remarks/i);
+});
+
 test('warehouse submit-for-qa: succeeds when complete and fully answered', async () => {
   onQuery(t => t.includes('FROM qc_inspection.warehouse_inspection wi'),
     { rows: [whRow({ status: 'pass' })] });
   onQuery(t => t.includes('result IS NULL'), { rows: [{ pending: 0 }] });
+  onQuery(t => t.includes("btrim(remarks) = ''"), { rows: [{ missing: 0 }] });
   onQuery(t => t.includes("wir.result = 'fail'"), { rows: [] });
   onQuery(t => t.includes("SET status = 'submitted_for_qa'"),
     { rows: [whRow({ status: 'submitted_for_qa' })] });

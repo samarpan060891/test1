@@ -357,6 +357,16 @@ router.post('/:id/submit-for-qa', async (req, res) => {
     if (pendingRows[0].pending > 0)
       return res.status(400).json({ error: `Cannot submit: ${pendingRows[0].pending} checkpoint(s) still pending. Please mark Pass/Fail/NA for all checkpoints.` });
 
+    // Guard: every failed checkpoint must carry a remark
+    const { rows: failNoRemark } = await db.query(
+      `SELECT COUNT(*)::int AS missing
+       FROM qc_inspection.warehouse_inspection_response
+       WHERE wh_inspection_id = $1 AND result = 'fail' AND (remarks IS NULL OR btrim(remarks) = '')`,
+      [req.params.id]
+    );
+    if (failNoRemark[0].missing > 0)
+      return res.status(400).json({ error: `Cannot submit: ${failNoRemark[0].missing} failed checkpoint(s) missing remarks. A remark is required for every FAIL.` });
+
     const { rows: failedRows } = await db.query(`
       SELECT wct.section, wct.checkpoint AS checkpoint_text, wct.criticality, wir.remarks AS remark
       FROM qc_inspection.warehouse_inspection_response wir
