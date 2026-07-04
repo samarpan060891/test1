@@ -12,6 +12,12 @@ export const getWarehouseResponses = (id) =>
 export const getWarehousePriorQC = (id) =>
   client.get(`/warehouse-inspections/${id}/prior-qc`)
 
+export const getWarehousePriorQCResponses = (id, jobId) =>
+  client.get(`/warehouse-inspections/${id}/prior-qc/${jobId}/responses`)
+
+export const getWarehouseCoverage = () =>
+  client.get('/warehouse-inspections/coverage')
+
 export const getChecklistTemplates = (stage, item_code) =>
   client.get('/warehouse-inspections/checklist-templates', { params: { stage, item_code } })
 

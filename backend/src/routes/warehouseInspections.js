@@ -44,6 +44,10 @@ router.get('/', async (req, res) => {
         p.unit_price,
         (COALESCE(p.quantity, 0) * COALESCE(p.unit_price, 0))       AS po_value,
         (COALESCE(wi.defect_qty, 0) * COALESCE(p.unit_price, 0))    AS defect_value,
+        EXISTS (SELECT 1 FROM qc_inspection.inspection_job j
+                WHERE j.po_no = wi.po_no AND COALESCE(j.inspection_type, 'agency') = 'agency') AS agency_inspected,
+        EXISTS (SELECT 1 FROM qc_inspection.inspection_job j
+                WHERE j.po_no = wi.po_no AND j.inspection_type = 'self') AS self_inspected,
         im.name       AS item_name,
         ts.name       AS inspector_name,
         COUNT(wir.response_id)                            AS total_checkpoints,
@@ -110,6 +114,32 @@ router.delete('/checkpoint-templates/:checkpointId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/warehouse-inspections/coverage — warehouse inspection coverage stats
+router.get('/coverage', async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT
+        COUNT(*)::int AS total_pos,
+        COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM qc_inspection.warehouse_inspection wi WHERE wi.po_no = p.po_no
+        ))::int AS wh_inspected_pos,
+        COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM qc_inspection.inspection_job j WHERE j.po_no = p.po_no
+        ))::int AS agency_inspected_pos,
+        COUNT(*) FILTER (WHERE
+          EXISTS (SELECT 1 FROM qc_inspection.warehouse_inspection wi WHERE wi.po_no = p.po_no)
+          AND EXISTS (SELECT 1 FROM qc_inspection.inspection_job j WHERE j.po_no = p.po_no)
+        )::int AS both_pos,
+        COUNT(*) FILTER (WHERE
+          NOT EXISTS (SELECT 1 FROM qc_inspection.warehouse_inspection wi WHERE wi.po_no = p.po_no)
+          AND NOT EXISTS (SELECT 1 FROM qc_inspection.inspection_job j WHERE j.po_no = p.po_no)
+        )::int AS uninspected_pos
+      FROM qc_inspection.po_master p
+    `);
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // GET /api/warehouse-inspections/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -153,12 +183,14 @@ router.get('/:id/prior-qc', async (req, res) => {
     if (!wi.length) return res.status(404).json({ error: 'Not found' });
     const { po_no, item_code } = wi[0];
 
+    // All agency/self inspections on this PO — same-item jobs listed first
     const { rows } = await db.query(`
       SELECT
         j.job_id, j.job_ref, j.inspection_stage, j.inspection_type, j.status,
         j.inspection_date, j.actual_inspection_date, j.submitted_at, j.decided_at,
         j.final_outcome, j.qa_remarks,
         a.name AS agency_name,
+        EXISTS (SELECT 1 FROM qc_inspection.job_items ji WHERE ji.job_id = j.job_id AND ji.item_code = $2) AS same_item,
         COUNT(ir.response_id) FILTER (WHERE ir.result = 'pass') AS pass_count,
         COUNT(ir.response_id) FILTER (WHERE ir.result = 'fail') AS fail_count,
         COUNT(ir.response_id) AS total_count
@@ -166,11 +198,44 @@ router.get('/:id/prior-qc', async (req, res) => {
       LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
       LEFT JOIN qc_inspection.inspection_response ir ON ir.job_id = j.job_id
       WHERE j.po_no = $1
-        AND EXISTS (SELECT 1 FROM qc_inspection.job_items ji WHERE ji.job_id = j.job_id AND ji.item_code = $2)
       GROUP BY j.job_id, a.name
-      ORDER BY j.inspection_date DESC NULLS LAST
+      ORDER BY same_item DESC, j.inspection_date DESC NULLS LAST
     `, [po_no, item_code]);
     res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/warehouse-inspections/:id/prior-qc/:jobId/responses
+// Full checklist of a prior agency/self inspection on the same PO, viewable by warehouse
+router.get('/:id/prior-qc/:jobId/responses', async (req, res) => {
+  try {
+    const { rows: wi } = await db.query(
+      `SELECT po_no FROM qc_inspection.warehouse_inspection WHERE wh_inspection_id = $1`,
+      [req.params.id]
+    );
+    if (!wi.length) return res.status(404).json({ error: 'Not found' });
+
+    // The job must belong to the same PO as this warehouse inspection
+    const { rows: jobRows } = await db.query(
+      `SELECT j.job_id, j.job_ref, j.status, j.final_outcome, j.qa_notes, j.inspection_type,
+              a.name AS agency_name
+       FROM qc_inspection.inspection_job j
+       LEFT JOIN qc_inspection.quality_agency_master a ON a.agency_code = j.agency_code
+       WHERE j.job_id = $1 AND j.po_no = $2`,
+      [req.params.jobId, wi[0].po_no]
+    );
+    if (!jobRows.length) return res.status(404).json({ error: 'Job not found for this PO' });
+
+    const { rows: responses } = await db.query(`
+      SELECT ci.section, ci.checkpoint_text, ci.criticality, ci.sort_order,
+             ir.result, ir.remark
+      FROM qc_inspection.inspection_response ir
+      JOIN qc_inspection.checklist_item ci ON ci.item_id = ir.checklist_item_id
+      WHERE ir.job_id = $1
+      ORDER BY ci.sort_order ASC
+    `, [req.params.jobId]);
+
+    res.json({ job: jobRows[0], responses });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

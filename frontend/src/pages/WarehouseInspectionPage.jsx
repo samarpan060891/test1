@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
 import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
-import { listWarehouseInspections, createWarehouseInspection } from '../api/warehouseInspections.js'
+import { listWarehouseInspections, createWarehouseInspection, getWarehouseCoverage } from '../api/warehouseInspections.js'
 import { useCurrency } from '../context/CurrencyContext.jsx'
 import client from '../api/client.js'
 import * as XLSX from 'xlsx'
@@ -55,6 +55,7 @@ export default function WarehouseInspectionPage() {
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ stage: '', status: '', po_no: '' })
   const [colFilters, setColFilters] = useState({})
+  const [coverage, setCoverage] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
   const [listError, setListError] = useState('')
 
@@ -69,6 +70,7 @@ export default function WarehouseInspectionPage() {
   useEffect(() => {
     fetchInspections()
     client.get('/masters/pos').then(r => setPoList(r.data || [])).catch(() => {})
+    getWarehouseCoverage().then(r => setCoverage(r.data)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -243,6 +245,42 @@ export default function WarehouseInspectionPage() {
           })}
         </div>
 
+        {/* Warehouse inspection coverage */}
+        {coverage && coverage.total_pos > 0 && (() => {
+          const pct = Math.round((coverage.wh_inspected_pos / coverage.total_pos) * 100)
+          return (
+            <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', padding: '16px 20px', marginBottom: '16px', borderTop: '3px solid #0f766e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+                <div style={{ minWidth: '220px', flex: 1 }}>
+                  <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f766e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                    🏭 Warehouse Inspection Coverage
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span style={{ fontSize: '28px', fontWeight: '800', color: '#0f766e' }}>{pct}%</span>
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>{coverage.wh_inspected_pos} of {coverage.total_pos} POs warehouse-inspected</span>
+                  </div>
+                  <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden', marginTop: '8px' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #0f766e, #14b8a6)', transition: 'width 0.4s' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '22px', flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'Agency/Self Inspected', value: coverage.agency_inspected_pos, color: '#166534' },
+                    { label: 'Both WH + Agency', value: coverage.both_pos, color: '#1d4ed8' },
+                    { label: 'Warehouse Only', value: coverage.wh_inspected_pos - coverage.both_pos, color: '#0f766e' },
+                    { label: 'Not Inspected', value: coverage.uninspected_pos, color: coverage.uninspected_pos > 0 ? '#dc2626' : '#94a3b8' },
+                  ].map(f => (
+                    <div key={f.label} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: f.color }}>{f.value}</div>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>{f.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Filter bar */}
         <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', padding: '14px 18px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
           <select value={filters.stage} onChange={e => setFilters(f => ({ ...f, stage: e.target.value }))} style={selectStyle}>
@@ -378,7 +416,19 @@ export default function WarehouseInspectionPage() {
                         onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                         onMouseLeave={e => e.currentTarget.style.background = ''}
                       >
-                        <td style={{ ...tdStyle, fontWeight: '600', color: '#1e293b' }}>{ins.po_no}</td>
+                        <td style={{ ...tdStyle, fontWeight: '600', color: '#1e293b' }}>
+                          {ins.po_no}
+                          {(ins.agency_inspected || ins.self_inspected) && (
+                            <div style={{ marginTop: '3px' }}>
+                              <span title={ins.agency_inspected ? 'This PO was also inspected by a quality agency' : 'This PO was self-inspected by the supplier'}
+                                style={{ fontSize: '9px', fontWeight: '800', padding: '1px 7px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap',
+                                  background: ins.agency_inspected ? '#dcfce7' : '#fce7f3',
+                                  color: ins.agency_inspected ? '#166534' : '#9d174d' }}>
+                                {ins.agency_inspected ? '✓ Agency Inspected' : '✓ Self Inspected'}
+                              </span>
+                            </div>
+                          )}
+                        </td>
                         <td style={tdStyle}>
                           <div style={{ fontWeight: '500' }}>{ins.item_name || ins.item_code}</div>
                           <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{ins.item_code}</div>

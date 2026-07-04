@@ -10,6 +10,7 @@ import {
   getWarehouseInspection,
   getWarehouseResponses,
   getWarehousePriorQC,
+  getWarehousePriorQCResponses,
   saveWarehouseResponses,
   completeWarehouseInspection,
   getWarehouseImages,
@@ -59,6 +60,8 @@ export default function WarehouseInspectionFillPage() {
   const [inspection, setInspection] = useState(null)
   const [responses, setResponses] = useState([])
   const [priorQC, setPriorQC] = useState([])
+  const [priorChecklist, setPriorChecklist] = useState(null) // { job, responses }
+  const [priorChecklistLoading, setPriorChecklistLoading] = useState(null) // job_id being loaded
   const [complaints, setComplaints] = useState([])
   const [claims, setClaims] = useState([])
   const [supplierScore, setSupplierScore] = useState(null)
@@ -356,6 +359,18 @@ export default function WarehouseInspectionFillPage() {
       setImageURLs(prev => { const n = { ...prev }; delete n[imageId]; return n })
     } catch (err) {
       setMsg('Delete failed: ' + (err.response?.data?.error || err.message))
+    }
+  }
+
+  async function openPriorChecklist(jobId) {
+    setPriorChecklistLoading(jobId)
+    try {
+      const r = await getWarehousePriorQCResponses(id, jobId)
+      setPriorChecklist(r.data)
+    } catch (err) {
+      setMsg('Failed to load checklist: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setPriorChecklistLoading(null)
     }
   }
 
@@ -916,7 +931,14 @@ export default function WarehouseInspectionFillPage() {
                           <div key={j.job_id || i} style={{ background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', borderLeft: `3px solid ${stageColor}` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                               <div>
-                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>{j.job_ref || (j.job_id ? `WH-INSP-${String(j.job_id).slice(0,6)}` : 'WH-INSP')}</div>
+                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                                  {j.job_ref || (j.job_id ? `WH-INSP-${String(j.job_id).slice(0,6)}` : 'WH-INSP')}
+                                  <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: '800', padding: '1px 6px', borderRadius: '9999px', textTransform: 'uppercase',
+                                    background: j.inspection_type === 'self' ? '#fce7f3' : '#dcfce7',
+                                    color: j.inspection_type === 'self' ? '#9d174d' : '#166534' }}>
+                                    {j.inspection_type === 'self' ? 'Self' : 'Agency'}
+                                  </span>
+                                </div>
                                 <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{j.inspection_stage?.replace(/_/g,' ')} · {j.po_no}</div>
                                 {j.agency_name && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>{j.agency_name}</div>}
                               </div>
@@ -934,6 +956,12 @@ export default function WarehouseInspectionFillPage() {
                             </div>
                             {j.qa_remarks && (
                               <div style={{ marginTop: '5px', fontSize: '11px', color: '#475569', fontStyle: 'italic', lineHeight: 1.4, borderTop: '1px solid #e2e8f0', paddingTop: '5px' }}>"{j.qa_remarks}"</div>
+                            )}
+                            {Number(j.total_count) > 0 && (
+                              <button onClick={() => openPriorChecklist(j.job_id)} disabled={priorChecklistLoading === j.job_id}
+                                style={{ marginTop: '7px', width: '100%', padding: '5px 10px', borderRadius: '6px', background: '#fff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                                {priorChecklistLoading === j.job_id ? 'Loading…' : '📋 View Checklist'}
+                              </button>
                             )}
                           </div>
                         )
@@ -1181,6 +1209,80 @@ export default function WarehouseInspectionFillPage() {
                 </tfoot>
               </table>
             )}
+          </div>
+        </>)}
+      </div>
+
+      {/* ── Prior Inspection Checklist Slide Panel ─────────────────────── */}
+      {priorChecklist && (
+        <div onClick={() => setPriorChecklist(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1500 }} />
+      )}
+      <div style={{
+        position: 'fixed', top: '52px', right: 0, width: '780px', maxWidth: '96vw',
+        height: 'calc(100vh - 52px)', background: '#fff', zIndex: 1600,
+        display: 'flex', flexDirection: 'column', boxShadow: '-6px 0 30px rgba(0,0,0,0.18)',
+        transform: priorChecklist ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+      }}>
+        {priorChecklist && (<>
+          <div style={{ background: 'linear-gradient(135deg, #1C1208 0%, #2E1D0E 100%)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div>
+              <div style={{ fontWeight: '800', fontSize: '15px', color: '#fff' }}>
+                📋 {priorChecklist.job.inspection_type === 'self' ? 'Supplier Self-Inspection' : 'Agency Inspection'} Checklist
+              </div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', marginTop: '2px' }}>
+                {priorChecklist.job.job_ref} · {priorChecklist.job.agency_name || 'Self Inspection'} ·
+                {' '}{priorChecklist.responses.length} checkpoint{priorChecklist.responses.length !== 1 ? 's' : ''}
+                {priorChecklist.job.final_outcome && (
+                  <span style={{ marginLeft: '8px', fontWeight: '800', textTransform: 'uppercase',
+                    color: priorChecklist.job.final_outcome === 'approved' || priorChecklist.job.final_outcome === 'pass' ? '#6ee7b7' : '#fca5a5' }}>
+                    {priorChecklist.job.final_outcome}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button onClick={() => setPriorChecklist(null)}
+              style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+            {priorChecklist.job.qa_notes && (
+              <div style={{ margin: '14px 18px 0', padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', fontSize: '12px', color: '#78350f' }}>
+                <strong>QA Notes:</strong> {priorChecklist.job.qa_notes}
+              </div>
+            )}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '640px', marginTop: '12px' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', position: 'sticky', top: 0 }}>
+                  {['Section', 'Checkpoint', 'Criticality', 'Result', 'Remark'].map(h => (
+                    <th key={h} style={{ padding: '9px 14px', textAlign: 'left', fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {priorChecklist.responses.map((r, i) => {
+                  const resColor = r.result === 'pass' ? { bg: '#d1fae5', color: '#065f46' }
+                    : r.result === 'fail' ? { bg: '#fee2e2', color: '#991b1b' }
+                    : { bg: '#f1f5f9', color: '#64748b' }
+                  const critColor = { critical: { bg: '#fee2e2', color: '#991b1b' }, major: { bg: '#fef3c7', color: '#92400e' }, minor: { bg: '#dcfce7', color: '#166534' } }[r.criticality] || { bg: '#f1f5f9', color: '#64748b' }
+                  return (
+                    <tr key={i} style={{ background: i % 2 ? '#fafafa' : '#fff', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '9px 14px', fontWeight: '600', color: '#374151', whiteSpace: 'nowrap' }}>{r.section}</td>
+                      <td style={{ padding: '9px 14px', color: '#475569', lineHeight: 1.4 }}>{r.checkpoint_text}</td>
+                      <td style={{ padding: '9px 14px' }}>
+                        <span style={{ background: critColor.bg, color: critColor.color, padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}>{r.criticality}</span>
+                      </td>
+                      <td style={{ padding: '9px 14px' }}>
+                        <span style={{ background: resColor.bg, color: resColor.color, padding: '2px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase' }}>
+                          {r.result || 'No response'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '9px 14px', color: '#64748b', fontStyle: r.remark ? 'italic' : 'normal' }}>{r.remark || '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </>)}
       </div>
