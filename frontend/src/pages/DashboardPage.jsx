@@ -404,6 +404,7 @@ export default function DashboardPage() {
   const [advices, setAdvices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [whCoverage, setWhCoverage] = useState(null)
 
   // Period state — shared across summary card + breakdown cards
   const PRESETS = buildPresets()
@@ -428,6 +429,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData()
+    // Warehouse coverage KPI (endpoint is limited to warehouse/qa/buying/admin — skip silently otherwise)
+    client.get('/warehouse-inspections/coverage').then(r => setWhCoverage(r.data)).catch(() => {})
     const interval = setInterval(() => fetchData(true), 30000)
     return () => clearInterval(interval)
   }, [])
@@ -637,6 +640,45 @@ export default function DashboardPage() {
             })}
           </div>
         </div>
+
+        {/* Warehouse inspection coverage KPI */}
+        {whCoverage && whCoverage.total_pos > 0 && (() => {
+          const pct = Math.round((whCoverage.wh_inspected_pos / whCoverage.total_pos) * 100)
+          return (
+            <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', padding: '16px 20px', marginBottom: '20px', borderTop: '3px solid #0f766e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+                <div style={{ minWidth: '220px', flex: 1 }}>
+                  <div style={{ fontSize: '12px', fontWeight: '800', color: '#0f766e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                    🏭 Warehouse Inspection Coverage
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span style={{ fontSize: '28px', fontWeight: '800', color: '#0f766e' }}>{pct}%</span>
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>{whCoverage.wh_inspected_pos} of {whCoverage.total_pos} POs warehouse-inspected</span>
+                  </div>
+                  <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden', marginTop: '8px' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #0f766e, #14b8a6)', transition: 'width 0.4s' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '22px', flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'Agency/Self Inspected', value: whCoverage.agency_inspected_pos, color: '#166534' },
+                    { label: 'Both WH + Agency', value: whCoverage.both_pos, color: '#1d4ed8' },
+                    { label: 'Warehouse Only', value: whCoverage.wh_inspected_pos - whCoverage.both_pos, color: '#0f766e' },
+                    { label: 'Not Inspected', value: whCoverage.uninspected_pos, color: whCoverage.uninspected_pos > 0 ? '#dc2626' : '#94a3b8' },
+                  ].map(f => (
+                    <div key={f.label} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: f.color }}>{f.value}</div>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>{f.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <Link to="/warehouse-inspections" style={{ fontSize: '12px', fontWeight: '700', color: '#0f766e', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                  View Warehouse Inspections →
+                </Link>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Country-Wise Breakdown */}
         {!loading && jobs.length > 0 && (
