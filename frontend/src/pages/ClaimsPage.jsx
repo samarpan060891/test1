@@ -63,6 +63,11 @@ export default function ClaimsPage() {
   const [returnRemarks, setReturnRemarks] = useState('')
   const [acting, setActing] = useState(false)
 
+  // Settlement state
+  const [settleMode, setSettleMode] = useState('')
+  const [creditNoteNo, setCreditNoteNo] = useState('')
+  const [settleRemarks, setSettleRemarks] = useState('')
+
   const fetchClaims = () => {
     setLoading(true)
     listClaims().then(r => setClaims(r.data || [])).catch(() => {}).finally(() => setLoading(false))
@@ -103,6 +108,9 @@ export default function ClaimsPage() {
     setPenaltyAmount(c.penalty_amount > 0 ? String(c.penalty_amount) : '')
     setPenaltyReason(c.penalty_reason || '')
     setReturnRemarks('')
+    setSettleMode('')
+    setCreditNoteNo('')
+    setSettleRemarks('')
     setMsg('')
   }
 
@@ -147,6 +155,7 @@ export default function ClaimsPage() {
       'Supplier': c.supplier_name || c.supplier_code || '', 'Defect Qty': c.defect_qty ?? '',
       'Claim Amount': parseFloat(c.claim_amount || 0), 'Penalty': parseFloat(c.penalty_amount || 0),
       'Total': parseFloat(c.total_amount || 0), 'Status': STATUS_META[c.status]?.label || c.status,
+      'Settlement Mode': c.settlement_mode || '', 'Credit Note': c.credit_note_no || '',
       'Root Cause': c.root_cause || '', 'Raised By': c.raised_by_name || '',
       'Date': new Date(c.created_at).toLocaleDateString('en-GB'),
     }))
@@ -444,7 +453,16 @@ export default function ClaimsPage() {
               )}
               {detail.status === 'settled' && (
                 <div style={{ borderLeft: '3px solid #059669', background: '#f0fdf4', padding: '10px 14px', borderRadius: '0 8px 8px 0' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#15803d' }}>✓ Settled {detail.settled_at ? `· ${new Date(detail.settled_at).toLocaleString()}` : ''}</div>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#15803d' }}>
+                    ✓ Settled by {detail.settlement_mode ? detail.settlement_mode.charAt(0).toUpperCase() + detail.settlement_mode.slice(1) : '—'}
+                    {detail.settled_at ? ` · ${new Date(detail.settled_at).toLocaleString()}` : ''}
+                  </div>
+                  {detail.credit_note_no && (
+                    <div style={{ fontSize: '13px', color: '#166534', marginTop: '4px' }}><strong>Credit Note:</strong> {detail.credit_note_no}</div>
+                  )}
+                  {detail.settlement_remarks && (
+                    <div style={{ fontSize: '13px', color: '#166534', marginTop: '2px' }}>{detail.settlement_remarks}</div>
+                  )}
                 </div>
               )}
             </div>
@@ -519,10 +537,47 @@ export default function ClaimsPage() {
 
             {/* Settle */}
             {detail.status === 'submitted' && ['buying', 'admin'].includes(role) && (
-              <button disabled={acting} onClick={() => { if (window.confirm('Mark this claim as settled?')) run(() => settleClaim(detail.claim_id), 'Claim settled.') }}
-                style={{ padding: '10px 20px', borderRadius: '8px', background: '#059669', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: 'pointer', marginBottom: '14px' }}>
-                ✓ Mark as Settled
-              </button>
+              <div style={{ border: '1px solid #a7f3d0', background: '#f0fdf4', borderRadius: '10px', padding: '16px', marginBottom: '14px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#15803d', marginBottom: '10px' }}>Settle Claim</div>
+                <span style={labelStyle}>Settlement Mode *</span>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  {[
+                    { value: 'replacement', label: '🔄 Replacement', hint: 'Supplier replaces defective units' },
+                    { value: 'rework',      label: '🔧 Rework',      hint: 'Repaired locally, cost charged back' },
+                    { value: 'refund',      label: '💵 Refund',      hint: 'Supplier refunds the claim value' },
+                  ].map(m => (
+                    <button key={m.value} type="button" title={m.hint} onClick={() => setSettleMode(m.value)}
+                      style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
+                        border: settleMode === m.value ? '2px solid #059669' : '1px solid #e2e8f0',
+                        background: settleMode === m.value ? '#dcfce7' : '#fff',
+                        color: settleMode === m.value ? '#166534' : '#475569' }}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                {['rework', 'refund'].includes(settleMode) && (
+                  <label style={{ display: 'block', marginBottom: '12px' }}>
+                    <span style={{ ...labelStyle, color: '#b45309' }}>Credit Note No. * (required for {settleMode})</span>
+                    <input value={creditNoteNo} onChange={e => setCreditNoteNo(e.target.value)} placeholder="e.g. CN-2026-0145"
+                      style={{ ...inputStyle, border: !creditNoteNo.trim() ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
+                  </label>
+                )}
+                <label style={{ display: 'block', marginBottom: '12px' }}>
+                  <span style={labelStyle}>Settlement Remarks (optional)</span>
+                  <input value={settleRemarks} onChange={e => setSettleRemarks(e.target.value)} placeholder="Any notes on the settlement…" style={inputStyle} />
+                </label>
+                <button disabled={acting || !settleMode} onClick={() => {
+                  if (['rework', 'refund'].includes(settleMode) && !creditNoteNo.trim()) {
+                    setMsg(`Failed: a credit note number is required to settle by ${settleMode}`)
+                    return
+                  }
+                  if (window.confirm(`Settle this claim by ${settleMode}?`))
+                    run(() => settleClaim(detail.claim_id, { mode: settleMode, credit_note_no: creditNoteNo, remarks: settleRemarks }), 'Claim settled.')
+                }}
+                  style={{ padding: '10px 20px', borderRadius: '8px', background: settleMode ? '#059669' : '#94a3b8', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: settleMode ? 'pointer' : 'not-allowed', opacity: acting ? 0.7 : 1 }}>
+                  {acting ? 'Processing…' : '✓ Confirm Settlement'}
+                </button>
+              </div>
             )}
 
             {/* Withdraw */}

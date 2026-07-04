@@ -237,24 +237,40 @@ router.post('/:id/buying-submit', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// POST /api/claims/:id/settle — Buying marks a submitted claim as settled
+// POST /api/claims/:id/settle — Buying settles a submitted claim
+// Modes: replacement | rework | refund. Credit note is mandatory for rework & refund.
 router.post('/:id/settle', async (req, res) => {
   try {
     if (!['buying', 'admin'].includes(req.user.role))
       return res.status(403).json({ error: 'Only Buying can settle claims' });
 
+    const { mode, credit_note_no, remarks } = req.body;
+    if (!['replacement', 'rework', 'refund'].includes(mode))
+      return res.status(400).json({ error: 'Settlement mode must be replacement, rework or refund' });
+    if (['rework', 'refund'].includes(mode) && (!credit_note_no || !credit_note_no.trim()))
+      return res.status(400).json({ error: `A credit note number is required to settle by ${mode}` });
+
     const claim = await loadClaim(req.params.id);
     if (!claim) return res.status(404).json({ error: 'Not found' });
     if (claim.status !== 'submitted')
       return res.status(400).json({ error: `Only submitted claims can be settled (status: ${claim.status})` });
+    if (req.user.role === 'buying' && claim.po_buyer_id && claim.po_buyer_id !== req.user.user_id)
+      return res.status(403).json({ error: 'This PO is assigned to a different buyer' });
 
     const { rows } = await db.query(`
       UPDATE qc_inspection.defect_claim
-      SET status = 'settled', settled_at = NOW()
-      WHERE claim_id = $1 RETURNING *
-    `, [req.params.id]);
+      SET status = 'settled', settled_at = NOW(),
+          settlement_mode = $1, credit_note_no = $2, settlement_remarks = $3
+      WHERE claim_id = $4 RETURNING *
+    `, [mode, credit_note_no?.trim() || null, remarks?.trim() || null, req.params.id]);
     const updated = await loadClaim(rows[0].claim_id);
-    await notifyRole('qa', 'CLAIM_SETTLED', claimMsg(updated, { settled_by: req.user.name || req.user.email }));
+    const msg = claimMsg(updated, {
+      settled_by: req.user.name || req.user.email,
+      settlement_mode: mode,
+      credit_note_no: credit_note_no?.trim() || null,
+    });
+    await notifyRole('qa', 'CLAIM_SETTLED', msg);
+    await notifyRole('warehouse', 'CLAIM_SETTLED', msg);
     res.json(updated);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

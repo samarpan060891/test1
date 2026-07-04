@@ -396,12 +396,49 @@ test('claims: wrong buyer cannot finalise', async () => {
   assert.equal(res.status, 403);
 });
 
+test('claims: settle requires a valid mode', async () => {
+  const res = await request(app).post(`${CLAIM}/settle`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'discount' });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /replacement, rework or refund/);
+});
+
+test('claims: refund settlement requires a credit note', async () => {
+  const res = await request(app).post(`${CLAIM}/settle`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'refund' });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /credit note/i);
+});
+
+test('claims: rework settlement requires a credit note', async () => {
+  const res = await request(app).post(`${CLAIM}/settle`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'rework', credit_note_no: '  ' });
+  assert.equal(res.status, 400);
+});
+
+test('claims: replacement settlement needs no credit note', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'submitted' })] });
+  onQuery(t => t.includes("SET status = 'settled'"),
+    { rows: [claimRow({ status: 'settled', settlement_mode: 'replacement' })] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'settled', settlement_mode: 'replacement' })] });
+  const res = await request(app).post(`${CLAIM}/settle`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'replacement' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'settled');
+});
+
 test('claims: settle only from submitted', async () => {
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
     { rows: [claimRow({ status: 'pending_qa' })] });
   const res = await request(app).post(`${CLAIM}/settle`)
     .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({});
+    .send({ mode: 'refund', credit_note_no: 'CN-1' });
   assert.equal(res.status, 400);
 });
 

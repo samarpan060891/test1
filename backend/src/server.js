@@ -964,6 +964,17 @@ async function runMigrations() {
     `CREATE SEQUENCE IF NOT EXISTS qc_inspection.defect_claim_ref_seq START 1`,
     'defect_claim ref sequence'
   );
+  // Settlement mode: replacement / rework / refund (credit note required for rework & refund)
+  await safeQuery(`
+    ALTER TABLE qc_inspection.defect_claim
+      ADD COLUMN IF NOT EXISTS settlement_mode TEXT CHECK (settlement_mode IN ('replacement','rework','refund'))
+  `, 'defect_claim settlement_mode');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS credit_note_no TEXT
+  `, 'defect_claim credit_note_no');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS settlement_remarks TEXT
+  `, 'defect_claim settlement_remarks');
 
   console.log('✅ Migrations applied');
 }

@@ -286,7 +286,7 @@ function buildReadableMessage(eventType, extraMessage) {
     case 'CLAIM_FINAL_SUBMITTED':
       return `Final defect claim ${data.claim_ref || ''} submitted to ${data.supplier_name || 'supplier'} — PO ${data.po_no || '—'}. Total: $${parseFloat(data.total_amount || 0).toFixed(2)}${parseFloat(data.penalty_amount || 0) > 0 ? ` (incl. $${parseFloat(data.penalty_amount).toFixed(2)} penalty)` : ''}.`;
     case 'CLAIM_SETTLED':
-      return `Defect claim ${data.claim_ref || ''} settled — PO ${data.po_no || '—'}. Total recovered: $${parseFloat(data.total_amount || 0).toFixed(2)}.`;
+      return `Defect claim ${data.claim_ref || ''} settled by ${data.settlement_mode || '—'} — PO ${data.po_no || '—'}. Total: $${parseFloat(data.total_amount || 0).toFixed(2)}.${data.credit_note_no ? ` Credit note: ${data.credit_note_no}.` : ''}`;
     case 'JOB_DEVIATION_APPROVED':
       return `Deviation approved by Buying${jobRef ? ` — ${jobRef}` : ''}. Decided by ${data.buyer_name || '—'}. Awaiting final QA decision.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
     case 'JOB_DEVIATION_REJECTED':
