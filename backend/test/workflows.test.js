@@ -483,6 +483,46 @@ test('claims: imports-review only from pending_imports', async () => {
   assert.equal(res.status, 400);
 });
 
+// ── Supplier scorecard config ────────────────────────────────────────────────
+
+test('scorecard config: non-admin cannot update', async () => {
+  const res = await request(app).put('/api/scorecard/config')
+    .set('Authorization', `Bearer ${tokenFor('qa')}`)
+    .send({ weight_complaints: 50, weight_claims: 40, weight_failures: 10 });
+  assert.equal(res.status, 403);
+});
+
+test('scorecard config: rejects weights not summing to 100', async () => {
+  const res = await request(app).put('/api/scorecard/config')
+    .set('Authorization', `Bearer ${tokenFor('admin')}`)
+    .send({ weight_complaints: 50, weight_claims: 40, weight_failures: 20, grade_excellent: 85, grade_good: 70, grade_average: 50, min_inspections: 3 });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /sum to 100/);
+});
+
+test('scorecard config: saves stamped with the updater user_id (not undefined)', async () => {
+  let captured = null;
+  onQuery(t => t.includes('UPDATE qc_inspection.scorecard_config'), (t, params) => { captured = params; return { rows: [{ id: 1 }] }; });
+  const res = await request(app).put('/api/scorecard/config')
+    .set('Authorization', `Bearer ${tokenFor('admin', { n: '7' })}`)
+    .send({ weight_complaints: 50, weight_claims: 40, weight_failures: 10, grade_excellent: 85, grade_good: 70, grade_average: 50, min_inspections: 3 });
+  assert.equal(res.status, 200);
+  // last bound param is updated_by — must be the real user_id, not undefined (the old req.user.userId bug)
+  assert.ok(captured && captured[captured.length - 1], 'updated_by should be the user_id');
+});
+
+test('scorecard: supplier_user is scoped by their own supplier (user_id passed through)', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.scorecard_config'),
+    { rows: [{ weight_complaints: 50, weight_claims: 40, weight_failures: 10, grade_excellent: 85, grade_good: 70, grade_average: 50, min_inspections: 3 }] });
+  let lookupParams = null;
+  onQuery(t => t.includes('SELECT supplier_code FROM qc_inspection.team_stakeholder'),
+    (t, p) => { lookupParams = p; return { rows: [{ supplier_code: 'SUP-9' }] }; });
+  const res = await request(app).get('/api/scorecard/suppliers')
+    .set('Authorization', `Bearer ${tokenFor('supplier_user', { n: '5' })}`);
+  assert.equal(res.status, 200);
+  assert.ok(lookupParams && lookupParams[0], 'supplier lookup must receive the user_id, not undefined');
+});
+
 // ── Auth basics ──────────────────────────────────────────────────────────────
 
 test('login requires email and password', async () => {

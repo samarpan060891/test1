@@ -738,24 +738,16 @@ function ScorecardConfigTab() {
           </div>
         </div>
 
-        {/* Complaint Severity */}
+        {/* Scoring Method + Data Threshold */}
         <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#111827', margin: '0 0 4px' }}>Complaint Severity Weights</h3>
-          <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 16px' }}>Multiplier applied per complaint by severity level</p>
-          {field('Critical severity multiplier', 'severity_critical', { hint: 'Default: 4× — most severe' })}
-          {field('High severity multiplier', 'severity_high', { hint: 'Default: 2×' })}
-          {field('Medium severity multiplier', 'severity_medium', { hint: 'Default: 1×' })}
-          {field('Low severity multiplier', 'severity_low', { hint: 'Default: 0.5×' })}
-        </div>
-
-        {/* Advanced Settings */}
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#111827', margin: '0 0 4px' }}>Advanced Settings</h3>
-          <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 16px' }}>Fine-tune penalty and data thresholds</p>
-          {field('Resolved complaint/claim penalty factor', 'resolved_penalty_factor', { hint: '0.5 = resolved issues carry 50% of the normal penalty', max: '1', step: '0.05' })}
-          {field('Claims: full deduction at % of PO value', 'claims_full_deduction_pct', { hint: 'E.g. 10 = if claims reach 10% of PO value, full claims deduction applied' })}
-          {field('Time decay — months before older issues decay', 'time_decay_months', { hint: 'Default: 12 months', step: '1', min: '1' })}
-          {field('Time decay factor (fraction of original weight)', 'time_decay_factor', { hint: '0.5 = issues older than threshold carry 50% weight', max: '1', step: '0.05' })}
+          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#111827', margin: '0 0 4px' }}>Scoring Method</h3>
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 16px' }}>How the 100-point score is deducted</p>
+          <div style={{ fontSize: '12px', color: '#475569', background: '#f8fafc', padding: '12px', borderRadius: '7px', lineHeight: 1.7, marginBottom: '16px' }}>
+            Score = 100 − complaint − claim − failure deductions:<br />
+            • <b>Complaints:</b> (complaints ÷ qty supplied) × {cfg.weight_complaints || 50}<br />
+            • <b>Claims:</b> (amount claimed ÷ PO value) × {cfg.weight_claims || 40}<br />
+            • <b>Failures:</b> (rejected ÷ total inspections) × {cfg.weight_failures || 10}
+          </div>
           {field('Minimum inspections to show a score', 'min_inspections', { hint: 'Suppliers with fewer inspections show "Insufficient Data"', step: '1', min: '1' })}
         </div>
       </div>

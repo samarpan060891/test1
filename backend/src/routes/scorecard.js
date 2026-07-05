@@ -18,12 +18,11 @@ router.get('/config', async (req, res) => {
 
 // ── PUT /api/scorecard/config ────────────────────────────────────────────────
 router.put('/config', authorize('admin'), async (req, res) => {
+  // Only the inputs that actually drive the score are configurable.
   const {
     weight_complaints, weight_claims, weight_failures,
     grade_excellent, grade_good, grade_average,
-    severity_critical, severity_high, severity_medium, severity_low,
-    resolved_penalty_factor, claims_full_deduction_pct,
-    time_decay_months, time_decay_factor, min_inspections,
+    min_inspections,
   } = req.body
 
   const total = Number(weight_complaints) + Number(weight_claims) + Number(weight_failures)
@@ -34,32 +33,21 @@ router.put('/config', authorize('admin'), async (req, res) => {
   try {
     const { rows } = await db.query(`
       UPDATE qc_inspection.scorecard_config SET
-        weight_complaints         = $1,
-        weight_claims             = $2,
-        weight_failures           = $3,
-        grade_excellent           = $4,
-        grade_good                = $5,
-        grade_average             = $6,
-        severity_critical         = $7,
-        severity_high             = $8,
-        severity_medium           = $9,
-        severity_low              = $10,
-        resolved_penalty_factor   = $11,
-        claims_full_deduction_pct = $12,
-        time_decay_months         = $13,
-        time_decay_factor         = $14,
-        min_inspections           = $15,
-        updated_at                = NOW(),
-        updated_by                = $16
+        weight_complaints = $1,
+        weight_claims     = $2,
+        weight_failures   = $3,
+        grade_excellent   = $4,
+        grade_good        = $5,
+        grade_average     = $6,
+        min_inspections   = $7,
+        updated_at        = NOW(),
+        updated_by        = $8
       WHERE id = 1
       RETURNING *
     `, [
       weight_complaints, weight_claims, weight_failures,
-      grade_excellent, grade_good, grade_average,
-      severity_critical, severity_high, severity_medium, severity_low,
-      resolved_penalty_factor, claims_full_deduction_pct,
-      time_decay_months, time_decay_factor, min_inspections,
-      req.user.userId,
+      grade_excellent, grade_good, grade_average, min_inspections,
+      req.user.user_id,
     ])
     res.json(rows[0])
   } catch (err) {
@@ -72,7 +60,7 @@ router.put('/config', authorize('admin'), async (req, res) => {
 // Returns scored list. supplier_user sees only their own supplier.
 router.get('/suppliers', async (req, res) => {
   const role = req.user.role
-  const userId = req.user.userId
+  const userId = req.user.user_id
 
   try {
     const cfgRes = await db.query('SELECT * FROM qc_inspection.scorecard_config WHERE id = 1')
@@ -189,7 +177,6 @@ router.get('/suppliers', async (req, res) => {
     const wComp        = Number(cfg.weight_complaints)
     const wClaim       = Number(cfg.weight_claims)
     const wFail        = Number(cfg.weight_failures)
-    const claimsMaxPct = Number(cfg.claims_full_deduction_pct) / 100
     const minInsp      = Number(cfg.min_inspections)
 
     const scored = suppliers.map(s => {

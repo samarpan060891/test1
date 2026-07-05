@@ -217,7 +217,7 @@ export default function SupplierScorecardPage() {
                             <>
                               <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Starting score: 100</div>
                               <DeductionBar label={`Customer Complaints (${cfg?.weight_complaints}%)`} value={bk.comp_deduction}  max={Number(cfg?.weight_complaints)} color="#f59e0b" />
-                              <DeductionBar label={`Claims (${cfg?.weight_claims}%)`}                  value={bk.claim_deduction} max={100}                           color="#ef4444" />
+                              <DeductionBar label={`Claims (${cfg?.weight_claims}%)`}                  value={bk.claim_deduction} max={Number(cfg?.weight_claims)}     color="#ef4444" />
                               <DeductionBar label={`Inspection Failures (${cfg?.weight_failures}%)`}   value={bk.fail_deduction}  max={Number(cfg?.weight_failures)}     color="#8b5cf6" />
                               <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '700' }}>
                                 <span>Final Score</span>
