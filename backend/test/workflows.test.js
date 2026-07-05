@@ -474,6 +474,34 @@ test('claims: accounts-close closes the claim', async () => {
   assert.equal(res.body.status, 'closed');
 });
 
+test('claims: details PATCH blocked on a closed claim', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'closed' })] });
+  const res = await request(app).patch(`${CLAIM}/details`)
+    .set('Authorization', `Bearer ${tokenFor('warehouse')}`)
+    .send({ trigger_point: 'Incoming Goods' });
+  assert.equal(res.status, 400);
+});
+
+test('claims: details PATCH updates report fields on an open claim', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_qa' })] });
+  onQuery(t => t.includes('UPDATE qc_inspection.defect_claim SET'),
+    { rows: [{ claim_id: claimRow().claim_id }] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_qa', trigger_point: 'Incoming Goods' })] });
+  const res = await request(app).patch(`${CLAIM}/details`)
+    .set('Authorization', `Bearer ${tokenFor('warehouse')}`)
+    .send({ trigger_point: 'Incoming Goods', checked_qty: 100 });
+  assert.equal(res.status, 200);
+});
+
+test('claims: attachment upload rejected for supplier role', async () => {
+  const res = await request(app).post(`${CLAIM}/attachments`)
+    .set('Authorization', `Bearer ${tokenFor('supplier_user')}`);
+  assert.equal(res.status, 403);
+});
+
 test('claims: imports-review only from pending_imports', async () => {
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
     { rows: [claimRow({ status: 'pending_qa' })] });

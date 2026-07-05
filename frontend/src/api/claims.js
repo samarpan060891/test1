@@ -9,3 +9,16 @@ export const buyingSubmitClaim = (id, data) => client.post(`/claims/${id}/buying
 export const importsReviewClaim = (id, remarks) => client.post(`/claims/${id}/imports-review`, { remarks })
 export const accountsCloseClaim = (id, deduction_remarks) => client.post(`/claims/${id}/accounts-close`, { deduction_remarks })
 export const withdrawClaim = (id) => client.post(`/claims/${id}/withdraw`)
+
+export const updateClaimDetails = (id, data) => client.patch(`/claims/${id}/details`, data)
+
+export const getClaimAttachments = (id) => client.get(`/claims/${id}/attachments`)
+export const getClaimAttachmentFile = (id, aid) =>
+  client.get(`/claims/${id}/attachments/${aid}/file`, { responseType: 'blob' })
+export const uploadClaimAttachment = (id, file, kind) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('kind', kind || 'defect_image')
+  return client.post(`/claims/${id}/attachments`, fd)
+}
+export const deleteClaimAttachment = (id, aid) => client.delete(`/claims/${id}/attachments/${aid}`)

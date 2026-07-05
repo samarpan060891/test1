@@ -993,6 +993,35 @@ async function runMigrations() {
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS accounts_closed_at TIMESTAMPTZ`, 'defect_claim accounts_closed_at');
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS deduction_remarks TEXT`, 'defect_claim deduction_remarks');
 
+  // Claim report fields (one-pager management report)
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS country_of_origin TEXT`, 'claim country_of_origin');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS trigger_point TEXT`, 'claim trigger_point');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS checked_qty INT`, 'claim checked_qty');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS grn_date DATE`, 'claim grn_date');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS trigger_date DATE`, 'claim trigger_date');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS qc_done_date DATE`, 'claim qc_done_date');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS root_cause_date DATE`, 'claim root_cause_date');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS rework_possible BOOLEAN`, 'claim rework_possible');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS rework_scope TEXT`, 'claim rework_scope');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS preventive_action TEXT`, 'claim preventive_action');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS rework_cost NUMERIC(12,2)`, 'claim rework_cost');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS cost_sheet_note TEXT`, 'claim cost_sheet_note');
+
+  // Claim attachments: defect images + cost sheet files
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.defect_claim_attachment (
+      attachment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      claim_id      UUID NOT NULL REFERENCES qc_inspection.defect_claim(claim_id) ON DELETE CASCADE,
+      kind          TEXT NOT NULL DEFAULT 'defect_image' CHECK (kind IN ('defect_image','cost_sheet')),
+      file_name     TEXT NOT NULL,
+      file_type     TEXT NOT NULL,
+      file_size     INT,
+      file_data     BYTEA NOT NULL,
+      uploaded_by   UUID REFERENCES qc_inspection.team_stakeholder(user_id),
+      uploaded_at   TIMESTAMPTZ DEFAULT NOW()
+    )
+  `, 'defect_claim_attachment table');
+
   console.log('✅ Migrations applied');
 }
 

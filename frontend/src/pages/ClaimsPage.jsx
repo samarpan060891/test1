@@ -8,7 +8,9 @@ import { useCurrency } from '../context/CurrencyContext.jsx'
 import {
   listClaims, createClaim, qaSubmitClaim, returnClaim,
   buyingSubmitClaim, importsReviewClaim, accountsCloseClaim, withdrawClaim,
+  getClaimAttachments, uploadClaimAttachment, deleteClaimAttachment, getClaimAttachmentFile,
 } from '../api/claims.js'
+import { generateClaimReport } from '../utils/generateClaimReport.js'
 import client from '../api/client.js'
 import * as XLSX from 'xlsx'
 
@@ -54,9 +56,22 @@ export default function ClaimsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [poList, setPoList] = useState([])
   const [itemList, setItemList] = useState([])
-  const [form, setForm] = useState({ po_no: '', item_code: '', defect_qty: '', claim_amount: '', description: '' })
+  const [form, setForm] = useState({ po_no: '', item_code: '', defect_qty: '', claim_amount: '', description: '',
+    country_of_origin: '', trigger_point: '', checked_qty: '', grn_date: '', trigger_date: '', qc_done_date: '' })
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
+
+  // Attachments (drawer)
+  const [attachments, setAttachments] = useState([])
+  const [attachmentURLs, setAttachmentURLs] = useState({})
+  const [uploading, setUploading] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  // Rework / cost fields
+  const [reworkPossible, setReworkPossible] = useState('')
+  const [reworkScope, setReworkScope] = useState('')
+  const [preventiveAction, setPreventiveAction] = useState('')
+  const [reworkCost, setReworkCost] = useState('')
+  const [costSheetNote, setCostSheetNote] = useState('')
 
   // Action state (drawer)
   const [rootCause, setRootCause] = useState('')
@@ -82,14 +97,17 @@ export default function ClaimsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   useEffect(() => {
     if (searchParams.get('raise') === '1' && ['warehouse', 'admin'].includes(role)) {
-      setForm({
+      setForm(f => ({
+        ...f,
         po_no: searchParams.get('po') || '',
         item_code: searchParams.get('item') || '',
         defect_qty: searchParams.get('qty') || '',
         claim_amount: searchParams.get('amt') || '',
+        checked_qty: searchParams.get('checked') || '',
+        trigger_point: searchParams.get('trigger') || '',
         description: '',
         wh_inspection_id: searchParams.get('wh') || null,
-      })
+      }))
       setShowCreate(true)
       setSearchParams({}, { replace: true })
     }
@@ -118,7 +136,63 @@ export default function ClaimsPage() {
     setSettleRemarks(c.settlement_remarks || '')
     setImportsRemarks(c.imports_remarks || '')
     setDeductionRemarks(c.deduction_remarks || '')
+    setReworkPossible(c.rework_possible === true ? 'yes' : c.rework_possible === false ? 'no' : '')
+    setReworkScope(c.rework_scope || '')
+    setPreventiveAction(c.preventive_action || '')
+    setReworkCost(c.rework_cost != null ? String(c.rework_cost) : '')
+    setCostSheetNote(c.cost_sheet_note || '')
+    setAttachments([]); setAttachmentURLs({})
+    getClaimAttachments(c.claim_id).then(r => { setAttachments(r.data || []); loadAttachmentThumbs(c.claim_id, r.data || []) }).catch(() => {})
     setMsg('')
+  }
+
+  async function loadAttachmentThumbs(claimId, atts) {
+    for (const a of atts) {
+      if (!a.file_type?.startsWith('image/')) continue
+      try {
+        const r = await getClaimAttachmentFile(claimId, a.attachment_id)
+        setAttachmentURLs(prev => ({ ...prev, [a.attachment_id]: URL.createObjectURL(r.data) }))
+      } catch {}
+    }
+  }
+
+  async function handleUpload(e, kind) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true); setMsg('')
+    try {
+      await uploadClaimAttachment(detail.claim_id, file, kind)
+      const r = await getClaimAttachments(detail.claim_id)
+      setAttachments(r.data || [])
+      loadAttachmentThumbs(detail.claim_id, r.data || [])
+    } catch (err) {
+      setMsg('Upload failed: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setUploading(false)
+      if (e.target) e.target.value = ''
+    }
+  }
+
+  async function handleDeleteAttachment(aid) {
+    if (!window.confirm('Remove this attachment?')) return
+    try {
+      await deleteClaimAttachment(detail.claim_id, aid)
+      setAttachments(prev => prev.filter(a => a.attachment_id !== aid))
+    } catch (err) { setMsg('Failed: ' + (err.response?.data?.error || err.message)) }
+  }
+
+  async function handleDownloadPdf(claim) {
+    setGenerating(true)
+    try {
+      let atts = attachments
+      if (!detail || detail.claim_id !== claim.claim_id) {
+        atts = (await getClaimAttachments(claim.claim_id).catch(() => ({ data: [] }))).data || []
+      }
+      await generateClaimReport(claim, atts, formatAmount,
+        (aid) => `/api/claims/${claim.claim_id}/attachments/${aid}/file`)
+    } catch (err) {
+      setMsg('PDF failed: ' + (err.message || err))
+    } finally { setGenerating(false) }
   }
 
   const afterAction = (updated) => {
@@ -147,9 +221,16 @@ export default function ClaimsPage() {
         defect_qty: form.defect_qty ? parseInt(form.defect_qty, 10) : null,
         claim_amount: form.claim_amount || 0,
         description: form.description,
+        country_of_origin: form.country_of_origin || null,
+        trigger_point: form.trigger_point || null,
+        checked_qty: form.checked_qty ? parseInt(form.checked_qty, 10) : null,
+        grn_date: form.grn_date || null,
+        trigger_date: form.trigger_date || null,
+        qc_done_date: form.qc_done_date || null,
       })
       setShowCreate(false)
-      setForm({ po_no: '', item_code: '', defect_qty: '', claim_amount: '', description: '' })
+      setForm({ po_no: '', item_code: '', defect_qty: '', claim_amount: '', description: '',
+        country_of_origin: '', trigger_point: '', checked_qty: '', grn_date: '', trigger_date: '', qc_done_date: '' })
       fetchClaims()
     } catch (err) {
       setCreateError(err.response?.data?.error || 'Failed to create claim')
@@ -159,12 +240,18 @@ export default function ClaimsPage() {
   function downloadExcel(rows) {
     const data = rows.map(c => ({
       'Claim Ref': c.claim_ref, 'PO No.': c.po_no, 'Item': c.item_name || c.item_code,
-      'Supplier': c.supplier_name || c.supplier_code || '', 'Defect Qty': c.defect_qty ?? '',
+      'Supplier': c.supplier_name || c.supplier_code || '', 'Country': c.country_of_origin || c.supplier_country || '',
+      'Trigger Point': c.trigger_point || '',
+      'Checked Qty': c.checked_qty ?? '', 'Defect Qty': c.defect_qty ?? '',
+      '% Defect': c.checked_qty > 0 ? +((c.defect_qty / c.checked_qty) * 100).toFixed(1) : '',
+      'PO Value': parseFloat(c.po_value || 0), 'Defect Value': parseFloat(c.defect_value || 0),
       'Claim Amount': parseFloat(c.claim_amount || 0), 'Penalty': parseFloat(c.penalty_amount || 0),
+      'Rework Cost': c.rework_cost != null ? parseFloat(c.rework_cost) : '',
       'Total': parseFloat(c.total_amount || 0), 'Status': STATUS_META[c.status]?.label || c.status,
       'Settlement Mode': c.settlement_mode || '', 'Credit Note': c.credit_note_no || '',
-      'Root Cause': c.root_cause || '', 'Raised By': c.raised_by_name || '',
-      'Date': new Date(c.created_at).toLocaleDateString('en-GB'),
+      'Rework Possible': c.rework_possible === true ? 'Yes' : c.rework_possible === false ? 'No' : '',
+      'Root Cause': c.root_cause || '', 'Deduction': c.deduction_remarks || '',
+      'Raised By': c.raised_by_name || '', 'Date': new Date(c.created_at).toLocaleDateString('en-GB'),
     }))
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
@@ -333,25 +420,44 @@ export default function ClaimsPage() {
       {/* ── Create modal ─────────────────────────────────────────────────── */}
       {showCreate && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          <div style={{ background: '#fff', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '560px', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <h2 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Raise Defect Claim</h2>
             {createError && <div style={{ background: '#fef2f2', color: '#dc2626', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', marginBottom: '14px' }}>{createError}</div>}
             <form onSubmit={handleCreate}>
-              <label style={{ display: 'block', marginBottom: '14px' }}>
-                <span style={labelStyle}>PO Number *</span>
-                <select required value={form.po_no} onChange={e => setForm(f => ({ ...f, po_no: e.target.value, item_code: '' }))} style={inputStyle}>
-                  <option value="">Select PO…</option>
-                  {poList.map(p => <option key={p.po_no} value={p.po_no}>{p.po_no}{p.supplier_name ? ` — ${p.supplier_name}` : ''}</option>)}
-                </select>
-              </label>
-              <label style={{ display: 'block', marginBottom: '14px' }}>
-                <span style={labelStyle}>Item *</span>
-                <select required value={form.item_code} onChange={e => setForm(f => ({ ...f, item_code: e.target.value }))} style={inputStyle} disabled={!form.po_no}>
-                  <option value="">{form.po_no ? 'Select item…' : 'Select a PO first'}</option>
-                  {itemList.map(i => <option key={i.item_code} value={i.item_code}>{i.name || i.item_code}</option>)}
-                </select>
-              </label>
               <div style={{ display: 'flex', gap: '12px', marginBottom: '14px' }}>
+                <label style={{ flex: 1 }}>
+                  <span style={labelStyle}>PO Number *</span>
+                  <select required value={form.po_no} onChange={e => setForm(f => ({ ...f, po_no: e.target.value, item_code: '' }))} style={inputStyle}>
+                    <option value="">Select PO…</option>
+                    {poList.map(p => <option key={p.po_no} value={p.po_no}>{p.po_no}{p.supplier_name ? ` — ${p.supplier_name}` : ''}</option>)}
+                  </select>
+                </label>
+                <label style={{ flex: 1 }}>
+                  <span style={labelStyle}>Item *</span>
+                  <select required value={form.item_code} onChange={e => setForm(f => ({ ...f, item_code: e.target.value }))} style={inputStyle} disabled={!form.po_no}>
+                    <option value="">{form.po_no ? 'Select item…' : 'Select a PO first'}</option>
+                    {itemList.map(i => <option key={i.item_code} value={i.item_code}>{i.name || i.item_code}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '14px' }}>
+                <label style={{ flex: 1 }}>
+                  <span style={labelStyle}>Country of Origin</span>
+                  <input value={form.country_of_origin} onChange={e => setForm(f => ({ ...f, country_of_origin: e.target.value }))} placeholder="Auto from supplier if blank" style={inputStyle} />
+                </label>
+                <label style={{ flex: 1 }}>
+                  <span style={labelStyle}>Trigger Point</span>
+                  <select value={form.trigger_point} onChange={e => setForm(f => ({ ...f, trigger_point: e.target.value }))} style={inputStyle}>
+                    <option value="">Select…</option>
+                    {['Incoming Goods', 'Stores', 'Customer Return', 'Delivery Team', 'Production Line'].map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '14px' }}>
+                <label style={{ flex: 1 }}>
+                  <span style={labelStyle}>QC Checked Qty</span>
+                  <input type="number" min="0" value={form.checked_qty} onChange={e => setForm(f => ({ ...f, checked_qty: e.target.value }))} style={inputStyle} />
+                </label>
                 <label style={{ flex: 1 }}>
                   <span style={labelStyle}>Defect Qty</span>
                   <input type="number" min="0" value={form.defect_qty} onChange={e => setForm(f => ({ ...f, defect_qty: e.target.value }))} style={inputStyle} />
@@ -361,11 +467,26 @@ export default function ClaimsPage() {
                   <input type="number" min="0" step="0.01" required value={form.claim_amount} onChange={e => setForm(f => ({ ...f, claim_amount: e.target.value }))} style={inputStyle} />
                 </label>
               </div>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '14px' }}>
+                <label style={{ flex: 1 }}>
+                  <span style={labelStyle}>PO / GRN Date</span>
+                  <input type="date" value={form.grn_date} onChange={e => setForm(f => ({ ...f, grn_date: e.target.value }))} style={inputStyle} />
+                </label>
+                <label style={{ flex: 1 }}>
+                  <span style={labelStyle}>Issue Trigger Date</span>
+                  <input type="date" value={form.trigger_date} onChange={e => setForm(f => ({ ...f, trigger_date: e.target.value }))} style={inputStyle} />
+                </label>
+                <label style={{ flex: 1 }}>
+                  <span style={labelStyle}>QC Done Date</span>
+                  <input type="date" value={form.qc_done_date} onChange={e => setForm(f => ({ ...f, qc_done_date: e.target.value }))} style={inputStyle} />
+                </label>
+              </div>
               <label style={{ display: 'block', marginBottom: '20px' }}>
                 <span style={labelStyle}>Defect Description *</span>
                 <textarea required rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="Describe the defect and impact…" style={{ ...inputStyle, resize: 'vertical' }} />
               </label>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '14px' }}>You can attach defect images after raising, from the claim's detail panel.</div>
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => setShowCreate(false)}
                   style={{ padding: '9px 18px', borderRadius: '8px', background: '#fff', color: '#475569', border: '1px solid #e2e8f0', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
@@ -398,7 +519,11 @@ export default function ClaimsPage() {
                 PO {detail.po_no} · {detail.item_name || detail.item_code} · {detail.supplier_name || '—'}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button onClick={() => handleDownloadPdf(detail)} disabled={generating} title="Download one-pager PDF report"
+                style={{ background: '#E8470F', border: 'none', color: '#fff', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                {generating ? '…' : '📄 PDF'}
+              </button>
               <span style={{ background: st.bg, color: st.color, padding: '4px 12px', borderRadius: '9999px', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>{st.label}</span>
               <button onClick={() => setDetail(null)}
                 style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', fontSize: '18px' }}>×</button>
@@ -489,6 +614,62 @@ export default function ClaimsPage() {
               )}
             </div>
 
+            {/* ── Attachments: defect images + cost sheet ── */}
+            {(() => {
+              const editable = !['closed', 'settled', 'withdrawn'].includes(detail.status) && ['warehouse', 'qa', 'buying', 'admin'].includes(role)
+              const imgs = attachments.filter(a => a.kind === 'defect_image')
+              const sheets = attachments.filter(a => a.kind === 'cost_sheet')
+              return (
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Attachments</div>
+                    {editable && (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#1d4ed8', cursor: uploading ? 'default' : 'pointer', padding: '5px 10px', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
+                          {uploading ? '…' : '+ Defect Image'}
+                          <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploading} onChange={e => handleUpload(e, 'defect_image')} />
+                        </label>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#7e22ce', cursor: uploading ? 'default' : 'pointer', padding: '5px 10px', borderRadius: '6px', border: '1px solid #e9d5ff' }}>
+                          + Cost Sheet
+                          <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} disabled={uploading} onChange={e => handleUpload(e, 'cost_sheet')} />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                  {imgs.length === 0 && sheets.length === 0 ? (
+                    <div style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>No attachments yet.</div>
+                  ) : (
+                    <>
+                      {imgs.length > 0 && (
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: sheets.length ? '10px' : 0 }}>
+                          {imgs.map(a => (
+                            <div key={a.attachment_id} style={{ position: 'relative', width: '72px', height: '72px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                              {attachmentURLs[a.attachment_id]
+                                ? <img src={attachmentURLs[a.attachment_id]} alt={a.file_name} onClick={() => window.open(attachmentURLs[a.attachment_id], '_blank')} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} />
+                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#94a3b8' }}>…</div>}
+                              {editable && (
+                                <button onClick={() => handleDeleteAttachment(a.attachment_id)}
+                                  style={{ position: 'absolute', top: '2px', right: '2px', width: '18px', height: '18px', borderRadius: '50%', background: 'rgba(220,38,38,0.9)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '11px', lineHeight: 1 }}>×</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {sheets.map(a => (
+                        <div key={a.attachment_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#faf5ff', borderRadius: '6px', marginBottom: '4px' }}>
+                          <button onClick={async () => { try { const r = await getClaimAttachmentFile(detail.claim_id, a.attachment_id); window.open(URL.createObjectURL(r.data), '_blank') } catch {} }}
+                            style={{ background: 'none', border: 'none', color: '#7e22ce', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            📄 {a.file_name}
+                          </button>
+                          {editable && <button onClick={() => handleDeleteAttachment(a.attachment_id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '13px', fontWeight: '700' }}>×</button>}
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )
+            })()}
+
             {/* ── Stage actions ── */}
             {/* QA action */}
             {detail.status === 'pending_qa' && ['qa', 'admin'].includes(role) && (
@@ -498,12 +679,33 @@ export default function ClaimsPage() {
                   <span style={labelStyle}>Root Cause *</span>
                   <textarea rows={3} value={rootCause} onChange={e => setRootCause(e.target.value)} placeholder="What caused this defect?" style={{ ...inputStyle, resize: 'vertical' }} />
                 </label>
-                <label style={{ display: 'block', marginBottom: '12px' }}>
-                  <span style={labelStyle}>Corrective Action (optional)</span>
-                  <textarea rows={2} value={correctiveAction} onChange={e => setCorrectiveAction(e.target.value)} placeholder="Preventive / corrective measure…" style={{ ...inputStyle, resize: 'vertical' }} />
+                <label style={{ display: 'block', marginBottom: '10px' }}>
+                  <span style={labelStyle}>Corrective Action</span>
+                  <textarea rows={2} value={correctiveAction} onChange={e => setCorrectiveAction(e.target.value)} placeholder="Immediate corrective measure…" style={{ ...inputStyle, resize: 'vertical' }} />
                 </label>
+                <label style={{ display: 'block', marginBottom: '10px' }}>
+                  <span style={labelStyle}>Preventive Action</span>
+                  <textarea rows={2} value={preventiveAction} onChange={e => setPreventiveAction(e.target.value)} placeholder="How to prevent recurrence…" style={{ ...inputStyle, resize: 'vertical' }} />
+                </label>
+                <div style={{ marginBottom: '10px' }}>
+                  <span style={labelStyle}>Rework Possible?</span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {[['yes', 'Yes'], ['no', 'No']].map(([v, l]) => (
+                      <button key={v} type="button" onClick={() => setReworkPossible(v)}
+                        style={{ padding: '6px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
+                          border: reworkPossible === v ? '2px solid #7c3aed' : '1px solid #e2e8f0',
+                          background: reworkPossible === v ? '#ede9fe' : '#fff', color: reworkPossible === v ? '#6d28d9' : '#475569' }}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+                {reworkPossible === 'yes' && (
+                  <label style={{ display: 'block', marginBottom: '12px' }}>
+                    <span style={labelStyle}>Scope of Rework</span>
+                    <textarea rows={2} value={reworkScope} onChange={e => setReworkScope(e.target.value)} placeholder="What rework is feasible…" style={{ ...inputStyle, resize: 'vertical' }} />
+                  </label>
+                )}
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <button disabled={acting} onClick={() => run(() => qaSubmitClaim(detail.claim_id, { root_cause: rootCause, corrective_action: correctiveAction }), 'Submitted to Buying. They have been notified.')}
+                  <button disabled={acting} onClick={() => run(() => qaSubmitClaim(detail.claim_id, { root_cause: rootCause, corrective_action: correctiveAction, preventive_action: preventiveAction, rework_possible: reworkPossible === 'yes' ? true : reworkPossible === 'no' ? false : undefined, rework_scope: reworkScope }), 'Submitted to Buying. They have been notified.')}
                     style={{ padding: '9px 18px', borderRadius: '8px', background: '#7c3aed', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer', opacity: acting ? 0.7 : 1 }}>
                     {acting ? 'Processing…' : 'Submit to Buying →'}
                   </button>
@@ -562,11 +764,22 @@ export default function ClaimsPage() {
                       style={{ ...inputStyle, border: !creditNoteNo.trim() ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
                   </label>
                 )}
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                  <label style={{ flex: 1 }}>
+                    <span style={labelStyle}>Rework Cost (USD)</span>
+                    <input type="number" min="0" step="0.01" value={reworkCost} onChange={e => setReworkCost(e.target.value)} placeholder="0.00" style={inputStyle} />
+                  </label>
+                  <label style={{ flex: 2 }}>
+                    <span style={labelStyle}>Cost Sheet Note</span>
+                    <input value={costSheetNote} onChange={e => setCostSheetNote(e.target.value)} placeholder="Cost breakdown summary / reference…" style={inputStyle} />
+                  </label>
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>Attach a detailed cost sheet file from the Attachments section below.</div>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <button disabled={acting || !settleMode} onClick={() => {
                     if (!settleMode) { setMsg('Failed: choose a settlement mode'); return }
                     if (['rework', 'refund'].includes(settleMode) && !creditNoteNo.trim()) { setMsg(`Failed: a credit note number is required for ${settleMode}`); return }
-                    run(() => buyingSubmitClaim(detail.claim_id, { penalty_amount: penaltyAmount, penalty_reason: penaltyReason, mode: settleMode, credit_note_no: creditNoteNo, settlement_remarks: settleRemarks }), 'Final claim submitted to Imports. Supplier, QA and warehouse notified.')
+                    run(() => buyingSubmitClaim(detail.claim_id, { penalty_amount: penaltyAmount, penalty_reason: penaltyReason, mode: settleMode, credit_note_no: creditNoteNo, settlement_remarks: settleRemarks, rework_cost: reworkCost, cost_sheet_note: costSheetNote }), 'Final claim submitted to Imports. Supplier, QA and warehouse notified.')
                   }}
                     style={{ padding: '9px 18px', borderRadius: '8px', background: settleMode ? '#0284c7' : '#94a3b8', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: settleMode ? 'pointer' : 'not-allowed', opacity: acting ? 0.7 : 1 }}>
                     {acting ? 'Processing…' : '📤 Submit Final Claim → Imports'}
