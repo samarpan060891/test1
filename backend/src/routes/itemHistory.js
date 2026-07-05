@@ -208,13 +208,47 @@ router.delete('/complaints/:id', authorize('admin'), async (req, res) => {
 })
 
 // ── ITEM CLAIMS ───────────────────────────────────────────────────────────────
+// Defect claims (warehouse → QA → buying workflow) are unioned into the claims
+// master live, mapped onto the master's shape/status vocabulary.
+const DEFECT_CLAIM_AS_MASTER = `
+  SELECT
+    NULL::int AS id,
+    dc.item_code,
+    dc.claim_ref,
+    dc.raised_at::date AS claim_date,
+    ('Internal QC — vs ' || COALESCE(s.name, dc.supplier_code, 'Supplier')) AS customer_name,
+    (dc.description || CASE WHEN dc.root_cause IS NOT NULL THEN ' | Root cause: ' || dc.root_cause ELSE '' END) AS reason,
+    (dc.claim_amount + dc.penalty_amount) AS claim_amount,
+    CASE dc.status
+      WHEN 'pending_qa'     THEN 'open'
+      WHEN 'pending_buying' THEN 'under_review'
+      WHEN 'submitted'      THEN 'approved'
+      WHEN 'settled'        THEN 'settled'
+      WHEN 'withdrawn'      THEN 'rejected'
+    END AS status,
+    CASE
+      WHEN dc.status = 'settled' THEN
+        'Settled by ' || COALESCE(dc.settlement_mode, '—') ||
+        CASE WHEN dc.credit_note_no IS NOT NULL THEN ' — Credit note ' || dc.credit_note_no ELSE '' END ||
+        CASE WHEN dc.settlement_remarks IS NOT NULL THEN '. ' || dc.settlement_remarks ELSE '' END
+      ELSE NULL
+    END AS resolution,
+    dc.created_at,
+    'defect_claim' AS source
+  FROM qc_inspection.defect_claim dc
+  LEFT JOIN qc_inspection.supplier_master s ON s.supplier_code = dc.supplier_code
+`
+
 // GET /api/item-history/claims?item_code=XXX
 router.get('/claims', async (req, res) => {
   const { item_code } = req.query
   if (!item_code) return res.status(400).json({ error: 'item_code required' })
   try {
     const result = await db.query(
-      `SELECT * FROM qc_inspection.item_claims WHERE item_code = $1 ORDER BY claim_date DESC NULLS LAST, created_at DESC`,
+      `SELECT *, 'master' AS source FROM qc_inspection.item_claims WHERE item_code = $1
+       UNION ALL
+       SELECT * FROM (${DEFECT_CLAIM_AS_MASTER}) dcm WHERE dcm.item_code = $1
+       ORDER BY claim_date DESC NULLS LAST, created_at DESC`,
       [item_code]
     )
     res.json(result.rows)
@@ -227,9 +261,18 @@ router.get('/claims', async (req, res) => {
 router.get('/claims/all', authorize('admin'), async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT c.*, im.name AS item_name FROM qc_inspection.item_claims c
-       LEFT JOIN qc_inspection.item_master im ON im.item_code = c.item_code
-       ORDER BY c.claim_date DESC NULLS LAST, c.created_at DESC`
+      `SELECT * FROM (
+         SELECT c.id, c.item_code, c.claim_ref, c.claim_date, c.customer_name, c.reason,
+                c.claim_amount, c.status, c.resolution, c.created_at, 'master' AS source,
+                im.name AS item_name
+         FROM qc_inspection.item_claims c
+         LEFT JOIN qc_inspection.item_master im ON im.item_code = c.item_code
+         UNION ALL
+         SELECT dcm.*, im2.name AS item_name
+         FROM (${DEFECT_CLAIM_AS_MASTER}) dcm
+         LEFT JOIN qc_inspection.item_master im2 ON im2.item_code = dcm.item_code
+       ) combined
+       ORDER BY claim_date DESC NULLS LAST, created_at DESC`
     )
     res.json(result.rows)
   } catch (err) {

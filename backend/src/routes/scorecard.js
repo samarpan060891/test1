@@ -123,17 +123,35 @@ router.get('/suppliers', async (req, res) => {
       ORDER BY cc.id, ij.supplier_code
     `)
 
-    // 4. Claims stats per supplier — item_claims links the same way
+    // 4. Claims stats per supplier — master claims link via item→job; defect claims
+    //    (Claims workflow) carry the supplier directly and are unioned in
     const claimRes = await db.query(`
-      SELECT DISTINCT ON (cl.id)
-        ij.supplier_code,
-        cl.claim_amount,
-        cl.status,
-        cl.claim_date
-      FROM qc_inspection.item_claims cl
-      JOIN qc_inspection.job_items ji ON ji.item_code = cl.item_code
-      JOIN qc_inspection.inspection_job ij ON ij.job_id = ji.job_id
-      ORDER BY cl.id, ij.supplier_code
+      SELECT * FROM (
+        SELECT DISTINCT ON (cl.id)
+          ij.supplier_code,
+          cl.claim_amount,
+          cl.status,
+          cl.claim_date
+        FROM qc_inspection.item_claims cl
+        JOIN qc_inspection.job_items ji ON ji.item_code = cl.item_code
+        JOIN qc_inspection.inspection_job ij ON ij.job_id = ji.job_id
+        ORDER BY cl.id, ij.supplier_code
+      ) master_claims
+      UNION ALL
+      SELECT
+        dc.supplier_code,
+        (dc.claim_amount + dc.penalty_amount) AS claim_amount,
+        CASE dc.status
+          WHEN 'pending_qa'     THEN 'open'
+          WHEN 'pending_buying' THEN 'under_review'
+          WHEN 'submitted'      THEN 'approved'
+          WHEN 'settled'        THEN 'settled'
+          WHEN 'withdrawn'      THEN 'rejected'
+        END AS status,
+        dc.raised_at::date AS claim_date
+      FROM qc_inspection.defect_claim dc
+      WHERE dc.supplier_code IS NOT NULL
+        AND dc.status <> 'withdrawn'
     `)
 
     // 5. PO value + total qty supplied per supplier

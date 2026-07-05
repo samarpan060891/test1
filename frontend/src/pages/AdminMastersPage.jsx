@@ -290,10 +290,17 @@ function HistoryMastersTab({ type }) {
                         {stat ? <span style={{ background: STAT_COLORS[stat]||'#f8fafc', color: STAT_TEXT[stat]||'#64748b', padding: '2px 8px', borderRadius: '9999px', fontWeight: '700', fontSize: '11px' }}>{stat.replace(/_/g,' ')}</span> : '—'}
                       </td>
                       <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
-                        <button onClick={() => handleDelete(row.id)} disabled={deleting === row.id}
-                          style={{ padding: '4px 10px', fontSize: '11px', fontWeight: '600', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}>
-                          {deleting === row.id ? '…' : 'Delete'}
-                        </button>
+                        {row.source === 'defect_claim' ? (
+                          <span title="Raised via the Claims workflow — manage it in the Claims section"
+                            style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '9999px', background: '#eff6ff', color: '#1d4ed8', textTransform: 'uppercase' }}>
+                            Claims WF
+                          </span>
+                        ) : (
+                          <button onClick={() => handleDelete(row.id)} disabled={deleting === row.id}
+                            style={{ padding: '4px 10px', fontSize: '11px', fontWeight: '600', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer' }}>
+                            {deleting === row.id ? '…' : 'Delete'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )
