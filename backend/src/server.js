@@ -976,6 +976,23 @@ async function runMigrations() {
     ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS settlement_remarks TEXT
   `, 'defect_claim settlement_remarks');
 
+  // Extend claim lifecycle: Buying → Imports → Accounts → Closed
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim DROP CONSTRAINT IF EXISTS defect_claim_status_check`,
+    'drop defect_claim status check');
+  await safeQuery(`
+    ALTER TABLE qc_inspection.defect_claim ADD CONSTRAINT defect_claim_status_check
+      CHECK (status IN ('pending_qa','pending_buying','pending_imports','pending_accounts','submitted','settled','closed','withdrawn'))
+  `, 'add extended defect_claim status check');
+  // Legacy claims already finalised by Buying move into the new Imports queue
+  await safeQuery(`UPDATE qc_inspection.defect_claim SET status = 'pending_imports' WHERE status = 'submitted'`,
+    'migrate submitted claims to pending_imports');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS imports_reviewed_by UUID REFERENCES qc_inspection.team_stakeholder(user_id)`, 'defect_claim imports_reviewed_by');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS imports_reviewed_at TIMESTAMPTZ`, 'defect_claim imports_reviewed_at');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS imports_remarks TEXT`, 'defect_claim imports_remarks');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS accounts_closed_by UUID REFERENCES qc_inspection.team_stakeholder(user_id)`, 'defect_claim accounts_closed_by');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS accounts_closed_at TIMESTAMPTZ`, 'defect_claim accounts_closed_at');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS deduction_remarks TEXT`, 'defect_claim deduction_remarks');
+
   console.log('✅ Migrations applied');
 }
 

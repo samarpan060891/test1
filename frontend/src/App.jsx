@@ -169,7 +169,7 @@ export default function App() {
         <Route
           path="/claims"
           element={
-            <ProtectedRoute allowedRoles={['warehouse', 'qa', 'buying', 'admin']}>
+            <ProtectedRoute allowedRoles={['warehouse', 'qa', 'buying', 'imports', 'accounts', 'admin']}>
               <ClaimsPage />
             </ProtectedRoute>
           }

@@ -36,6 +36,9 @@ const EVENT_MESSAGES = {
   CLAIM_SUBMITTED_TO_BUYING: 'QA has reviewed a defect claim and submitted it to Buying.',
   CLAIM_RETURNED:            'A defect claim has been returned. Please review the remarks.',
   CLAIM_FINAL_SUBMITTED:     'A final defect claim has been submitted to the supplier.',
+  CLAIM_SUBMITTED_TO_IMPORTS: 'A defect claim has been finalised by Buying and is pending Imports processing.',
+  CLAIM_SUBMITTED_TO_ACCOUNTS:'A defect claim has been processed by Imports and is pending Accounts deduction.',
+  CLAIM_CLOSED:              'A defect claim has been closed by Accounts.',
   CLAIM_SETTLED:             'A defect claim has been settled.',
   JOB_MAPPED:              'A new inspection job has been mapped and assigned.',
   SUBMITTED_FOR_QA:        'An inspection checklist has been submitted and is pending QA review.',
@@ -285,6 +288,12 @@ function buildReadableMessage(eventType, extraMessage) {
       return `Defect claim ${data.claim_ref || ''} returned to ${data.returned_to || '—'} by ${data.returned_by || '—'}. Remarks: ${data.remarks || '—'}`;
     case 'CLAIM_FINAL_SUBMITTED':
       return `Final defect claim ${data.claim_ref || ''} submitted to ${data.supplier_name || 'supplier'} — PO ${data.po_no || '—'}. Total: $${parseFloat(data.total_amount || 0).toFixed(2)}${parseFloat(data.penalty_amount || 0) > 0 ? ` (incl. $${parseFloat(data.penalty_amount).toFixed(2)} penalty)` : ''}.`;
+    case 'CLAIM_SUBMITTED_TO_IMPORTS':
+      return `Defect claim ${data.claim_ref || ''} finalised by Buying (${data.settlement_mode || '—'}) — PO ${data.po_no || '—'}. Total: $${parseFloat(data.total_amount || 0).toFixed(2)}. Pending Imports processing.`;
+    case 'CLAIM_SUBMITTED_TO_ACCOUNTS':
+      return `Defect claim ${data.claim_ref || ''} processed by Imports — PO ${data.po_no || '—'}. Imports note: ${(data.imports_remarks || '').slice(0, 100)}. Pending Accounts deduction.`;
+    case 'CLAIM_CLOSED':
+      return `Defect claim ${data.claim_ref || ''} closed by Accounts — PO ${data.po_no || '—'}. Total: $${parseFloat(data.total_amount || 0).toFixed(2)}. Deduction: ${(data.deduction_remarks || '').slice(0, 100)}`;
     case 'CLAIM_SETTLED':
       return `Defect claim ${data.claim_ref || ''} settled by ${data.settlement_mode || '—'} — PO ${data.po_no || '—'}. Total: $${parseFloat(data.total_amount || 0).toFixed(2)}.${data.credit_note_no ? ` Credit note: ${data.credit_note_no}.` : ''}`;
     case 'JOB_DEVIATION_APPROVED':

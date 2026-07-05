@@ -220,17 +220,20 @@ const DEFECT_CLAIM_AS_MASTER = `
     (dc.description || CASE WHEN dc.root_cause IS NOT NULL THEN ' | Root cause: ' || dc.root_cause ELSE '' END) AS reason,
     (dc.claim_amount + dc.penalty_amount) AS claim_amount,
     CASE dc.status
-      WHEN 'pending_qa'     THEN 'open'
-      WHEN 'pending_buying' THEN 'under_review'
-      WHEN 'submitted'      THEN 'approved'
-      WHEN 'settled'        THEN 'settled'
-      WHEN 'withdrawn'      THEN 'rejected'
+      WHEN 'pending_qa'      THEN 'open'
+      WHEN 'pending_buying'  THEN 'under_review'
+      WHEN 'pending_imports' THEN 'approved'
+      WHEN 'pending_accounts' THEN 'approved'
+      WHEN 'submitted'       THEN 'approved'
+      WHEN 'settled'         THEN 'settled'
+      WHEN 'closed'          THEN 'settled'
+      WHEN 'withdrawn'       THEN 'rejected'
     END AS status,
     CASE
-      WHEN dc.status = 'settled' THEN
+      WHEN dc.status IN ('settled','closed') THEN
         'Settled by ' || COALESCE(dc.settlement_mode, '—') ||
         CASE WHEN dc.credit_note_no IS NOT NULL THEN ' — Credit note ' || dc.credit_note_no ELSE '' END ||
-        CASE WHEN dc.settlement_remarks IS NOT NULL THEN '. ' || dc.settlement_remarks ELSE '' END
+        CASE WHEN dc.deduction_remarks IS NOT NULL THEN '. Deduction: ' || dc.deduction_remarks ELSE '' END
       ELSE NULL
     END AS resolution,
     dc.created_at,

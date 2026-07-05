@@ -142,11 +142,14 @@ router.get('/suppliers', async (req, res) => {
         dc.supplier_code,
         (dc.claim_amount + dc.penalty_amount) AS claim_amount,
         CASE dc.status
-          WHEN 'pending_qa'     THEN 'open'
-          WHEN 'pending_buying' THEN 'under_review'
-          WHEN 'submitted'      THEN 'approved'
-          WHEN 'settled'        THEN 'settled'
-          WHEN 'withdrawn'      THEN 'rejected'
+          WHEN 'pending_qa'      THEN 'open'
+          WHEN 'pending_buying'  THEN 'under_review'
+          WHEN 'pending_imports' THEN 'approved'
+          WHEN 'pending_accounts' THEN 'approved'
+          WHEN 'submitted'       THEN 'approved'
+          WHEN 'settled'         THEN 'settled'
+          WHEN 'closed'          THEN 'settled'
+          WHEN 'withdrawn'       THEN 'rejected'
         END AS status,
         dc.raised_at::date AS claim_date
       FROM qc_inspection.defect_claim dc

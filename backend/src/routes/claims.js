@@ -6,7 +6,7 @@ const { sendNotification } = require('../services/notifications');
 const router = express.Router();
 router.use(authenticate);
 
-const CLAIM_ROLES = ['warehouse', 'qa', 'buying', 'admin'];
+const CLAIM_ROLES = ['warehouse', 'qa', 'buying', 'imports', 'accounts', 'admin'];
 router.use((req, res, next) => {
   if (!CLAIM_ROLES.includes(req.user.role))
     return res.status(403).json({ error: 'Access denied' });
@@ -21,6 +21,7 @@ async function loadClaim(claimId) {
            s.name  AS supplier_name, s.contact_email AS supplier_email,
            p.buyer_id AS po_buyer_id, b.email AS po_buyer_email,
            ru.name AS raised_by_name, qu.name AS qa_reviewed_by_name, bu.name AS buying_submitted_by_name,
+           iu.name AS imports_reviewed_by_name, au.name AS accounts_closed_by_name,
            (c.claim_amount + c.penalty_amount) AS total_amount
     FROM qc_inspection.defect_claim c
     LEFT JOIN qc_inspection.item_master im ON im.item_code = c.item_code
@@ -30,6 +31,8 @@ async function loadClaim(claimId) {
     LEFT JOIN qc_inspection.team_stakeholder ru ON ru.user_id = c.raised_by
     LEFT JOIN qc_inspection.team_stakeholder qu ON qu.user_id = c.qa_reviewed_by
     LEFT JOIN qc_inspection.team_stakeholder bu ON bu.user_id = c.buying_submitted_by
+    LEFT JOIN qc_inspection.team_stakeholder iu ON iu.user_id = c.imports_reviewed_by
+    LEFT JOIN qc_inspection.team_stakeholder au ON au.user_id = c.accounts_closed_by
     WHERE c.claim_id = $1
   `, [claimId]);
   return rows[0] || null;
@@ -199,19 +202,24 @@ router.post('/:id/return', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// POST /api/claims/:id/buying-submit — Buying adds penalties and submits the final claim
+// POST /api/claims/:id/buying-submit — Buying finalises: penalty + settlement mode → Imports
+// Modes: replacement | rework | refund. Credit note is mandatory for rework & refund.
 router.post('/:id/buying-submit', async (req, res) => {
   try {
     if (!['buying', 'admin'].includes(req.user.role))
       return res.status(403).json({ error: 'Only Buying can submit the final claim' });
 
-    const { penalty_amount, penalty_reason } = req.body;
+    const { penalty_amount, penalty_reason, mode, credit_note_no, settlement_remarks } = req.body;
     const penalty = penalty_amount === undefined || penalty_amount === null || penalty_amount === ''
       ? 0 : parseFloat(penalty_amount);
     if (isNaN(penalty) || penalty < 0)
       return res.status(400).json({ error: 'penalty_amount must be a non-negative number' });
     if (penalty > 0 && (!penalty_reason || !penalty_reason.trim()))
       return res.status(400).json({ error: 'A reason is required when adding a penalty' });
+    if (!['replacement', 'rework', 'refund'].includes(mode))
+      return res.status(400).json({ error: 'Settlement mode must be replacement, rework or refund' });
+    if (['rework', 'refund'].includes(mode) && (!credit_note_no || !credit_note_no.trim()))
+      return res.status(400).json({ error: `A credit note number is required for ${mode}` });
 
     const claim = await loadClaim(req.params.id);
     if (!claim) return res.status(404).json({ error: 'Not found' });
@@ -222,55 +230,78 @@ router.post('/:id/buying-submit', async (req, res) => {
 
     const { rows } = await db.query(`
       UPDATE qc_inspection.defect_claim
-      SET status = 'submitted', penalty_amount = $1, penalty_reason = $2,
-          buying_submitted_by = $3, buying_submitted_at = NOW()
-      WHERE claim_id = $4 RETURNING *
-    `, [penalty, penalty_reason?.trim() || null, req.user.user_id, req.params.id]);
+      SET status = 'pending_imports', penalty_amount = $1, penalty_reason = $2,
+          settlement_mode = $3, credit_note_no = $4, settlement_remarks = $5,
+          buying_submitted_by = $6, buying_submitted_at = NOW()
+      WHERE claim_id = $7 RETURNING *
+    `, [penalty, penalty_reason?.trim() || null, mode, credit_note_no?.trim() || null,
+        settlement_remarks?.trim() || null, req.user.user_id, req.params.id]);
 
     const updated = await loadClaim(rows[0].claim_id);
-    const msg = claimMsg(updated, { buyer_name: req.user.name || req.user.email, penalty_reason: penalty_reason?.trim() || null });
-    // Final claim goes to the supplier, with QA + warehouse informed
+    const msg = claimMsg(updated, { buyer_name: req.user.name || req.user.email, settlement_mode: mode, credit_note_no: credit_note_no?.trim() || null });
+    // Final claim goes to the supplier; Imports is next to process, QA + warehouse informed
     await sendNotification(null, 'CLAIM_FINAL_SUBMITTED', 'supplier_user', [updated.supplier_email], msg, null, null, updated.supplier_code);
+    await notifyRole('imports', 'CLAIM_SUBMITTED_TO_IMPORTS', msg);
     await notifyRole('qa', 'CLAIM_FINAL_SUBMITTED', msg);
     await notifyRole('warehouse', 'CLAIM_FINAL_SUBMITTED', msg);
     res.json(updated);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// POST /api/claims/:id/settle — Buying settles a submitted claim
-// Modes: replacement | rework | refund. Credit note is mandatory for rework & refund.
-router.post('/:id/settle', async (req, res) => {
+// POST /api/claims/:id/imports-review — Imports adds mandatory remarks for Accounts
+router.post('/:id/imports-review', async (req, res) => {
   try {
-    if (!['buying', 'admin'].includes(req.user.role))
-      return res.status(403).json({ error: 'Only Buying can settle claims' });
+    if (!['imports', 'admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Only Imports can process this claim' });
 
-    const { mode, credit_note_no, remarks } = req.body;
-    if (!['replacement', 'rework', 'refund'].includes(mode))
-      return res.status(400).json({ error: 'Settlement mode must be replacement, rework or refund' });
-    if (['rework', 'refund'].includes(mode) && (!credit_note_no || !credit_note_no.trim()))
-      return res.status(400).json({ error: `A credit note number is required to settle by ${mode}` });
+    const { remarks } = req.body;
+    if (!remarks || !remarks.trim())
+      return res.status(400).json({ error: 'Remarks for Accounts are required' });
 
     const claim = await loadClaim(req.params.id);
     if (!claim) return res.status(404).json({ error: 'Not found' });
-    if (claim.status !== 'submitted')
-      return res.status(400).json({ error: `Only submitted claims can be settled (status: ${claim.status})` });
-    if (req.user.role === 'buying' && claim.po_buyer_id && claim.po_buyer_id !== req.user.user_id)
-      return res.status(403).json({ error: 'This PO is assigned to a different buyer' });
+    if (claim.status !== 'pending_imports')
+      return res.status(400).json({ error: `Claim is not pending Imports (status: ${claim.status})` });
 
     const { rows } = await db.query(`
       UPDATE qc_inspection.defect_claim
-      SET status = 'settled', settled_at = NOW(),
-          settlement_mode = $1, credit_note_no = $2, settlement_remarks = $3
-      WHERE claim_id = $4 RETURNING *
-    `, [mode, credit_note_no?.trim() || null, remarks?.trim() || null, req.params.id]);
+      SET status = 'pending_accounts', imports_remarks = $1,
+          imports_reviewed_by = $2, imports_reviewed_at = NOW()
+      WHERE claim_id = $3 RETURNING *
+    `, [remarks.trim(), req.user.user_id, req.params.id]);
     const updated = await loadClaim(rows[0].claim_id);
-    const msg = claimMsg(updated, {
-      settled_by: req.user.name || req.user.email,
-      settlement_mode: mode,
-      credit_note_no: credit_note_no?.trim() || null,
-    });
-    await notifyRole('qa', 'CLAIM_SETTLED', msg);
-    await notifyRole('warehouse', 'CLAIM_SETTLED', msg);
+    const msg = claimMsg(updated, { imports_name: req.user.name || req.user.email, imports_remarks: remarks.trim() });
+    await notifyRole('accounts', 'CLAIM_SUBMITTED_TO_ACCOUNTS', msg);
+    res.json(updated);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/claims/:id/accounts-close — Accounts records the deduction and closes the claim
+router.post('/:id/accounts-close', async (req, res) => {
+  try {
+    if (!['accounts', 'admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Only Accounts can close this claim' });
+
+    const { deduction_remarks } = req.body;
+    if (!deduction_remarks || !deduction_remarks.trim())
+      return res.status(400).json({ error: 'A remark on the deduction done is required to close the claim' });
+
+    const claim = await loadClaim(req.params.id);
+    if (!claim) return res.status(404).json({ error: 'Not found' });
+    if (claim.status !== 'pending_accounts')
+      return res.status(400).json({ error: `Claim is not pending Accounts (status: ${claim.status})` });
+
+    const { rows } = await db.query(`
+      UPDATE qc_inspection.defect_claim
+      SET status = 'closed', deduction_remarks = $1, settled_at = NOW(),
+          accounts_closed_by = $2, accounts_closed_at = NOW()
+      WHERE claim_id = $3 RETURNING *
+    `, [deduction_remarks.trim(), req.user.user_id, req.params.id]);
+    const updated = await loadClaim(rows[0].claim_id);
+    const msg = claimMsg(updated, { accounts_name: req.user.name || req.user.email, deduction_remarks: deduction_remarks.trim(), settlement_mode: updated.settlement_mode });
+    await notifyRole('qa', 'CLAIM_CLOSED', msg);
+    await notifyRole('buying', 'CLAIM_CLOSED', msg, updated.po_buyer_id);
+    await notifyRole('warehouse', 'CLAIM_CLOSED', msg);
     res.json(updated);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

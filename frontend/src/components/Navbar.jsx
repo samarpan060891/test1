@@ -57,7 +57,7 @@ export default function Navbar() {
     { to: '/warehouse-inspections', label: 'Warehouse Inspections',   key: 'wh',
       show: ['admin', 'qa', 'buying'].includes(role) },
     { to: '/claims',             label: 'Claims',                     key: 'claims',
-      show: ['admin', 'qa', 'buying'].includes(role) },
+      show: ['admin', 'qa', 'buying', 'imports', 'accounts'].includes(role) },
     { to: '/scorecard',          label: 'Supplier Scorecard',         key: 'score',
       show: ['admin','qa','buying','imports','accounts','supplier_user','warehouse'].includes(role) },
     { to: '/admin/users',        label: t('nav_users'),               key: 'users',   show: role === 'admin' },

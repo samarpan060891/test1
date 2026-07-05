@@ -368,23 +368,52 @@ test('claims: qa-submit moves claim to pending_buying', async () => {
 test('claims: buying-submit requires reason when penalty added', async () => {
   const res = await request(app).post(`${CLAIM}/buying-submit`)
     .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({ penalty_amount: 50 });
+    .send({ penalty_amount: 50, mode: 'refund', credit_note_no: 'CN-1' });
   assert.equal(res.status, 400);
   assert.match(res.body.error, /reason/i);
 });
 
-test('claims: buying-submit finalises the claim', async () => {
-  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
-    { rows: [claimRow({ status: 'pending_buying' })] });
-  onQuery(t => t.includes("SET status = 'submitted'"),
-    { rows: [claimRow({ status: 'submitted', penalty_amount: 50 })] });
-  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
-    { rows: [claimRow({ status: 'submitted', penalty_amount: 50 })] });
+test('claims: buying-submit requires a settlement mode', async () => {
   const res = await request(app).post(`${CLAIM}/buying-submit`)
     .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({ penalty_amount: 50, penalty_reason: 'late + defective' });
+    .send({ penalty_amount: 0 });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /replacement, rework or refund/);
+});
+
+test('claims: buying-submit refund requires a credit note', async () => {
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'refund' });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /credit note/i);
+});
+
+test('claims: buying-submit finalises the claim to Imports', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying' })] });
+  onQuery(t => t.includes("SET status = 'pending_imports'"),
+    { rows: [claimRow({ status: 'pending_imports', settlement_mode: 'refund' })] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_imports', settlement_mode: 'refund' })] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ penalty_amount: 50, penalty_reason: 'late + defective', mode: 'refund', credit_note_no: 'CN-9' });
   assert.equal(res.status, 200);
-  assert.equal(res.body.status, 'submitted');
+  assert.equal(res.body.status, 'pending_imports');
+});
+
+test('claims: replacement needs no credit note', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying' })] });
+  onQuery(t => t.includes("SET status = 'pending_imports'"),
+    { rows: [claimRow({ status: 'pending_imports', settlement_mode: 'replacement' })] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_imports', settlement_mode: 'replacement' })] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'replacement' });
+  assert.equal(res.status, 200);
 });
 
 test('claims: wrong buyer cannot finalise', async () => {
@@ -392,53 +421,65 @@ test('claims: wrong buyer cannot finalise', async () => {
     { rows: [claimRow({ status: 'pending_buying', po_buyer_id: '99999999-9999-4999-8999-999999999999' })] });
   const res = await request(app).post(`${CLAIM}/buying-submit`)
     .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({});
+    .send({ mode: 'replacement' });
   assert.equal(res.status, 403);
 });
 
-test('claims: settle requires a valid mode', async () => {
-  const res = await request(app).post(`${CLAIM}/settle`)
-    .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({ mode: 'discount' });
-  assert.equal(res.status, 400);
-  assert.match(res.body.error, /replacement, rework or refund/);
-});
-
-test('claims: refund settlement requires a credit note', async () => {
-  const res = await request(app).post(`${CLAIM}/settle`)
-    .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({ mode: 'refund' });
-  assert.equal(res.status, 400);
-  assert.match(res.body.error, /credit note/i);
-});
-
-test('claims: rework settlement requires a credit note', async () => {
-  const res = await request(app).post(`${CLAIM}/settle`)
-    .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({ mode: 'rework', credit_note_no: '  ' });
+test('claims: imports-review requires remarks', async () => {
+  const res = await request(app).post(`${CLAIM}/imports-review`)
+    .set('Authorization', `Bearer ${tokenFor('imports')}`)
+    .send({ remarks: '  ' });
   assert.equal(res.status, 400);
 });
 
-test('claims: replacement settlement needs no credit note', async () => {
+test('claims: buying cannot do imports step', async () => {
+  const res = await request(app).post(`${CLAIM}/imports-review`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ remarks: 'ok' });
+  assert.equal(res.status, 403);
+});
+
+test('claims: imports-review moves claim to pending_accounts', async () => {
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
-    { rows: [claimRow({ status: 'submitted' })] });
-  onQuery(t => t.includes("SET status = 'settled'"),
-    { rows: [claimRow({ status: 'settled', settlement_mode: 'replacement' })] });
+    { rows: [claimRow({ status: 'pending_imports' })] });
+  onQuery(t => t.includes("SET status = 'pending_accounts'"),
+    { rows: [claimRow({ status: 'pending_accounts' })] });
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
-    { rows: [claimRow({ status: 'settled', settlement_mode: 'replacement' })] });
-  const res = await request(app).post(`${CLAIM}/settle`)
-    .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({ mode: 'replacement' });
+    { rows: [claimRow({ status: 'pending_accounts' })] });
+  const res = await request(app).post(`${CLAIM}/imports-review`)
+    .set('Authorization', `Bearer ${tokenFor('imports')}`)
+    .send({ remarks: 'duty paid, docs attached' });
   assert.equal(res.status, 200);
-  assert.equal(res.body.status, 'settled');
+  assert.equal(res.body.status, 'pending_accounts');
 });
 
-test('claims: settle only from submitted', async () => {
+test('claims: accounts-close requires a deduction remark', async () => {
+  const res = await request(app).post(`${CLAIM}/accounts-close`)
+    .set('Authorization', `Bearer ${tokenFor('accounts')}`)
+    .send({ deduction_remarks: '' });
+  assert.equal(res.status, 400);
+});
+
+test('claims: accounts-close closes the claim', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_accounts' })] });
+  onQuery(t => t.includes("SET status = 'closed'"),
+    { rows: [claimRow({ status: 'closed' })] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'closed' })] });
+  const res = await request(app).post(`${CLAIM}/accounts-close`)
+    .set('Authorization', `Bearer ${tokenFor('accounts')}`)
+    .send({ deduction_remarks: 'Deducted $150 against INV-2210 via CN-9' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'closed');
+});
+
+test('claims: imports-review only from pending_imports', async () => {
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
     { rows: [claimRow({ status: 'pending_qa' })] });
-  const res = await request(app).post(`${CLAIM}/settle`)
-    .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({ mode: 'refund', credit_note_no: 'CN-1' });
+  const res = await request(app).post(`${CLAIM}/imports-review`)
+    .set('Authorization', `Bearer ${tokenFor('imports')}`)
+    .send({ remarks: 'x' });
   assert.equal(res.status, 400);
 });
 

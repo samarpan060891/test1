@@ -7,17 +7,20 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useCurrency } from '../context/CurrencyContext.jsx'
 import {
   listClaims, createClaim, qaSubmitClaim, returnClaim,
-  buyingSubmitClaim, settleClaim, withdrawClaim,
+  buyingSubmitClaim, importsReviewClaim, accountsCloseClaim, withdrawClaim,
 } from '../api/claims.js'
 import client from '../api/client.js'
 import * as XLSX from 'xlsx'
 
 const STATUS_META = {
-  pending_qa:     { bg: '#fef3c7', color: '#92400e', label: 'Pending QA Review' },
-  pending_buying: { bg: '#eff6ff', color: '#1d4ed8', label: 'Pending Buying' },
-  submitted:      { bg: '#faf5ff', color: '#7e22ce', label: 'Submitted to Supplier' },
-  settled:        { bg: '#f0fdf4', color: '#15803d', label: 'Settled' },
-  withdrawn:      { bg: '#f1f5f9', color: '#64748b', label: 'Withdrawn' },
+  pending_qa:       { bg: '#fef3c7', color: '#92400e', label: 'Pending QA Review' },
+  pending_buying:   { bg: '#eff6ff', color: '#1d4ed8', label: 'Pending Buying' },
+  pending_imports:  { bg: '#faf5ff', color: '#7e22ce', label: 'Pending Imports' },
+  pending_accounts: { bg: '#f0fdfa', color: '#0f766e', label: 'Pending Accounts' },
+  closed:           { bg: '#f0fdf4', color: '#15803d', label: 'Closed' },
+  submitted:        { bg: '#faf5ff', color: '#7e22ce', label: 'Submitted' },
+  settled:          { bg: '#f0fdf4', color: '#15803d', label: 'Settled' },
+  withdrawn:        { bg: '#f1f5f9', color: '#64748b', label: 'Withdrawn' },
 }
 
 const thStyle = {
@@ -63,10 +66,12 @@ export default function ClaimsPage() {
   const [returnRemarks, setReturnRemarks] = useState('')
   const [acting, setActing] = useState(false)
 
-  // Settlement state
+  // Settlement (folded into Buying final submission) + Imports/Accounts state
   const [settleMode, setSettleMode] = useState('')
   const [creditNoteNo, setCreditNoteNo] = useState('')
   const [settleRemarks, setSettleRemarks] = useState('')
+  const [importsRemarks, setImportsRemarks] = useState('')
+  const [deductionRemarks, setDeductionRemarks] = useState('')
 
   const fetchClaims = () => {
     setLoading(true)
@@ -108,9 +113,11 @@ export default function ClaimsPage() {
     setPenaltyAmount(c.penalty_amount > 0 ? String(c.penalty_amount) : '')
     setPenaltyReason(c.penalty_reason || '')
     setReturnRemarks('')
-    setSettleMode('')
-    setCreditNoteNo('')
-    setSettleRemarks('')
+    setSettleMode(c.settlement_mode || '')
+    setCreditNoteNo(c.credit_note_no || '')
+    setSettleRemarks(c.settlement_remarks || '')
+    setImportsRemarks(c.imports_remarks || '')
+    setDeductionRemarks(c.deduction_remarks || '')
     setMsg('')
   }
 
@@ -172,17 +179,18 @@ export default function ClaimsPage() {
     Object.entries(colFilters).every(([key, vals]) => !vals?.length || vals.includes(String(c[key] ?? '')))
   )
 
-  const totalOpen = claims.filter(c => ['pending_qa', 'pending_buying', 'submitted'].includes(c.status))
+  const totalOpen = claims.filter(c => ['pending_qa', 'pending_buying', 'pending_imports', 'pending_accounts', 'submitted'].includes(c.status))
     .reduce((s, c) => s + parseFloat(c.total_amount || 0), 0)
-  const totalSettled = claims.filter(c => c.status === 'settled')
+  const totalSettled = claims.filter(c => ['closed', 'settled'].includes(c.status))
     .reduce((s, c) => s + parseFloat(c.total_amount || 0), 0)
 
   const STAT_CARDS = [
     { label: 'All Claims', key: null, accent: '#E8470F', value: claims.length },
     { label: 'Pending QA', key: 'pending_qa', accent: '#d97706', value: claims.filter(c => c.status === 'pending_qa').length },
     { label: 'Pending Buying', key: 'pending_buying', accent: '#1d4ed8', value: claims.filter(c => c.status === 'pending_buying').length },
-    { label: 'Submitted', key: 'submitted', accent: '#7e22ce', value: claims.filter(c => c.status === 'submitted').length },
-    { label: 'Settled', key: 'settled', accent: '#059669', value: claims.filter(c => c.status === 'settled').length },
+    { label: 'Pending Imports', key: 'pending_imports', accent: '#7e22ce', value: claims.filter(c => c.status === 'pending_imports').length },
+    { label: 'Pending Accounts', key: 'pending_accounts', accent: '#0f766e', value: claims.filter(c => c.status === 'pending_accounts').length },
+    { label: 'Closed', key: 'closed', accent: '#059669', value: claims.filter(c => ['closed', 'settled'].includes(c.status)).length },
   ]
 
   const st = detail ? (STATUS_META[detail.status] || { bg: '#f1f5f9', color: '#475569', label: detail.status }) : null
@@ -434,15 +442,33 @@ export default function ClaimsPage() {
                   <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{detail.qa_reviewed_at ? new Date(detail.qa_reviewed_at).toLocaleString() : ''}</div>
                 </div>
               )}
-              {['submitted', 'settled'].includes(detail.status) && (
+              {['pending_imports', 'pending_accounts', 'submitted', 'settled', 'closed'].includes(detail.status) && detail.buying_submitted_by_name && (
                 <div style={{ borderLeft: '3px solid #0284c7', background: '#f0f9ff', padding: '10px 14px', borderRadius: '0 8px 8px 0' }}>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: '#075985' }}>3 · Final Claim by Buying — {detail.buying_submitted_by_name || '—'}</div>
+                  <div style={{ fontSize: '13px', color: '#0c4a6e', marginTop: '4px' }}>
+                    <strong>Settlement:</strong> {detail.settlement_mode ? detail.settlement_mode.charAt(0).toUpperCase() + detail.settlement_mode.slice(1) : '—'}
+                    {detail.credit_note_no ? ` · Credit note ${detail.credit_note_no}` : ''}
+                  </div>
                   {parseFloat(detail.penalty_amount) > 0 && (
-                    <div style={{ fontSize: '13px', color: '#0c4a6e', marginTop: '4px' }}>
+                    <div style={{ fontSize: '13px', color: '#0c4a6e', marginTop: '2px' }}>
                       <strong>Penalty:</strong> {formatAmount(parseFloat(detail.penalty_amount))}{detail.penalty_reason ? ` — ${detail.penalty_reason}` : ''}
                     </div>
                   )}
                   <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{detail.buying_submitted_at ? new Date(detail.buying_submitted_at).toLocaleString() : ''}</div>
+                </div>
+              )}
+              {['pending_accounts', 'closed'].includes(detail.status) && detail.imports_remarks && (
+                <div style={{ borderLeft: '3px solid #7e22ce', background: '#faf5ff', padding: '10px 14px', borderRadius: '0 8px 8px 0' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#7e22ce' }}>4 · Imports — {detail.imports_reviewed_by_name || '—'}</div>
+                  <div style={{ fontSize: '13px', color: '#581c87', marginTop: '4px' }}><strong>Note for Accounts:</strong> {detail.imports_remarks}</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{detail.imports_reviewed_at ? new Date(detail.imports_reviewed_at).toLocaleString() : ''}</div>
+                </div>
+              )}
+              {detail.status === 'closed' && (
+                <div style={{ borderLeft: '3px solid #059669', background: '#f0fdf4', padding: '10px 14px', borderRadius: '0 8px 8px 0' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#15803d' }}>5 · Closed by Accounts — {detail.accounts_closed_by_name || '—'}</div>
+                  {detail.deduction_remarks && <div style={{ fontSize: '13px', color: '#166534', marginTop: '4px' }}><strong>Deduction:</strong> {detail.deduction_remarks}</div>}
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{detail.accounts_closed_at ? new Date(detail.accounts_closed_at).toLocaleString() : ''}</div>
                 </div>
               )}
               {detail.return_remarks && detail.status !== 'pending_buying' && (
@@ -451,18 +477,14 @@ export default function ClaimsPage() {
                   <div style={{ fontSize: '13px', color: '#7f1d1d', marginTop: '4px' }}>{detail.return_remarks}</div>
                 </div>
               )}
+              {/* Legacy settled (pre-Imports/Accounts flow) */}
               {detail.status === 'settled' && (
                 <div style={{ borderLeft: '3px solid #059669', background: '#f0fdf4', padding: '10px 14px', borderRadius: '0 8px 8px 0' }}>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: '#15803d' }}>
                     ✓ Settled by {detail.settlement_mode ? detail.settlement_mode.charAt(0).toUpperCase() + detail.settlement_mode.slice(1) : '—'}
                     {detail.settled_at ? ` · ${new Date(detail.settled_at).toLocaleString()}` : ''}
                   </div>
-                  {detail.credit_note_no && (
-                    <div style={{ fontSize: '13px', color: '#166534', marginTop: '4px' }}><strong>Credit Note:</strong> {detail.credit_note_no}</div>
-                  )}
-                  {detail.settlement_remarks && (
-                    <div style={{ fontSize: '13px', color: '#166534', marginTop: '2px' }}>{detail.settlement_remarks}</div>
-                  )}
+                  {detail.credit_note_no && <div style={{ fontSize: '13px', color: '#166534', marginTop: '4px' }}><strong>Credit Note:</strong> {detail.credit_note_no}</div>}
                 </div>
               )}
             </div>
@@ -498,10 +520,10 @@ export default function ClaimsPage() {
               </div>
             )}
 
-            {/* Buying action */}
+            {/* Buying action — penalty + settlement mode + final submission */}
             {detail.status === 'pending_buying' && ['buying', 'admin'].includes(role) && (
               <div style={{ border: '1px solid #bae6fd', background: '#f0f9ff', borderRadius: '10px', padding: '16px', marginBottom: '14px' }}>
-                <div style={{ fontSize: '13px', fontWeight: '800', color: '#075985', marginBottom: '10px' }}>Buying — Penalties & Final Submission</div>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#075985', marginBottom: '10px' }}>Buying — Penalties, Settlement & Final Submission</div>
                 <div style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
                   <label style={{ flex: 1 }}>
                     <span style={labelStyle}>Additional Penalty (USD)</span>
@@ -517,10 +539,37 @@ export default function ClaimsPage() {
                   <span style={labelStyle}>Penalty Reason {parseFloat(penaltyAmount) > 0 ? '*' : '(if any)'}</span>
                   <textarea rows={2} value={penaltyReason} onChange={e => setPenaltyReason(e.target.value)} placeholder="Why is the penalty applied?" style={{ ...inputStyle, resize: 'vertical' }} />
                 </label>
+                <span style={labelStyle}>Settlement Mode *</span>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  {[
+                    { value: 'replacement', label: '🔄 Replacement', hint: 'Supplier replaces defective units' },
+                    { value: 'rework',      label: '🔧 Rework',      hint: 'Repaired locally, cost charged back' },
+                    { value: 'refund',      label: '💵 Refund',      hint: 'Supplier refunds the claim value' },
+                  ].map(m => (
+                    <button key={m.value} type="button" title={m.hint} onClick={() => setSettleMode(m.value)}
+                      style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
+                        border: settleMode === m.value ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                        background: settleMode === m.value ? '#e0f2fe' : '#fff',
+                        color: settleMode === m.value ? '#075985' : '#475569' }}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                {['rework', 'refund'].includes(settleMode) && (
+                  <label style={{ display: 'block', marginBottom: '12px' }}>
+                    <span style={{ ...labelStyle, color: '#b45309' }}>Credit Note No. * (required for {settleMode})</span>
+                    <input value={creditNoteNo} onChange={e => setCreditNoteNo(e.target.value)} placeholder="e.g. CN-2026-0145"
+                      style={{ ...inputStyle, border: !creditNoteNo.trim() ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
+                  </label>
+                )}
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <button disabled={acting} onClick={() => run(() => buyingSubmitClaim(detail.claim_id, { penalty_amount: penaltyAmount, penalty_reason: penaltyReason }), 'Final claim submitted. Supplier, QA and warehouse notified.')}
-                    style={{ padding: '9px 18px', borderRadius: '8px', background: '#0284c7', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer', opacity: acting ? 0.7 : 1 }}>
-                    {acting ? 'Processing…' : '📤 Submit Final Claim'}
+                  <button disabled={acting || !settleMode} onClick={() => {
+                    if (!settleMode) { setMsg('Failed: choose a settlement mode'); return }
+                    if (['rework', 'refund'].includes(settleMode) && !creditNoteNo.trim()) { setMsg(`Failed: a credit note number is required for ${settleMode}`); return }
+                    run(() => buyingSubmitClaim(detail.claim_id, { penalty_amount: penaltyAmount, penalty_reason: penaltyReason, mode: settleMode, credit_note_no: creditNoteNo, settlement_remarks: settleRemarks }), 'Final claim submitted to Imports. Supplier, QA and warehouse notified.')
+                  }}
+                    style={{ padding: '9px 18px', borderRadius: '8px', background: settleMode ? '#0284c7' : '#94a3b8', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: settleMode ? 'pointer' : 'not-allowed', opacity: acting ? 0.7 : 1 }}>
+                    {acting ? 'Processing…' : '📤 Submit Final Claim → Imports'}
                   </button>
                   <button disabled={acting} onClick={() => {
                     if (!returnRemarks.trim()) { setMsg('Failed: remarks are required to return a claim'); return }
@@ -535,47 +584,44 @@ export default function ClaimsPage() {
               </div>
             )}
 
-            {/* Settle */}
-            {detail.status === 'submitted' && ['buying', 'admin'].includes(role) && (
-              <div style={{ border: '1px solid #a7f3d0', background: '#f0fdf4', borderRadius: '10px', padding: '16px', marginBottom: '14px' }}>
-                <div style={{ fontSize: '13px', fontWeight: '800', color: '#15803d', marginBottom: '10px' }}>Settle Claim</div>
-                <span style={labelStyle}>Settlement Mode *</span>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                  {[
-                    { value: 'replacement', label: '🔄 Replacement', hint: 'Supplier replaces defective units' },
-                    { value: 'rework',      label: '🔧 Rework',      hint: 'Repaired locally, cost charged back' },
-                    { value: 'refund',      label: '💵 Refund',      hint: 'Supplier refunds the claim value' },
-                  ].map(m => (
-                    <button key={m.value} type="button" title={m.hint} onClick={() => setSettleMode(m.value)}
-                      style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
-                        border: settleMode === m.value ? '2px solid #059669' : '1px solid #e2e8f0',
-                        background: settleMode === m.value ? '#dcfce7' : '#fff',
-                        color: settleMode === m.value ? '#166534' : '#475569' }}>
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-                {['rework', 'refund'].includes(settleMode) && (
-                  <label style={{ display: 'block', marginBottom: '12px' }}>
-                    <span style={{ ...labelStyle, color: '#b45309' }}>Credit Note No. * (required for {settleMode})</span>
-                    <input value={creditNoteNo} onChange={e => setCreditNoteNo(e.target.value)} placeholder="e.g. CN-2026-0145"
-                      style={{ ...inputStyle, border: !creditNoteNo.trim() ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
-                  </label>
+            {/* Imports action — mandatory remarks for Accounts */}
+            {detail.status === 'pending_imports' && ['imports', 'admin'].includes(role) && (
+              <div style={{ border: '1px solid #e9d5ff', background: '#faf5ff', borderRadius: '10px', padding: '16px', marginBottom: '14px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#7e22ce', marginBottom: '10px' }}>Imports — Note for Accounts</div>
+                <label style={{ display: 'block', marginBottom: '12px' }}>
+                  <span style={labelStyle}>Remarks for Accounts *</span>
+                  <textarea rows={3} value={importsRemarks} onChange={e => setImportsRemarks(e.target.value)} placeholder="Duty / logistics / documentation notes for Accounts…" style={{ ...inputStyle, resize: 'vertical' }} />
+                </label>
+                <button disabled={acting} onClick={() => {
+                  if (!importsRemarks.trim()) { setMsg('Failed: remarks for Accounts are required'); return }
+                  run(() => importsReviewClaim(detail.claim_id, importsRemarks), 'Forwarded to Accounts. They have been notified.')
+                }}
+                  style={{ padding: '9px 18px', borderRadius: '8px', background: '#7e22ce', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer', opacity: acting ? 0.7 : 1 }}>
+                  {acting ? 'Processing…' : 'Forward to Accounts →'}
+                </button>
+              </div>
+            )}
+
+            {/* Accounts action — mandatory deduction remark, closes the claim */}
+            {detail.status === 'pending_accounts' && ['accounts', 'admin'].includes(role) && (
+              <div style={{ border: '1px solid #99f6e4', background: '#f0fdfa', borderRadius: '10px', padding: '16px', marginBottom: '14px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f766e', marginBottom: '10px' }}>Accounts — Deduction & Close</div>
+                {detail.imports_remarks && (
+                  <div style={{ fontSize: '12px', color: '#581c87', background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '8px', padding: '8px 12px', marginBottom: '10px' }}>
+                    <strong>Imports note:</strong> {detail.imports_remarks}
+                  </div>
                 )}
                 <label style={{ display: 'block', marginBottom: '12px' }}>
-                  <span style={labelStyle}>Settlement Remarks (optional)</span>
-                  <input value={settleRemarks} onChange={e => setSettleRemarks(e.target.value)} placeholder="Any notes on the settlement…" style={inputStyle} />
+                  <span style={labelStyle}>Deduction Done — Remark *</span>
+                  <textarea rows={3} value={deductionRemarks} onChange={e => setDeductionRemarks(e.target.value)} placeholder="e.g. Deducted $X against invoice INV-… via credit note CN-…" style={{ ...inputStyle, resize: 'vertical' }} />
                 </label>
-                <button disabled={acting || !settleMode} onClick={() => {
-                  if (['rework', 'refund'].includes(settleMode) && !creditNoteNo.trim()) {
-                    setMsg(`Failed: a credit note number is required to settle by ${settleMode}`)
-                    return
-                  }
-                  if (window.confirm(`Settle this claim by ${settleMode}?`))
-                    run(() => settleClaim(detail.claim_id, { mode: settleMode, credit_note_no: creditNoteNo, remarks: settleRemarks }), 'Claim settled.')
+                <button disabled={acting} onClick={() => {
+                  if (!deductionRemarks.trim()) { setMsg('Failed: a deduction remark is required to close the claim'); return }
+                  if (window.confirm('Record the deduction and close this claim?'))
+                    run(() => accountsCloseClaim(detail.claim_id, deductionRemarks), 'Deduction recorded. Claim closed.')
                 }}
-                  style={{ padding: '10px 20px', borderRadius: '8px', background: settleMode ? '#059669' : '#94a3b8', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: settleMode ? 'pointer' : 'not-allowed', opacity: acting ? 0.7 : 1 }}>
-                  {acting ? 'Processing…' : '✓ Confirm Settlement'}
+                  style={{ padding: '10px 20px', borderRadius: '8px', background: '#059669', color: '#fff', border: 'none', fontWeight: '700', fontSize: '14px', cursor: 'pointer', opacity: acting ? 0.7 : 1 }}>
+                  {acting ? 'Processing…' : '✓ Record Deduction & Close'}
                 </button>
               </div>
             )}
@@ -593,7 +639,16 @@ export default function ClaimsPage() {
               <div style={{ fontSize: '13px', color: '#78350f', background: '#fffbeb', borderRadius: '8px', padding: '10px 14px' }}>⏳ Awaiting QA root-cause review.</div>
             )}
             {detail.status === 'pending_buying' && ['warehouse', 'qa'].includes(role) && (
-              <div style={{ fontSize: '13px', color: '#0c4a6e', background: '#f0f9ff', borderRadius: '8px', padding: '10px 14px' }}>⏳ With Buying for penalties and final submission.</div>
+              <div style={{ fontSize: '13px', color: '#0c4a6e', background: '#f0f9ff', borderRadius: '8px', padding: '10px 14px' }}>⏳ With Buying for penalties, settlement and final submission.</div>
+            )}
+            {detail.status === 'pending_imports' && !['imports', 'admin'].includes(role) && (
+              <div style={{ fontSize: '13px', color: '#581c87', background: '#faf5ff', borderRadius: '8px', padding: '10px 14px' }}>⏳ With Imports for processing.</div>
+            )}
+            {detail.status === 'pending_accounts' && !['accounts', 'admin'].includes(role) && (
+              <div style={{ fontSize: '13px', color: '#0f766e', background: '#f0fdfa', borderRadius: '8px', padding: '10px 14px' }}>⏳ With Accounts for deduction and closure.</div>
+            )}
+            {detail.status === 'closed' && (
+              <div style={{ fontSize: '13px', color: '#15803d', background: '#f0fdf4', borderRadius: '8px', padding: '10px 14px' }}>✓ Claim closed.</div>
             )}
           </div>
         </>)}
