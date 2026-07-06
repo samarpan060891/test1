@@ -103,7 +103,7 @@ export async function generateClaimReport(claim, attachments = [], money = (n) =
       ['Corrective', claim.corrective_action || '—'],
       ['Preventive', claim.preventive_action || '—'],
       ['Rework', claim.rework_possible === true
-        ? (claim.rework_type === 'partial' ? 'Partial + Replacement' : claim.rework_type === 'full' ? 'Full' : 'Yes')
+        ? (claim.rework_type === 'partial' ? 'Rework + Replacement' : claim.rework_type === 'full' ? 'Full' : 'Yes')
         : claim.rework_possible === false ? 'No' : '—'],
       ['Rework Scope', claim.rework_scope || '—'],
       ['Replacement Parts', claim.replacement_parts || '—'],

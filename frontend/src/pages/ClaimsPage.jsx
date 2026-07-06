@@ -576,7 +576,7 @@ export default function ClaimsPage() {
                       <div style={{ marginTop: '10px' }}>
                         <span style={labelStyle}>Rework Type</span>
                         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                          {[['full', 'Full Rework'], ['partial', 'Partial + Replacement']].map(([v, l]) => (
+                          {[['full', 'Full Rework'], ['partial', 'Rework + Replacement']].map(([v, l]) => (
                             <button key={v} type="button" onClick={() => setForm(f => ({ ...f, rework_type: f.rework_type === v ? '' : v }))}
                               style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer',
                                 border: form.rework_type === v ? '2px solid #7c3aed' : '1px solid #e2e8f0',
@@ -676,7 +676,7 @@ export default function ClaimsPage() {
                   {detail.preventive_action && <div style={{ fontSize: '13px', color: '#4c1d95', marginTop: '2px' }}><strong>Preventive action:</strong> {detail.preventive_action}</div>}
                   {detail.rework_possible === true && (
                     <div style={{ fontSize: '13px', color: '#4c1d95', marginTop: '2px' }}>
-                      <strong>Rework:</strong> {detail.rework_type === 'partial' ? 'Partial + Replacement' : detail.rework_type === 'full' ? 'Full' : 'Yes'}{detail.rework_scope ? ` — ${detail.rework_scope}` : ''}
+                      <strong>Rework:</strong> {detail.rework_type === 'partial' ? 'Rework + Replacement' : detail.rework_type === 'full' ? 'Full' : 'Yes'}{detail.rework_scope ? ` — ${detail.rework_scope}` : ''}
                     </div>
                   )}
                   {detail.replacement_parts && (
@@ -823,7 +823,7 @@ export default function ClaimsPage() {
                     <div style={{ marginBottom: '10px' }}>
                       <span style={labelStyle}>Rework Type *</span>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        {[['full', 'Full Rework'], ['partial', 'Partial + Replacement']].map(([v, l]) => (
+                        {[['full', 'Full Rework'], ['partial', 'Rework + Replacement']].map(([v, l]) => (
                           <button key={v} type="button" onClick={() => setReworkType(v)}
                             style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer',
                               border: reworkType === v ? '2px solid #7c3aed' : '1px solid #e2e8f0',
@@ -915,7 +915,7 @@ export default function ClaimsPage() {
                   return (<>
                     {reworkable && (
                       <div style={{ fontSize: '12px', fontWeight: '700', color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px' }}>
-                        ⚠️ Marked <b>{detail.rework_type === 'partial' ? 'Partial Rework + Replacement' : 'Reworkable'}</b> — Rework Cost and a Cost Sheet upload are required.
+                        ⚠️ Marked <b>{detail.rework_type === 'partial' ? 'Rework + Replacement' : 'Reworkable'}</b> — Rework Cost and a Cost Sheet upload are required.
                         {detail.rework_type === 'partial' && detail.replacement_parts && (
                           <div style={{ fontWeight: '400', color: '#7c2d12', marginTop: '4px' }}>Replacement parts/cartons: {detail.replacement_parts}</div>
                         )}
