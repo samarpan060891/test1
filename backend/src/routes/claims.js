@@ -154,9 +154,16 @@ router.post('/:id/qa-submit', async (req, res) => {
     if (!['qa', 'admin'].includes(req.user.role))
       return res.status(403).json({ error: 'Only QA can review claims' });
 
-    const { root_cause, corrective_action, preventive_action, rework_possible, rework_scope } = req.body;
+    const { root_cause, corrective_action, preventive_action, rework_possible, rework_scope, rework_type, replacement_parts } = req.body;
     if (!root_cause || !root_cause.trim())
       return res.status(400).json({ error: 'Root cause is required to submit to Buying' });
+
+    const reworkYes = rework_possible === true || rework_possible === 'yes';
+    const rType = reworkYes ? (rework_type || null) : null;
+    if (reworkYes && !['full', 'partial'].includes(rType))
+      return res.status(400).json({ error: 'Select the rework type (full or partial) when the claim is reworkable' });
+    if (rType === 'partial' && (!replacement_parts || !replacement_parts.trim()))
+      return res.status(400).json({ error: 'List the parts/cartons required as replacement for a partial rework' });
 
     const claim = await loadClaim(req.params.id);
     if (!claim) return res.status(404).json({ error: 'Not found' });
@@ -167,11 +174,13 @@ router.post('/:id/qa-submit', async (req, res) => {
       UPDATE qc_inspection.defect_claim
       SET status = 'pending_buying', root_cause = $1, corrective_action = $2,
           preventive_action = $3, rework_possible = $4, rework_scope = $5,
+          rework_type = $6, replacement_parts = $7,
           root_cause_date = COALESCE(root_cause_date, CURRENT_DATE),
-          qa_reviewed_by = $6, qa_reviewed_at = NOW(), return_remarks = NULL
-      WHERE claim_id = $7 RETURNING *
+          qa_reviewed_by = $8, qa_reviewed_at = NOW(), return_remarks = NULL
+      WHERE claim_id = $9 RETURNING *
     `, [root_cause.trim(), corrective_action?.trim() || null, preventive_action?.trim() || null,
-        rework_possible === undefined ? null : !!rework_possible, rework_scope?.trim() || null,
+        reworkYes, rework_scope?.trim() || null,
+        rType, rType === 'partial' ? (replacement_parts?.trim() || null) : null,
         req.user.user_id, req.params.id]);
 
     const updated = await loadClaim(rows[0].claim_id);
@@ -368,6 +377,7 @@ const DETAIL_FIELDS = {
   country_of_origin: 'text', trigger_point: 'text', checked_qty: 'int', defect_qty: 'int',
   grn_date: 'date', trigger_date: 'date', qc_done_date: 'date', root_cause_date: 'date',
   description: 'text', root_cause: 'text', rework_scope: 'text', rework_possible: 'bool',
+  rework_type: 'text', replacement_parts: 'text',
   corrective_action: 'text', preventive_action: 'text', cost_sheet_note: 'text',
 };
 router.patch('/:id/details', async (req, res) => {

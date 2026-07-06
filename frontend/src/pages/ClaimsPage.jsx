@@ -59,7 +59,8 @@ export default function ClaimsPage() {
   const [itemList, setItemList] = useState([])
   const emptyForm = () => ({ po_no: '', item_code: '', defect_qty: '', claim_amount: '', description: '',
     country_of_origin: '', trigger_point: '', checked_qty: '', grn_date: '', trigger_date: '', qc_done_date: '',
-    root_cause: '', corrective_action: '', preventive_action: '', rework_possible: '', rework_scope: '' })
+    root_cause: '', corrective_action: '', preventive_action: '', rework_possible: '', rework_scope: '',
+    rework_type: '', replacement_parts: '' })
   const [form, setForm] = useState(emptyForm())
   const [createFiles, setCreateFiles] = useState([])   // File[] to upload after create
   const [showCapa, setShowCapa] = useState(false)
@@ -74,6 +75,8 @@ export default function ClaimsPage() {
   // Rework / cost fields
   const [reworkPossible, setReworkPossible] = useState('')
   const [reworkScope, setReworkScope] = useState('')
+  const [reworkType, setReworkType] = useState('')
+  const [replacementParts, setReplacementParts] = useState('')
   const [preventiveAction, setPreventiveAction] = useState('')
   const [reworkCost, setReworkCost] = useState('')
   const [costSheetNote, setCostSheetNote] = useState('')
@@ -143,6 +146,8 @@ export default function ClaimsPage() {
     setDeductionRemarks(c.deduction_remarks || '')
     setReworkPossible(c.rework_possible === true ? 'yes' : c.rework_possible === false ? 'no' : '')
     setReworkScope(c.rework_scope || '')
+    setReworkType(c.rework_type || '')
+    setReplacementParts(c.replacement_parts || '')
     setPreventiveAction(c.preventive_action || '')
     setReworkCost(c.rework_cost != null ? String(c.rework_cost) : '')
     setCostSheetNote(c.cost_sheet_note || '')
@@ -242,6 +247,8 @@ export default function ClaimsPage() {
           preventive_action: form.preventive_action || null,
           rework_possible: form.rework_possible === 'yes' ? true : form.rework_possible === 'no' ? false : undefined,
           rework_scope: form.rework_scope || null,
+          rework_type: form.rework_possible === 'yes' ? (form.rework_type || null) : null,
+          replacement_parts: form.rework_type === 'partial' ? (form.replacement_parts || null) : null,
         }).catch(() => {})
       }
       // Upload any attached defect images
@@ -565,6 +572,26 @@ export default function ClaimsPage() {
                         </label>
                       )}
                     </div>
+                    {form.rework_possible === 'yes' && (
+                      <div style={{ marginTop: '10px' }}>
+                        <span style={labelStyle}>Rework Type</span>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                          {[['full', 'Full Rework'], ['partial', 'Partial + Replacement']].map(([v, l]) => (
+                            <button key={v} type="button" onClick={() => setForm(f => ({ ...f, rework_type: f.rework_type === v ? '' : v }))}
+                              style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer',
+                                border: form.rework_type === v ? '2px solid #7c3aed' : '1px solid #e2e8f0',
+                                background: form.rework_type === v ? '#ede9fe' : '#fff', color: form.rework_type === v ? '#6d28d9' : '#475569' }}>{l}</button>
+                          ))}
+                        </div>
+                        {form.rework_type === 'partial' && (
+                          <label style={{ display: 'block' }}>
+                            <span style={{ ...labelStyle, color: '#b45309' }}>Replacement Parts / Cartons Required</span>
+                            <textarea rows={2} value={form.replacement_parts} onChange={e => setForm(f => ({ ...f, replacement_parts: e.target.value }))}
+                              placeholder="List parts/cartons to be replaced to complete the product…" style={{ ...inputStyle, resize: 'vertical' }} />
+                          </label>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -646,6 +673,17 @@ export default function ClaimsPage() {
                   <div style={{ fontSize: '12px', fontWeight: '700', color: '#7c3aed' }}>2 · QA Root Cause — {detail.qa_reviewed_by_name || '—'}</div>
                   <div style={{ fontSize: '13px', color: '#4c1d95', marginTop: '4px' }}><strong>Root cause:</strong> {detail.root_cause}</div>
                   {detail.corrective_action && <div style={{ fontSize: '13px', color: '#4c1d95', marginTop: '2px' }}><strong>Corrective action:</strong> {detail.corrective_action}</div>}
+                  {detail.preventive_action && <div style={{ fontSize: '13px', color: '#4c1d95', marginTop: '2px' }}><strong>Preventive action:</strong> {detail.preventive_action}</div>}
+                  {detail.rework_possible === true && (
+                    <div style={{ fontSize: '13px', color: '#4c1d95', marginTop: '2px' }}>
+                      <strong>Rework:</strong> {detail.rework_type === 'partial' ? 'Partial + Replacement' : detail.rework_type === 'full' ? 'Full' : 'Yes'}{detail.rework_scope ? ` — ${detail.rework_scope}` : ''}
+                    </div>
+                  )}
+                  {detail.replacement_parts && (
+                    <div style={{ fontSize: '13px', color: '#7c2d12', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '6px', padding: '6px 8px', marginTop: '4px' }}>
+                      <strong>Replacement parts/cartons:</strong> {detail.replacement_parts}
+                    </div>
+                  )}
                   <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{detail.qa_reviewed_at ? new Date(detail.qa_reviewed_at).toLocaleString() : ''}</div>
                 </div>
               )}
@@ -781,13 +819,38 @@ export default function ClaimsPage() {
                   </div>
                 </div>
                 {reworkPossible === 'yes' && (
-                  <label style={{ display: 'block', marginBottom: '12px' }}>
-                    <span style={labelStyle}>Scope of Rework</span>
-                    <textarea rows={2} value={reworkScope} onChange={e => setReworkScope(e.target.value)} placeholder="What rework is feasible…" style={{ ...inputStyle, resize: 'vertical' }} />
-                  </label>
+                  <>
+                    <div style={{ marginBottom: '10px' }}>
+                      <span style={labelStyle}>Rework Type *</span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {[['full', 'Full Rework'], ['partial', 'Partial + Replacement']].map(([v, l]) => (
+                          <button key={v} type="button" onClick={() => setReworkType(v)}
+                            style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer',
+                              border: reworkType === v ? '2px solid #7c3aed' : '1px solid #e2e8f0',
+                              background: reworkType === v ? '#ede9fe' : '#fff', color: reworkType === v ? '#6d28d9' : '#475569' }}>{l}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <label style={{ display: 'block', marginBottom: '10px' }}>
+                      <span style={labelStyle}>Scope of Rework</span>
+                      <textarea rows={2} value={reworkScope} onChange={e => setReworkScope(e.target.value)} placeholder="What rework is feasible…" style={{ ...inputStyle, resize: 'vertical' }} />
+                    </label>
+                    {reworkType === 'partial' && (
+                      <label style={{ display: 'block', marginBottom: '12px' }}>
+                        <span style={{ ...labelStyle, color: '#b45309' }}>Replacement Parts / Cartons Required *</span>
+                        <textarea rows={2} value={replacementParts} onChange={e => setReplacementParts(e.target.value)}
+                          placeholder="List the specific parts/cartons to be replaced to complete the product (e.g. 2× glass tops, 1× hardware carton)…"
+                          style={{ ...inputStyle, resize: 'vertical', border: !replacementParts.trim() ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
+                      </label>
+                    )}
+                  </>
                 )}
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <button disabled={acting} onClick={() => run(() => qaSubmitClaim(detail.claim_id, { root_cause: rootCause, corrective_action: correctiveAction, preventive_action: preventiveAction, rework_possible: reworkPossible === 'yes' ? true : reworkPossible === 'no' ? false : undefined, rework_scope: reworkScope }), 'Submitted to Buying. They have been notified.')}
+                  <button disabled={acting} onClick={() => {
+                    if (reworkPossible === 'yes' && !reworkType) { setMsg('Failed: select the rework type (full or partial)'); return }
+                    if (reworkType === 'partial' && !replacementParts.trim()) { setMsg('Failed: list the replacement parts/cartons for a partial rework'); return }
+                    run(() => qaSubmitClaim(detail.claim_id, { root_cause: rootCause, corrective_action: correctiveAction, preventive_action: preventiveAction, rework_possible: reworkPossible === 'yes' ? true : reworkPossible === 'no' ? false : undefined, rework_scope: reworkScope, rework_type: reworkType, replacement_parts: replacementParts }), 'Submitted to Buying. They have been notified.')
+                  }}
                     style={{ padding: '9px 18px', borderRadius: '8px', background: '#7c3aed', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer', opacity: acting ? 0.7 : 1 }}>
                     {acting ? 'Processing…' : 'Submit to Buying →'}
                   </button>
@@ -852,7 +915,10 @@ export default function ClaimsPage() {
                   return (<>
                     {reworkable && (
                       <div style={{ fontSize: '12px', fontWeight: '700', color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px' }}>
-                        ⚠️ This claim is marked <b>Reworkable</b> — Rework Cost and a Cost Sheet upload are required.
+                        ⚠️ Marked <b>{detail.rework_type === 'partial' ? 'Partial Rework + Replacement' : 'Reworkable'}</b> — Rework Cost and a Cost Sheet upload are required.
+                        {detail.rework_type === 'partial' && detail.replacement_parts && (
+                          <div style={{ fontWeight: '400', color: '#7c2d12', marginTop: '4px' }}>Replacement parts/cartons: {detail.replacement_parts}</div>
+                        )}
                       </div>
                     )}
                     <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>

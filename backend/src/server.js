@@ -1003,6 +1003,8 @@ async function runMigrations() {
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS root_cause_date DATE`, 'claim root_cause_date');
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS rework_possible BOOLEAN`, 'claim rework_possible');
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS rework_scope TEXT`, 'claim rework_scope');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS rework_type TEXT CHECK (rework_type IN ('full','partial'))`, 'claim rework_type');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS replacement_parts TEXT`, 'claim replacement_parts');
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS preventive_action TEXT`, 'claim preventive_action');
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS rework_cost NUMERIC(12,2)`, 'claim rework_cost');
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS cost_sheet_note TEXT`, 'claim cost_sheet_note');

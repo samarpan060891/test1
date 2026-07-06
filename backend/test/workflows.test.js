@@ -365,6 +365,40 @@ test('claims: qa-submit moves claim to pending_buying', async () => {
   assert.equal(res.body.status, 'pending_buying');
 });
 
+test('claims: qa-submit requires rework type when reworkable', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_qa' })] });
+  const res = await request(app).post(`${CLAIM}/qa-submit`)
+    .set('Authorization', `Bearer ${tokenFor('qa')}`)
+    .send({ root_cause: 'material defect', rework_possible: true });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /rework type/i);
+});
+
+test('claims: qa-submit partial rework requires replacement parts', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_qa' })] });
+  const res = await request(app).post(`${CLAIM}/qa-submit`)
+    .set('Authorization', `Bearer ${tokenFor('qa')}`)
+    .send({ root_cause: 'material defect', rework_possible: true, rework_type: 'partial' });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /replacement/i);
+});
+
+test('claims: qa-submit partial rework succeeds with replacement parts', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_qa' })] });
+  onQuery(t => t.includes("SET status = 'pending_buying'"),
+    { rows: [claimRow({ status: 'pending_buying', rework_possible: true, rework_type: 'partial' })] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying', rework_possible: true, rework_type: 'partial' })] });
+  const res = await request(app).post(`${CLAIM}/qa-submit`)
+    .set('Authorization', `Bearer ${tokenFor('qa')}`)
+    .send({ root_cause: 'material defect', rework_possible: true, rework_type: 'partial', replacement_parts: '2x glass tops, 1x hardware carton' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'pending_buying');
+});
+
 test('claims: buying-submit requires reason when penalty added', async () => {
   const res = await request(app).post(`${CLAIM}/buying-submit`)
     .set('Authorization', `Bearer ${tokenFor('buying')}`)
