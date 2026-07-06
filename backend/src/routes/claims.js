@@ -355,7 +355,7 @@ router.post('/:id/withdraw', async (req, res) => {
 const DETAIL_FIELDS = {
   country_of_origin: 'text', trigger_point: 'text', checked_qty: 'int', defect_qty: 'int',
   grn_date: 'date', trigger_date: 'date', qc_done_date: 'date', root_cause_date: 'date',
-  description: 'text', rework_scope: 'text', rework_possible: 'bool',
+  description: 'text', root_cause: 'text', rework_scope: 'text', rework_possible: 'bool',
   corrective_action: 'text', preventive_action: 'text', cost_sheet_note: 'text',
 };
 router.patch('/:id/details', async (req, res) => {

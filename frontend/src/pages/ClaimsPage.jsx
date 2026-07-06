@@ -9,6 +9,7 @@ import {
   listClaims, createClaim, qaSubmitClaim, returnClaim,
   buyingSubmitClaim, importsReviewClaim, accountsCloseClaim, withdrawClaim,
   getClaimAttachments, uploadClaimAttachment, deleteClaimAttachment, getClaimAttachmentFile,
+  updateClaimDetails,
 } from '../api/claims.js'
 import { generateClaimReport } from '../utils/generateClaimReport.js'
 import client from '../api/client.js'
@@ -56,8 +57,12 @@ export default function ClaimsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [poList, setPoList] = useState([])
   const [itemList, setItemList] = useState([])
-  const [form, setForm] = useState({ po_no: '', item_code: '', defect_qty: '', claim_amount: '', description: '',
-    country_of_origin: '', trigger_point: '', checked_qty: '', grn_date: '', trigger_date: '', qc_done_date: '' })
+  const emptyForm = () => ({ po_no: '', item_code: '', defect_qty: '', claim_amount: '', description: '',
+    country_of_origin: '', trigger_point: '', checked_qty: '', grn_date: '', trigger_date: '', qc_done_date: '',
+    root_cause: '', corrective_action: '', preventive_action: '', rework_possible: '', rework_scope: '' })
+  const [form, setForm] = useState(emptyForm())
+  const [createFiles, setCreateFiles] = useState([])   // File[] to upload after create
+  const [showCapa, setShowCapa] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
 
@@ -215,7 +220,7 @@ export default function ClaimsPage() {
     e.preventDefault()
     setCreating(true); setCreateError('')
     try {
-      await createClaim({
+      const res = await createClaim({
         po_no: form.po_no, item_code: form.item_code,
         wh_inspection_id: form.wh_inspection_id || null,
         defect_qty: form.defect_qty ? parseInt(form.defect_qty, 10) : null,
@@ -228,9 +233,23 @@ export default function ClaimsPage() {
         trigger_date: form.trigger_date || null,
         qc_done_date: form.qc_done_date || null,
       })
+      const claimId = res.data?.claim_id
+      // Optional Root Cause / CAPA captured at raise time
+      if (claimId && (form.root_cause || form.corrective_action || form.preventive_action || form.rework_possible || form.rework_scope)) {
+        await updateClaimDetails(claimId, {
+          root_cause: form.root_cause || null,
+          corrective_action: form.corrective_action || null,
+          preventive_action: form.preventive_action || null,
+          rework_possible: form.rework_possible === 'yes' ? true : form.rework_possible === 'no' ? false : undefined,
+          rework_scope: form.rework_scope || null,
+        }).catch(() => {})
+      }
+      // Upload any attached defect images
+      if (claimId && createFiles.length) {
+        for (const f of createFiles) { await uploadClaimAttachment(claimId, f, 'defect_image').catch(() => {}) }
+      }
       setShowCreate(false)
-      setForm({ po_no: '', item_code: '', defect_qty: '', claim_amount: '', description: '',
-        country_of_origin: '', trigger_point: '', checked_qty: '', grn_date: '', trigger_date: '', qc_done_date: '' })
+      setForm(emptyForm()); setCreateFiles([]); setShowCapa(false)
       fetchClaims()
     } catch (err) {
       setCreateError(err.response?.data?.error || 'Failed to create claim')
@@ -481,14 +500,77 @@ export default function ClaimsPage() {
                   <input type="date" value={form.qc_done_date} onChange={e => setForm(f => ({ ...f, qc_done_date: e.target.value }))} style={inputStyle} />
                 </label>
               </div>
-              <label style={{ display: 'block', marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '14px' }}>
                 <span style={labelStyle}>Defect Description *</span>
                 <textarea required rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="Describe the defect and impact…" style={{ ...inputStyle, resize: 'vertical' }} />
               </label>
-              <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '14px' }}>You can attach defect images after raising, from the claim's detail panel.</div>
+
+              {/* Defect images */}
+              <div style={{ marginBottom: '14px' }}>
+                <span style={labelStyle}>Defect Images</span>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {createFiles.map((f, i) => (
+                    <div key={i} style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                      <img src={URL.createObjectURL(f)} alt={f.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button type="button" onClick={() => setCreateFiles(prev => prev.filter((_, j) => j !== i))}
+                        style={{ position: 'absolute', top: '2px', right: '2px', width: '18px', height: '18px', borderRadius: '50%', background: 'rgba(220,38,38,0.9)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '11px', lineHeight: 1 }}>×</button>
+                    </div>
+                  ))}
+                  <label style={{ width: '64px', height: '64px', borderRadius: '8px', border: '1.5px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b', fontSize: '22px' }}>
+                    +
+                    <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                      onChange={e => { setCreateFiles(prev => [...prev, ...Array.from(e.target.files || [])]); e.target.value = '' }} />
+                  </label>
+                </div>
+              </div>
+
+              {/* Optional Root Cause & CAPA */}
+              <div style={{ marginBottom: '18px', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                <button type="button" onClick={() => setShowCapa(v => !v)}
+                  style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f8fafc', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700', color: '#475569' }}>
+                  <span>Root Cause &amp; CAPA <span style={{ fontWeight: '400', color: '#94a3b8' }}>(optional — QA can also fill later)</span></span>
+                  <span>{showCapa ? '▾' : '▸'}</span>
+                </button>
+                {showCapa && (
+                  <div style={{ padding: '14px' }}>
+                    <label style={{ display: 'block', marginBottom: '10px' }}>
+                      <span style={labelStyle}>Root Cause</span>
+                      <textarea rows={2} value={form.root_cause} onChange={e => setForm(f => ({ ...f, root_cause: e.target.value }))} placeholder="What caused this defect?" style={{ ...inputStyle, resize: 'vertical' }} />
+                    </label>
+                    <label style={{ display: 'block', marginBottom: '10px' }}>
+                      <span style={labelStyle}>Corrective Action</span>
+                      <textarea rows={2} value={form.corrective_action} onChange={e => setForm(f => ({ ...f, corrective_action: e.target.value }))} placeholder="Immediate corrective measure…" style={{ ...inputStyle, resize: 'vertical' }} />
+                    </label>
+                    <label style={{ display: 'block', marginBottom: '10px' }}>
+                      <span style={labelStyle}>Preventive Action</span>
+                      <textarea rows={2} value={form.preventive_action} onChange={e => setForm(f => ({ ...f, preventive_action: e.target.value }))} placeholder="How to prevent recurrence…" style={{ ...inputStyle, resize: 'vertical' }} />
+                    </label>
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-end' }}>
+                      <div>
+                        <span style={labelStyle}>Rework Possible?</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {[['yes', 'Yes'], ['no', 'No']].map(([v, l]) => (
+                            <button key={v} type="button" onClick={() => setForm(f => ({ ...f, rework_possible: f.rework_possible === v ? '' : v }))}
+                              style={{ padding: '6px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
+                                border: form.rework_possible === v ? '2px solid #7c3aed' : '1px solid #e2e8f0',
+                                background: form.rework_possible === v ? '#ede9fe' : '#fff', color: form.rework_possible === v ? '#6d28d9' : '#475569' }}>{l}</button>
+                          ))}
+                        </div>
+                      </div>
+                      {form.rework_possible === 'yes' && (
+                        <label style={{ flex: 1 }}>
+                          <span style={labelStyle}>Scope of Rework</span>
+                          <input value={form.rework_scope} onChange={e => setForm(f => ({ ...f, rework_scope: e.target.value }))} placeholder="What rework is feasible…" style={inputStyle} />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setShowCreate(false)}
+                <button type="button" onClick={() => { setShowCreate(false); setCreateFiles([]); setShowCapa(false) }}
                   style={{ padding: '9px 18px', borderRadius: '8px', background: '#fff', color: '#475569', border: '1px solid #e2e8f0', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
                 <button type="submit" disabled={creating}
                   style={{ padding: '9px 20px', borderRadius: '8px', background: '#1C1208', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.7 : 1 }}>
