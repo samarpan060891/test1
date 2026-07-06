@@ -237,27 +237,6 @@ export default function WarehouseInspectionPage() {
           </button>
         </div>
 
-        {/* Stat cards */}
-        <div className="stat-grid mb-4">
-          {STAT_CARDS.map(s => {
-            const isActive = activeFilter === s.key
-            const count = s.key === null
-              ? inspections.length
-              : inspections.filter(i => i.status === s.key || i.stage === s.key).length
-            return (
-              <div key={String(s.key)} className={`stat-card ${s.cls}`}
-                onClick={() => setActiveFilter(p => p === s.key ? null : s.key)}
-                style={{ cursor: 'pointer', transform: isActive ? 'translateY(-2px)' : undefined, transition: 'transform 0.1s', userSelect: 'none' }}>
-                <div className="stat-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  {s.label}
-                  {isActive && <span style={{ fontSize: '10px', fontWeight: '700', opacity: 0.7 }}>✕ FILTER</span>}
-                </div>
-                <div className="stat-value" style={{ color: s.accent }}>{count}</div>
-              </div>
-            )
-          })}
-        </div>
-
         {/* Warehouse inspection coverage */}
         {coverage && coverage.total_pos > 0 && (() => {
           const pct = Math.round((coverage.wh_inspected_pos / coverage.total_pos) * 100)
@@ -293,6 +272,27 @@ export default function WarehouseInspectionPage() {
             </div>
           )
         })()}
+
+        {/* Stat cards */}
+        <div className="stat-grid mb-4">
+          {STAT_CARDS.map(s => {
+            const isActive = activeFilter === s.key
+            const count = s.key === null
+              ? inspections.length
+              : inspections.filter(i => i.status === s.key || i.stage === s.key).length
+            return (
+              <div key={String(s.key)} className={`stat-card ${s.cls}`}
+                onClick={() => setActiveFilter(p => p === s.key ? null : s.key)}
+                style={{ cursor: 'pointer', transform: isActive ? 'translateY(-2px)' : undefined, transition: 'transform 0.1s', userSelect: 'none' }}>
+                <div className="stat-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {s.label}
+                  {isActive && <span style={{ fontSize: '10px', fontWeight: '700', opacity: 0.7 }}>✕ FILTER</span>}
+                </div>
+                <div className="stat-value" style={{ color: s.accent }}>{count}</div>
+              </div>
+            )
+          })}
+        </div>
 
         {/* Filter bar */}
         <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', padding: '14px 18px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
