@@ -46,9 +46,10 @@ const tdStyle = {
   fontSize: '13px',
   color: '#1e293b',
   borderBottom: '1px solid #f1f5f9',
-  verticalAlign: 'middle',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
+  verticalAlign: 'top',
+  whiteSpace: 'normal',
+  wordBreak: 'break-word',
+  overflowWrap: 'anywhere',
 }
 
 export default function WarehouseInspectionPage() {
@@ -212,8 +213,8 @@ export default function WarehouseInspectionPage() {
     minWidth: '130px',
   }
 
-  // Header cell style for the resizable table (fixed layout)
-  const thR = (i, extra = {}) => ({ ...thStyle, ...extra, position: 'relative', width: colWidths[i] })
+  // Header cell style for the resizable table (fixed layout) — wraps on narrow widths
+  const thR = (i, extra = {}) => ({ ...thStyle, ...extra, position: 'relative', width: colWidths[i], whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere', verticalAlign: 'bottom' })
   const resizeHandle = (i) => i < colWidths.length - 1 && (
     <div className="col-resize-handle" {...getHandleProps(i)} />
   )
@@ -450,7 +451,7 @@ export default function WarehouseInspectionPage() {
                           {(ins.agency_inspected || ins.self_inspected) && (
                             <div style={{ marginTop: '3px' }}>
                               <span title={ins.agency_inspected ? 'This PO was also inspected by a quality agency' : 'This PO was self-inspected by the supplier'}
-                                style={{ fontSize: '9px', fontWeight: '800', padding: '1px 7px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap',
+                                style={{ display: 'inline-block', fontSize: '9px', fontWeight: '800', padding: '1px 7px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.03em',
                                   background: ins.agency_inspected ? '#dcfce7' : '#fce7f3',
                                   color: ins.agency_inspected ? '#166534' : '#9d174d' }}>
                                 {ins.agency_inspected ? '✓ Agency Inspected' : '✓ Self Inspected'}
@@ -476,10 +477,10 @@ export default function WarehouseInspectionPage() {
                         <td style={{ ...tdStyle, textAlign: 'right', fontWeight: (ins.defect_qty || 0) > 0 ? '700' : '400', color: (ins.defect_qty || 0) > 0 ? '#dc2626' : '#475569' }}>
                           {ins.defect_qty ?? '—'}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'right', color: '#475569', whiteSpace: 'nowrap' }}>
+                        <td style={{ ...tdStyle, textAlign: 'right', color: '#475569' }}>
                           {ins.po_value != null ? formatAmount(parseFloat(ins.po_value)) : '—'}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: parseFloat(ins.defect_value || 0) > 0 ? '700' : '400', color: parseFloat(ins.defect_value || 0) > 0 ? '#dc2626' : '#475569' }}>
+                        <td style={{ ...tdStyle, textAlign: 'right', fontWeight: parseFloat(ins.defect_value || 0) > 0 ? '700' : '400', color: parseFloat(ins.defect_value || 0) > 0 ? '#dc2626' : '#475569' }}>
                           {ins.defect_value != null ? formatAmount(parseFloat(ins.defect_value)) : '—'}
                         </td>
                         <td style={{ ...tdStyle, minWidth: '120px' }}>
@@ -495,11 +496,11 @@ export default function WarehouseInspectionPage() {
                           ) : <span style={{ color: '#94a3b8', fontSize: '12px' }}>—</span>}
                         </td>
                         <td style={tdStyle}>
-                          <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                          <span style={{ display: 'inline-block', background: st.bg, color: st.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: '700', whiteSpace: 'normal' }}>
                             {st.label}
                           </span>
                         </td>
-                        <td style={{ ...tdStyle, color: '#64748b', whiteSpace: 'nowrap' }}>
+                        <td style={{ ...tdStyle, color: '#64748b' }}>
                           {new Date(ins.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </td>
                         <td style={{ ...tdStyle, textAlign: 'center' }}>
