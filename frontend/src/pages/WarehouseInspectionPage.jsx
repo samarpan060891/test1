@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { TableScrollWrap } from '../components/TableScrollWrap.jsx'
 import { ColumnFilterDropdown } from '../components/ColumnFilterDropdown.jsx'
+import { useResizableColumns } from '../hooks/useResizableColumns.js'
 import { listWarehouseInspections, createWarehouseInspection, getWarehouseCoverage } from '../api/warehouseInspections.js'
 import { useCurrency } from '../context/CurrencyContext.jsx'
 import client from '../api/client.js'
@@ -46,6 +47,8 @@ const tdStyle = {
   color: '#1e293b',
   borderBottom: '1px solid #f1f5f9',
   verticalAlign: 'middle',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 }
 
 export default function WarehouseInspectionPage() {
@@ -56,6 +59,10 @@ export default function WarehouseInspectionPage() {
   const [filters, setFilters] = useState({ stage: '', status: '', po_no: '' })
   const [colFilters, setColFilters] = useState({})
   const [coverage, setCoverage] = useState(null)
+  // Resizable columns: PO, Item, Stage, Inspector, Trigger, PO Qty, QC Check Qty,
+  // Defect Qty, PO Value, Defect Value, Progress, Status, Date, Action
+  const { widths: colWidths, getHandleProps, resetWidths } =
+    useResizableColumns([110, 160, 95, 115, 110, 80, 105, 90, 105, 110, 130, 130, 110, 90])
   const [showCreate, setShowCreate] = useState(false)
   const [listError, setListError] = useState('')
 
@@ -205,6 +212,12 @@ export default function WarehouseInspectionPage() {
     minWidth: '130px',
   }
 
+  // Header cell style for the resizable table (fixed layout)
+  const thR = (i, extra = {}) => ({ ...thStyle, ...extra, position: 'relative', width: colWidths[i] })
+  const resizeHandle = (i) => i < colWidths.length - 1 && (
+    <div className="col-resize-handle" {...getHandleProps(i)} />
+  )
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
       <Navbar />
@@ -331,6 +344,13 @@ export default function WarehouseInspectionPage() {
                 {displayInspections.length}{activeFilter ? ` of ${inspections.length}` : ''} inspection(s)
               </span>
               <button
+                onClick={resetWidths}
+                title="Reset column widths"
+                style={{ padding: '6px 10px', borderRadius: '7px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                ⟲ Columns
+              </button>
+              <button
                 onClick={() => downloadExcel(displayInspections)}
                 disabled={displayInspections.length === 0}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '7px', border: '1.5px solid #059669', background: '#fff', color: '#059669', fontSize: '13px', fontWeight: '600', cursor: displayInspections.length === 0 ? 'not-allowed' : 'pointer', opacity: displayInspections.length === 0 ? 0.5 : 1 }}
@@ -348,47 +368,56 @@ export default function WarehouseInspectionPage() {
             </div>
           ) : (
             <TableScrollWrap>
-              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '100%' }}>
+                <colgroup>
+                  {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+                </colgroup>
                 <thead>
                   <tr>
-                    <th style={thStyle}>
+                    <th style={thR(0)}>
                       <span style={{ display: 'inline-flex', alignItems: 'center' }}>PO No.
                         <ColumnFilterDropdown colKey="po_no" data={cardFiltered} value={colFilters.po_no || []} onChange={v => setColFilter('po_no', v)} label="PO No." />
                       </span>
+                      {resizeHandle(0)}
                     </th>
-                    <th style={thStyle}>
+                    <th style={thR(1)}>
                       <span style={{ display: 'inline-flex', alignItems: 'center' }}>Item
                         <ColumnFilterDropdown colKey="item_name" data={cardFiltered} value={colFilters.item_name || []} onChange={v => setColFilter('item_name', v)} label="Item" />
                       </span>
+                      {resizeHandle(1)}
                     </th>
-                    <th style={thStyle}>
+                    <th style={thR(2)}>
                       <span style={{ display: 'inline-flex', alignItems: 'center' }}>Stage
                         <ColumnFilterDropdown colKey="stage" data={cardFiltered} value={colFilters.stage || []} onChange={v => setColFilter('stage', v)} label="Stage" />
                       </span>
+                      {resizeHandle(2)}
                     </th>
-                    <th style={thStyle}>
+                    <th style={thR(3)}>
                       <span style={{ display: 'inline-flex', alignItems: 'center' }}>Inspector
                         <ColumnFilterDropdown colKey="inspector_name" data={cardFiltered} value={colFilters.inspector_name || []} onChange={v => setColFilter('inspector_name', v)} label="Inspector" />
                       </span>
+                      {resizeHandle(3)}
                     </th>
-                    <th style={thStyle}>
+                    <th style={thR(4)}>
                       <span style={{ display: 'inline-flex', alignItems: 'center' }}>Trigger
                         <ColumnFilterDropdown colKey="trigger_source" data={cardFiltered} value={colFilters.trigger_source || []} onChange={v => setColFilter('trigger_source', v)} label="Trigger" valueLabel={v => v.replace(/_/g, ' ')} />
                       </span>
+                      {resizeHandle(4)}
                     </th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>PO Qty</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>QC Check Qty</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>Defect Qty</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>PO Value</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>Defect Value</th>
-                    <th style={thStyle}>Progress</th>
-                    <th style={thStyle}>
+                    <th style={thR(5, { textAlign: 'right' })}>PO Qty{resizeHandle(5)}</th>
+                    <th style={thR(6, { textAlign: 'right' })}>QC Check Qty{resizeHandle(6)}</th>
+                    <th style={thR(7, { textAlign: 'right' })}>Defect Qty{resizeHandle(7)}</th>
+                    <th style={thR(8, { textAlign: 'right' })}>PO Value{resizeHandle(8)}</th>
+                    <th style={thR(9, { textAlign: 'right' })}>Defect Value{resizeHandle(9)}</th>
+                    <th style={thR(10)}>Progress{resizeHandle(10)}</th>
+                    <th style={thR(11)}>
                       <span style={{ display: 'inline-flex', alignItems: 'center' }}>Status
                         <ColumnFilterDropdown colKey="status" data={cardFiltered} value={colFilters.status || []} onChange={v => setColFilter('status', v)} label="Status" valueLabel={v => STATUS_META[v]?.label || v} />
                       </span>
+                      {resizeHandle(11)}
                     </th>
-                    <th style={thStyle}>Date</th>
-                    <th style={{ ...thStyle, textAlign: 'center' }}>
+                    <th style={thR(12)}>Date{resizeHandle(12)}</th>
+                    <th style={thR(13, { textAlign: 'center' })}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>Action
                         {hasColFilter && (
                           <button onClick={clearColFilters} title="Clear all column filters"
