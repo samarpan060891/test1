@@ -7,6 +7,8 @@ const {
   emailWhDeviationRequested,
   emailWhDeviationDecided,
   emailWhDeviationNoBuyer,
+  emailClaimPaymentHold,
+  emailClaimReplacementDue,
   emailJobDeviationRequested,
   emailJobDeviationDecided,
   emailJobDeviationNoBuyer,
@@ -40,6 +42,8 @@ const EVENT_MESSAGES = {
   CLAIM_SUBMITTED_TO_ACCOUNTS:'A defect claim has been processed by Imports and is pending Accounts deduction.',
   CLAIM_CLOSED:              'A defect claim has been closed by Accounts.',
   CLAIM_SETTLED:             'A defect claim has been settled.',
+  CLAIM_PAYMENT_HOLD:        'Refund claim raised — hold immediate, ongoing and future payments to this supplier.',
+  CLAIM_REPLACEMENT_DUE:     'A replacement is overdue — the expected landing date has passed.',
   JOB_MAPPED:              'A new inspection job has been mapped and assigned.',
   SUBMITTED_FOR_QA:        'An inspection checklist has been submitted and is pending QA review.',
   QA_APPROVED:             'The inspection has been approved by QA.',
@@ -154,6 +158,10 @@ function buildEmailForEvent(eventType, extraMessage) {
         remarks: data.remarks,
         jobId: data.job_id,
       });
+    case 'CLAIM_PAYMENT_HOLD':
+      return emailClaimPaymentHold(data);
+    case 'CLAIM_REPLACEMENT_DUE':
+      return emailClaimReplacementDue(data);
     case 'JOB_MAPPED':
       return emailJobMapped({
         jobRef: data.job_ref || data.jobRef || '—',
@@ -294,6 +302,10 @@ function buildReadableMessage(eventType, extraMessage) {
       return `Defect claim ${data.claim_ref || ''} processed by Imports — PO ${data.po_no || '—'}. Imports note: ${(data.imports_remarks || '').slice(0, 100)}. Pending Accounts deduction.`;
     case 'CLAIM_CLOSED':
       return `Defect claim ${data.claim_ref || ''} closed by Accounts — PO ${data.po_no || '—'}. Total: $${parseFloat(data.total_amount || 0).toFixed(2)}. Deduction: ${(data.deduction_remarks || '').slice(0, 100)}`;
+    case 'CLAIM_PAYMENT_HOLD':
+      return `🛑 PAYMENT HOLD — Refund claim ${data.claim_ref || ''} raised against ${data.supplier_name || 'supplier'} (PO ${data.po_no || '—'}). Hold immediate, ongoing and future payments. Credit note received: $${parseFloat(data.credit_note_amount || 0).toFixed(2)} vs requested $${parseFloat(data.total_amount || 0).toFixed(2)}.`;
+    case 'CLAIM_REPLACEMENT_DUE':
+      return `⏰ Replacement overdue — claim ${data.claim_ref || ''} (PO ${data.po_no || '—'}, ${data.item_name || '—'}). Expected landing ${data.expected_replacement_date ? new Date(data.expected_replacement_date).toLocaleDateString('en-GB') : '—'} has passed. Revise the date or mark received.`;
     case 'CLAIM_SETTLED':
       return `Defect claim ${data.claim_ref || ''} settled by ${data.settlement_mode || '—'} — PO ${data.po_no || '—'}. Total: $${parseFloat(data.total_amount || 0).toFixed(2)}.${data.credit_note_no ? ` Credit note: ${data.credit_note_no}.` : ''}`;
     case 'JOB_DEVIATION_APPROVED':

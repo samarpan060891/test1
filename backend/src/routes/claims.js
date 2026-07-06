@@ -240,7 +240,8 @@ router.post('/:id/buying-submit', async (req, res) => {
     if (!['buying', 'admin'].includes(req.user.role))
       return res.status(403).json({ error: 'Only Buying can submit the final claim' });
 
-    const { penalty_amount, penalty_reason, mode, credit_note_no, settlement_remarks, rework_cost, cost_sheet_note } = req.body;
+    const { penalty_amount, penalty_reason, mode, credit_note_no, settlement_remarks, rework_cost, cost_sheet_note,
+            expected_replacement_date, credit_note_amount } = req.body;
     const penalty = penalty_amount === undefined || penalty_amount === null || penalty_amount === ''
       ? 0 : parseFloat(penalty_amount);
     if (isNaN(penalty) || penalty < 0)
@@ -249,12 +250,16 @@ router.post('/:id/buying-submit', async (req, res) => {
       return res.status(400).json({ error: 'A reason is required when adding a penalty' });
     if (!['replacement', 'rework', 'refund'].includes(mode))
       return res.status(400).json({ error: 'Settlement mode must be replacement, rework or refund' });
-    if (['rework', 'refund'].includes(mode) && (!credit_note_no || !credit_note_no.trim()))
-      return res.status(400).json({ error: `A credit note number is required for ${mode}` });
+    if (mode === 'rework' && (!credit_note_no || !credit_note_no.trim()))
+      return res.status(400).json({ error: 'A credit note number is required for rework' });
     const reworkCost = rework_cost === undefined || rework_cost === null || rework_cost === ''
       ? null : parseFloat(rework_cost);
     if (reworkCost !== null && (isNaN(reworkCost) || reworkCost < 0))
       return res.status(400).json({ error: 'rework_cost must be a non-negative number' });
+    const cnAmount = credit_note_amount === undefined || credit_note_amount === null || credit_note_amount === ''
+      ? null : parseFloat(credit_note_amount);
+    if (cnAmount !== null && (isNaN(cnAmount) || cnAmount < 0))
+      return res.status(400).json({ error: 'credit_note_amount must be a non-negative number' });
 
     const claim = await loadClaim(req.params.id);
     if (!claim) return res.status(404).json({ error: 'Not found' });
@@ -279,24 +284,57 @@ router.post('/:id/buying-submit', async (req, res) => {
         return res.status(400).json({ error: 'A cost sheet must be uploaded (Attachments) because this claim is marked reworkable' });
     }
 
+    // Replacement: an expected landing date is required (drives reminders)
+    if (mode === 'replacement' && !expected_replacement_date)
+      return res.status(400).json({ error: 'An approximate replacement landing date is required for a replacement settlement' });
+
+    // Refund: a credit note file must be attached and the received amount entered
+    if (mode === 'refund') {
+      if (cnAmount === null)
+        return res.status(400).json({ error: 'Enter the credit note amount received for a refund settlement' });
+      const { rows: cn } = await db.query(
+        `SELECT COUNT(*)::int AS n FROM qc_inspection.defect_claim_attachment WHERE claim_id = $1 AND kind = 'credit_note'`,
+        [req.params.id]
+      );
+      if (cn[0].n === 0)
+        return res.status(400).json({ error: 'A credit note must be attached (Attachments → Credit Note) for a refund settlement' });
+    }
+
+    const paymentHold = mode === 'refund';
     const { rows } = await db.query(`
       UPDATE qc_inspection.defect_claim
       SET status = 'pending_imports', penalty_amount = $1, penalty_reason = $2,
           settlement_mode = $3, credit_note_no = $4, settlement_remarks = $5,
           rework_cost = $6, cost_sheet_note = $7,
-          buying_submitted_by = $8, buying_submitted_at = NOW()
-      WHERE claim_id = $9 RETURNING *
+          expected_replacement_date = $8, credit_note_amount = $9, payment_hold = $10,
+          replacement_reminder_last_sent = NULL,
+          buying_submitted_by = $11, buying_submitted_at = NOW()
+      WHERE claim_id = $12 RETURNING *
     `, [penalty, penalty_reason?.trim() || null, mode, credit_note_no?.trim() || null,
         settlement_remarks?.trim() || null, reworkCost, cost_sheet_note?.trim() || null,
+        mode === 'replacement' ? expected_replacement_date : null,
+        mode === 'refund' ? cnAmount : null, paymentHold,
         req.user.user_id, req.params.id]);
 
     const updated = await loadClaim(rows[0].claim_id);
-    const msg = claimMsg(updated, { buyer_name: req.user.name || req.user.email, settlement_mode: mode, credit_note_no: credit_note_no?.trim() || null });
+    const variance = mode === 'refund' && cnAmount !== null
+      ? cnAmount - (Number(updated.claim_amount || 0) + Number(updated.penalty_amount || 0)) : null;
+    const msg = claimMsg(updated, {
+      buyer_name: req.user.name || req.user.email, settlement_mode: mode,
+      credit_note_no: credit_note_no?.trim() || null,
+      credit_note_amount: cnAmount, variance,
+      expected_replacement_date: mode === 'replacement' ? expected_replacement_date : null,
+    });
     // Final claim goes to the supplier; Imports is next to process, QA + warehouse informed
     await sendNotification(null, 'CLAIM_FINAL_SUBMITTED', 'supplier_user', [updated.supplier_email], msg, null, null, updated.supplier_code);
     await notifyRole('imports', 'CLAIM_SUBMITTED_TO_IMPORTS', msg);
     await notifyRole('qa', 'CLAIM_FINAL_SUBMITTED', msg);
     await notifyRole('warehouse', 'CLAIM_FINAL_SUBMITTED', msg);
+    // Refund: alert Imports & Accounts to hold payments
+    if (mode === 'refund') {
+      await notifyRole('imports', 'CLAIM_PAYMENT_HOLD', msg);
+      await notifyRole('accounts', 'CLAIM_PAYMENT_HOLD', msg);
+    }
     res.json(updated);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -356,6 +394,50 @@ router.post('/:id/accounts-close', async (req, res) => {
     await notifyRole('buying', 'CLAIM_CLOSED', msg, updated.po_buyer_id);
     await notifyRole('warehouse', 'CLAIM_CLOSED', msg);
     res.json(updated);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PATCH /api/claims/:id/replacement-date — Buyer revises the expected landing date (resets reminders)
+router.patch('/:id/replacement-date', async (req, res) => {
+  try {
+    if (!['buying', 'admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Only Buying can revise the replacement date' });
+    const { expected_replacement_date } = req.body;
+    if (!expected_replacement_date)
+      return res.status(400).json({ error: 'A replacement date is required' });
+
+    const claim = await loadClaim(req.params.id);
+    if (!claim) return res.status(404).json({ error: 'Not found' });
+    if (claim.settlement_mode !== 'replacement')
+      return res.status(400).json({ error: 'Only replacement claims have a landing date' });
+    if (req.user.role === 'buying' && claim.po_buyer_id && claim.po_buyer_id !== req.user.user_id)
+      return res.status(403).json({ error: 'This PO is assigned to a different buyer' });
+
+    const { rows } = await db.query(`
+      UPDATE qc_inspection.defect_claim
+      SET expected_replacement_date = $1, replacement_reminder_last_sent = NULL
+      WHERE claim_id = $2 RETURNING claim_id
+    `, [expected_replacement_date, req.params.id]);
+    res.json(await loadClaim(rows[0].claim_id));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/claims/:id/replacement-received — mark the replacement landed (stops reminders)
+router.post('/:id/replacement-received', async (req, res) => {
+  try {
+    if (!['buying', 'warehouse', 'admin'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied' });
+    const claim = await loadClaim(req.params.id);
+    if (!claim) return res.status(404).json({ error: 'Not found' });
+    if (claim.settlement_mode !== 'replacement')
+      return res.status(400).json({ error: 'Only replacement claims can be marked received' });
+
+    const { rows } = await db.query(`
+      UPDATE qc_inspection.defect_claim
+      SET replacement_received_date = CURRENT_DATE
+      WHERE claim_id = $1 RETURNING claim_id
+    `, [req.params.id]);
+    res.json(await loadClaim(rows[0].claim_id));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -423,7 +505,7 @@ router.post('/:id/attachments', upload.single('file'), async (req, res) => {
     if (!['warehouse', 'qa', 'buying', 'admin'].includes(req.user.role))
       return res.status(403).json({ error: 'Access denied' });
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const kind = req.body.kind === 'cost_sheet' ? 'cost_sheet' : 'defect_image';
+    const kind = ['cost_sheet', 'credit_note'].includes(req.body.kind) ? req.body.kind : 'defect_image';
     const { rows } = await db.query(`
       INSERT INTO qc_inspection.defect_claim_attachment
         (claim_id, kind, file_name, file_type, file_size, file_data, uploaded_by)

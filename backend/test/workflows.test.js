@@ -415,29 +415,53 @@ test('claims: buying-submit requires a settlement mode', async () => {
   assert.match(res.body.error, /replacement, rework or refund/);
 });
 
-test('claims: buying-submit refund requires a credit note', async () => {
+test('claims: refund requires a credit note amount', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying' })] });
   const res = await request(app).post(`${CLAIM}/buying-submit`)
     .set('Authorization', `Bearer ${tokenFor('buying')}`)
     .send({ mode: 'refund' });
   assert.equal(res.status, 400);
-  assert.match(res.body.error, /credit note/i);
+  assert.match(res.body.error, /credit note amount/i);
 });
 
-test('claims: buying-submit finalises the claim to Imports', async () => {
+test('claims: refund requires an attached credit note file', async () => {
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
     { rows: [claimRow({ status: 'pending_buying' })] });
+  onQuery(t => t.includes("kind = 'credit_note'"), { rows: [{ n: 0 }] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'refund', credit_note_amount: 500 });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /credit note must be attached/i);
+});
+
+test('claims: refund finalises to Imports with amount + attached credit note', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying' })] });
+  onQuery(t => t.includes("kind = 'credit_note'"), { rows: [{ n: 1 }] });
   onQuery(t => t.includes("SET status = 'pending_imports'"),
     { rows: [claimRow({ status: 'pending_imports', settlement_mode: 'refund' })] });
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
     { rows: [claimRow({ status: 'pending_imports', settlement_mode: 'refund' })] });
   const res = await request(app).post(`${CLAIM}/buying-submit`)
     .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({ penalty_amount: 50, penalty_reason: 'late + defective', mode: 'refund', credit_note_no: 'CN-9' });
+    .send({ mode: 'refund', credit_note_no: 'CN-9', credit_note_amount: 500 });
   assert.equal(res.status, 200);
   assert.equal(res.body.status, 'pending_imports');
 });
 
-test('claims: replacement needs no credit note', async () => {
+test('claims: replacement requires an expected landing date', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying' })] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'replacement' });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /replacement landing date/i);
+});
+
+test('claims: replacement settles with a landing date', async () => {
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
     { rows: [claimRow({ status: 'pending_buying' })] });
   onQuery(t => t.includes("SET status = 'pending_imports'"),
@@ -446,7 +470,7 @@ test('claims: replacement needs no credit note', async () => {
     { rows: [claimRow({ status: 'pending_imports', settlement_mode: 'replacement' })] });
   const res = await request(app).post(`${CLAIM}/buying-submit`)
     .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({ mode: 'replacement' });
+    .send({ mode: 'replacement', expected_replacement_date: '2026-08-01' });
   assert.equal(res.status, 200);
 });
 
@@ -467,9 +491,10 @@ test('claims: not-reworkable claim settles by refund without rework cost', async
     { rows: [claimRow({ status: 'pending_imports', rework_possible: false })] });
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
     { rows: [claimRow({ status: 'pending_imports', rework_possible: false })] });
+  onQuery(t => t.includes("kind = 'credit_note'"), { rows: [{ n: 1 }] });
   const res = await request(app).post(`${CLAIM}/buying-submit`)
     .set('Authorization', `Bearer ${tokenFor('buying')}`)
-    .send({ mode: 'refund', credit_note_no: 'CN-9' });
+    .send({ mode: 'refund', credit_note_no: 'CN-9', credit_note_amount: 500 });
   assert.equal(res.status, 200);
   assert.equal(res.body.status, 'pending_imports');
 });

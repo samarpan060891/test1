@@ -661,6 +661,50 @@ function emailJobDeviationDecided({ decision, jobRef, poNo, itemName, supplierNa
   };
 }
 
+function emailClaimPaymentHold(data = {}) {
+  const url = data.claim_id ? `${APP_URL}/claims` : APP_URL;
+  const received = parseFloat(data.credit_note_amount || 0);
+  const requested = parseFloat(data.total_amount || 0);
+  const variance = received - requested;
+  return {
+    subject: `🛑 PAYMENT HOLD — Refund Claim ${data.claim_ref || ''} | ${data.supplier_name || 'Supplier'}`,
+    html: layout('Payment Hold — Supplier Refund Claim', `
+      <p style="color:#991b1b;font-size:14px;margin:0 0 16px;font-weight:700;">
+        A refund claim has been raised. Please <strong>hold immediate, ongoing and any future payments</strong> to this supplier until the credit note is reconciled.
+      </p>
+      ${jobInfoTable([
+        ['Claim Ref', `<strong style="color:#E8470F;">${data.claim_ref || '—'}</strong>`],
+        ['PO Number', data.po_no || '—'],
+        ['Supplier', data.supplier_name || '—'],
+        ['Requested Amount', `${requested.toFixed(2)}`],
+        ['Credit Note Received', `${received.toFixed(2)}`],
+        ['Variance', `${variance >= 0 ? 'Surplus +' : 'Deficit '}${variance.toFixed(2)}`],
+      ])}
+      ${ctaButton('Open Claims →', url)}
+    `),
+  };
+}
+
+function emailClaimReplacementDue(data = {}) {
+  return {
+    subject: `⏰ Replacement Overdue — Claim ${data.claim_ref || ''} | ${data.item_name || ''}`,
+    html: layout('Replacement Landing Overdue', `
+      <p style="color:#475569;font-size:14px;margin:0 0 16px;">
+        The expected replacement landing date has passed and the replacement has not been marked received.
+        Please revise the expected date or confirm receipt.
+      </p>
+      ${jobInfoTable([
+        ['Claim Ref', `<strong style="color:#E8470F;">${data.claim_ref || '—'}</strong>`],
+        ['PO Number', data.po_no || '—'],
+        ['Item', data.item_name || '—'],
+        ['Supplier', data.supplier_name || '—'],
+        ['Expected Landing', data.expected_replacement_date ? new Date(data.expected_replacement_date).toLocaleDateString('en-GB') : '—'],
+      ])}
+      ${ctaButton('Open Claims →', APP_URL + '/claims')}
+    `),
+  };
+}
+
 function emailInspectionOverdueDigest({ jobs }) {
   const rows = jobs.map(j => {
     const daysOverdue = Math.floor((Date.now() - new Date(j.inspection_date)) / (1000 * 60 * 60 * 24))
@@ -785,4 +829,6 @@ module.exports = {
   emailDocReviewed,
   emailInspectionOverdueDigest,
   emailPaymentOverdueDigest,
+  emailClaimPaymentHold,
+  emailClaimReplacementDue,
 };

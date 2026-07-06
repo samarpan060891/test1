@@ -12,6 +12,10 @@ export const withdrawClaim = (id) => client.post(`/claims/${id}/withdraw`)
 
 export const updateClaimDetails = (id, data) => client.patch(`/claims/${id}/details`, data)
 
+export const reviseReplacementDate = (id, expected_replacement_date) =>
+  client.patch(`/claims/${id}/replacement-date`, { expected_replacement_date })
+export const markReplacementReceived = (id) => client.post(`/claims/${id}/replacement-received`)
+
 export const getClaimAttachments = (id) => client.get(`/claims/${id}/attachments`)
 export const getClaimAttachmentFile = (id, aid) =>
   client.get(`/claims/${id}/attachments/${aid}/file`, { responseType: 'blob' })

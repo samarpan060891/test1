@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const db = require('../db');
 const { sendEmail, emailInspectionOverdueDigest, emailPaymentOverdueDigest } = require('./email');
+const { sendNotification } = require('./notifications');
 
 const POLL_SCHEDULE = '* * * * *';
 
@@ -203,12 +204,53 @@ async function runPaymentOverdue(sched) {
   }
 }
 
+// Daily: remind the PO's buyer when a replacement claim is past its expected landing date.
+// Stops when the buyer revises the date (resets last_sent) or marks the replacement received.
+async function runClaimReplacementReminders() {
+  try {
+    const { rows } = await db.query(`
+      SELECT c.claim_id, c.claim_ref, c.po_no, c.expected_replacement_date,
+             im.name AS item_name, s.name AS supplier_name,
+             p.buyer_id AS po_buyer_id, b.email AS po_buyer_email
+      FROM qc_inspection.defect_claim c
+      LEFT JOIN qc_inspection.item_master im ON im.item_code = c.item_code
+      LEFT JOIN qc_inspection.po_master p ON p.po_no = c.po_no
+      LEFT JOIN qc_inspection.supplier_master s ON s.supplier_code = c.supplier_code
+      LEFT JOIN qc_inspection.team_stakeholder b ON b.user_id = p.buyer_id
+      WHERE c.settlement_mode = 'replacement'
+        AND c.replacement_received_date IS NULL
+        AND c.status <> 'withdrawn'
+        AND c.expected_replacement_date IS NOT NULL
+        AND c.expected_replacement_date < CURRENT_DATE
+        AND (c.replacement_reminder_last_sent IS NULL OR c.replacement_reminder_last_sent < CURRENT_DATE)
+    `);
+    for (const c of rows) {
+      const msg = JSON.stringify({
+        claim_id: c.claim_id, claim_ref: c.claim_ref, po_no: c.po_no,
+        item_name: c.item_name, supplier_name: c.supplier_name,
+        expected_replacement_date: c.expected_replacement_date,
+      });
+      const emails = c.po_buyer_email ? [c.po_buyer_email] : [];
+      await sendNotification(null, 'CLAIM_REPLACEMENT_DUE', 'buying', emails, msg, null, null, null, c.po_buyer_id);
+      await db.query(
+        `UPDATE qc_inspection.defect_claim SET replacement_reminder_last_sent = CURRENT_DATE WHERE claim_id = $1`,
+        [c.claim_id]
+      ).catch(() => {});
+    }
+    if (rows.length) console.log(`[SCHEDULER] Claim replacement reminders sent: ${rows.length}`);
+  } catch (err) {
+    console.error('[SCHEDULER] Claim replacement reminder run failed:', err.message);
+  }
+}
+
 // Legacy single-config function kept for backward compat
 async function sendOverdueReminders() {}
 async function sendPaymentOverdueReminders() {}
 
 function startScheduler() {
   cron.schedule(POLL_SCHEDULE, runAllSchedules);
+  // Claim replacement reminders — once daily at 09:00 server time
+  cron.schedule('0 9 * * *', runClaimReplacementReminders);
   console.log('[SCHEDULER] Multi-schedule reminder system started (polls every minute)');
 }
 

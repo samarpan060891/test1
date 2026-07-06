@@ -9,7 +9,7 @@ import {
   listClaims, createClaim, qaSubmitClaim, returnClaim,
   buyingSubmitClaim, importsReviewClaim, accountsCloseClaim, withdrawClaim,
   getClaimAttachments, uploadClaimAttachment, deleteClaimAttachment, getClaimAttachmentFile,
-  updateClaimDetails,
+  updateClaimDetails, reviseReplacementDate, markReplacementReceived,
 } from '../api/claims.js'
 import { generateClaimReport } from '../utils/generateClaimReport.js'
 import client from '../api/client.js'
@@ -95,6 +95,10 @@ export default function ClaimsPage() {
   const [settleRemarks, setSettleRemarks] = useState('')
   const [importsRemarks, setImportsRemarks] = useState('')
   const [deductionRemarks, setDeductionRemarks] = useState('')
+  // Replacement / Refund buyer decision
+  const [expectedRepDate, setExpectedRepDate] = useState('')
+  const [creditNoteAmount, setCreditNoteAmount] = useState('')
+  const [reviseDate, setReviseDate] = useState('')
 
   const fetchClaims = () => {
     setLoading(true)
@@ -151,6 +155,9 @@ export default function ClaimsPage() {
     setPreventiveAction(c.preventive_action || '')
     setReworkCost(c.rework_cost != null ? String(c.rework_cost) : '')
     setCostSheetNote(c.cost_sheet_note || '')
+    setExpectedRepDate(c.expected_replacement_date ? String(c.expected_replacement_date).slice(0, 10) : '')
+    setCreditNoteAmount(c.credit_note_amount != null ? String(c.credit_note_amount) : '')
+    setReviseDate(c.expected_replacement_date ? String(c.expected_replacement_date).slice(0, 10) : '')
     setAttachments([]); setAttachmentURLs({})
     getClaimAttachments(c.claim_id).then(r => { setAttachments(r.data || []); loadAttachmentThumbs(c.claim_id, r.data || []) }).catch(() => {})
     setMsg('')
@@ -297,6 +304,14 @@ export default function ClaimsPage() {
   const totalSettled = claims.filter(c => ['closed', 'settled'].includes(c.status))
     .reduce((s, c) => s + parseFloat(c.total_amount || 0), 0)
 
+  // Surplus / deficit on refund credit notes (CN amount vs requested = claim + penalty)
+  const requestedOf = (c) => parseFloat(c.claim_amount || 0) + parseFloat(c.penalty_amount || 0)
+  const varianceOf = (c) => c.credit_note_amount != null ? parseFloat(c.credit_note_amount) - requestedOf(c) : null
+  const refundClaims = claims.filter(c => c.settlement_mode === 'refund' && c.credit_note_amount != null)
+  const surplusTotal = refundClaims.reduce((s, c) => { const v = varianceOf(c); return s + (v > 0 ? v : 0) }, 0)
+  const deficitTotal = refundClaims.reduce((s, c) => { const v = varianceOf(c); return s + (v < 0 ? -v : 0) }, 0)
+  const paymentHoldCount = claims.filter(c => c.payment_hold && !['closed', 'settled', 'withdrawn'].includes(c.status)).length
+
   const STAT_CARDS = [
     { label: 'All Claims', key: null, accent: '#E8470F', value: claims.length },
     { label: 'Pending QA', key: 'pending_qa', accent: '#d97706', value: claims.filter(c => c.status === 'pending_qa').length },
@@ -356,6 +371,27 @@ export default function ClaimsPage() {
             )
           })}
         </div>
+
+        {/* Refund reconciliation + payment hold summary */}
+        {(refundClaims.length > 0 || paymentHoldCount > 0) && (
+          <div style={{ display: 'flex', gap: '14px', marginBottom: '18px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 200px', background: '#fff', border: '1px solid #bbf7d0', borderTop: '3px solid #16a34a', borderRadius: '12px', padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Surplus Claim (CN &gt; requested)</div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#16a34a', marginTop: '3px' }}>{formatAmount(surplusTotal)}</div>
+              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{refundClaims.filter(c => varianceOf(c) > 0).length} credit note(s) over-received</div>
+            </div>
+            <div style={{ flex: '1 1 200px', background: '#fff', border: '1px solid #fecaca', borderTop: '3px solid #dc2626', borderRadius: '12px', padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Deficit Claim (CN &lt; requested)</div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#dc2626', marginTop: '3px' }}>{formatAmount(deficitTotal)}</div>
+              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{refundClaims.filter(c => varianceOf(c) < 0).length} credit note(s) short</div>
+            </div>
+            <div style={{ flex: '1 1 200px', background: '#fff', border: '1px solid #fed7aa', borderTop: '3px solid #ea580c', borderRadius: '12px', padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Payments On Hold</div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#ea580c', marginTop: '3px' }}>{paymentHoldCount}</div>
+              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>refund claims pending credit note</div>
+            </div>
+          </div>
+        )}
 
         {/* Table */}
         <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
@@ -694,6 +730,36 @@ export default function ClaimsPage() {
                     <strong>Settlement:</strong> {detail.settlement_mode ? detail.settlement_mode.charAt(0).toUpperCase() + detail.settlement_mode.slice(1) : '—'}
                     {detail.credit_note_no ? ` · Credit note ${detail.credit_note_no}` : ''}
                   </div>
+                  {detail.settlement_mode === 'replacement' && detail.expected_replacement_date && (
+                    <div style={{ fontSize: '13px', color: '#0c4a6e', marginTop: '2px' }}>
+                      <strong>Expected landing:</strong> {new Date(detail.expected_replacement_date).toLocaleDateString('en-GB')}
+                      {detail.replacement_received_date
+                        ? <span style={{ color: '#15803d', fontWeight: 700 }}> · ✓ Received {new Date(detail.replacement_received_date).toLocaleDateString('en-GB')}</span>
+                        : new Date(detail.expected_replacement_date) < new Date()
+                          ? <span style={{ color: '#dc2626', fontWeight: 700 }}> · ⏰ Overdue — reminders active</span>
+                          : <span style={{ color: '#64748b' }}> · awaiting landing</span>}
+                    </div>
+                  )}
+                  {detail.settlement_mode === 'refund' && detail.credit_note_amount != null && (() => {
+                    const requested = parseFloat(detail.claim_amount || 0) + parseFloat(detail.penalty_amount || 0)
+                    const variance = parseFloat(detail.credit_note_amount) - requested
+                    return (
+                      <div style={{ fontSize: '13px', color: '#0c4a6e', marginTop: '2px' }}>
+                        <strong>Credit note amount:</strong> {formatAmount(parseFloat(detail.credit_note_amount))} vs requested {formatAmount(requested)}
+                        {variance !== 0 && (
+                          <span style={{ fontWeight: 800, marginLeft: '6px', color: variance > 0 ? '#16a34a' : '#dc2626' }}>
+                            {variance > 0 ? `▲ Surplus ${formatAmount(variance)}` : `▼ Deficit ${formatAmount(-variance)}`}
+                          </span>
+                        )}
+                        {variance === 0 && <span style={{ color: '#15803d', fontWeight: 700, marginLeft: '6px' }}>✓ Matches</span>}
+                      </div>
+                    )
+                  })()}
+                  {detail.payment_hold && !['closed', 'settled'].includes(detail.status) && (
+                    <div style={{ display: 'inline-block', marginTop: '6px', fontSize: '11px', fontWeight: 800, color: '#c2410c', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '9999px', padding: '3px 10px' }}>
+                      ⛔ Payment Hold — Imports &amp; Accounts alerted
+                    </div>
+                  )}
                   {parseFloat(detail.penalty_amount) > 0 && (
                     <div style={{ fontSize: '13px', color: '#0c4a6e', marginTop: '2px' }}>
                       <strong>Penalty:</strong> {formatAmount(parseFloat(detail.penalty_amount))}{detail.penalty_reason ? ` — ${detail.penalty_reason}` : ''}
@@ -739,6 +805,7 @@ export default function ClaimsPage() {
               const editable = !['closed', 'settled', 'withdrawn'].includes(detail.status) && ['warehouse', 'qa', 'buying', 'admin'].includes(role)
               const imgs = attachments.filter(a => a.kind === 'defect_image')
               const sheets = attachments.filter(a => a.kind === 'cost_sheet')
+              const creditNotes = attachments.filter(a => a.kind === 'credit_note')
               return (
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', marginBottom: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -753,10 +820,14 @@ export default function ClaimsPage() {
                           + Cost Sheet
                           <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} disabled={uploading} onChange={e => handleUpload(e, 'cost_sheet')} />
                         </label>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#b45309', cursor: uploading ? 'default' : 'pointer', padding: '5px 10px', borderRadius: '6px', border: '1px solid #fed7aa' }}>
+                          + Credit Note
+                          <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} disabled={uploading} onChange={e => handleUpload(e, 'credit_note')} />
+                        </label>
                       </div>
                     )}
                   </div>
-                  {imgs.length === 0 && sheets.length === 0 ? (
+                  {imgs.length === 0 && sheets.length === 0 && creditNotes.length === 0 ? (
                     <div style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>No attachments yet.</div>
                   ) : (
                     <>
@@ -780,6 +851,15 @@ export default function ClaimsPage() {
                           <button onClick={async () => { try { const r = await getClaimAttachmentFile(detail.claim_id, a.attachment_id); window.open(URL.createObjectURL(r.data), '_blank') } catch {} }}
                             style={{ background: 'none', border: 'none', color: '#7e22ce', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             📄 {a.file_name}
+                          </button>
+                          {editable && <button onClick={() => handleDeleteAttachment(a.attachment_id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '13px', fontWeight: '700' }}>×</button>}
+                        </div>
+                      ))}
+                      {creditNotes.map(a => (
+                        <div key={a.attachment_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#fff7ed', borderRadius: '6px', marginBottom: '4px' }}>
+                          <button onClick={async () => { try { const r = await getClaimAttachmentFile(detail.claim_id, a.attachment_id); window.open(URL.createObjectURL(r.data), '_blank') } catch {} }}
+                            style={{ background: 'none', border: 'none', color: '#b45309', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            🧾 {a.file_name} <span style={{ color: '#94a3b8', fontWeight: 400 }}>(Credit Note)</span>
                           </button>
                           {editable && <button onClick={() => handleDeleteAttachment(a.attachment_id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '13px', fontWeight: '700' }}>×</button>}
                         </div>
@@ -912,6 +992,50 @@ export default function ClaimsPage() {
                       style={{ ...inputStyle, border: !creditNoteNo.trim() ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
                   </label>
                 )}
+
+                {/* Replacement — expected landing date */}
+                {settleMode === 'replacement' && (
+                  <label style={{ display: 'block', marginBottom: '12px' }}>
+                    <span style={{ ...labelStyle, color: '#0369a1' }}>Expected Replacement Landing Date (warehouse) *</span>
+                    <input type="date" value={expectedRepDate} onChange={e => setExpectedRepDate(e.target.value)}
+                      style={{ ...inputStyle, border: !expectedRepDate ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
+                    <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                      An auto-reminder starts after this date until the buyer revises it or marks the replacement received.
+                    </span>
+                  </label>
+                )}
+
+                {/* Refund — credit note amount + variance preview */}
+                {settleMode === 'refund' && (() => {
+                  const requested = parseFloat(detail.claim_amount || 0) + (parseFloat(penaltyAmount) || 0)
+                  const cn = creditNoteAmount === '' ? null : parseFloat(creditNoteAmount)
+                  const variance = cn != null ? cn - requested : null
+                  const hasCN = attachments.some(a => a.kind === 'credit_note')
+                  return (
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ display: 'block', marginBottom: '8px' }}>
+                        <span style={{ ...labelStyle, color: '#b45309' }}>Credit Note Amount Received (USD) *</span>
+                        <input type="number" min="0" step="0.01" value={creditNoteAmount} onChange={e => setCreditNoteAmount(e.target.value)} placeholder="0.00"
+                          style={{ ...inputStyle, border: cn == null ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
+                      </label>
+                      <div style={{ fontSize: '12px', color: '#475569', marginBottom: '8px' }}>
+                        Requested (claim + penalty): <strong>{formatAmount(requested)}</strong>
+                        {variance != null && variance !== 0 && (
+                          <span style={{ marginLeft: '10px', fontWeight: '800', color: variance > 0 ? '#16a34a' : '#dc2626' }}>
+                            {variance > 0 ? `▲ Surplus ${formatAmount(variance)}` : `▼ Deficit ${formatAmount(-variance)}`}
+                          </span>
+                        )}
+                        {variance === 0 && <span style={{ marginLeft: '10px', fontWeight: '700', color: '#15803d' }}>✓ Matches requested</span>}
+                      </div>
+                      <div style={{ fontSize: '12px', color: hasCN ? '#15803d' : '#b45309', fontWeight: '700' }}>
+                        {hasCN ? '✓ Credit note attached.' : '⚠️ Attach the Credit Note file (+ Credit Note) in Attachments above — mandatory for refund.'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#c2410c', marginTop: '6px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '6px', padding: '6px 10px' }}>
+                        ⛔ On submit, Imports &amp; Accounts are alerted to hold immediate, ongoing and future payments until the credit note is settled.
+                      </div>
+                    </div>
+                  )
+                })()}
                 {detail.rework_possible !== false && (() => {
                   const reworkable = detail.rework_possible === true
                   const hasCostSheet = attachments.some(a => a.kind === 'cost_sheet')
@@ -947,11 +1071,16 @@ export default function ClaimsPage() {
                   <button disabled={acting || !settleMode} onClick={() => {
                     if (!settleMode) { setMsg('Failed: choose a settlement mode'); return }
                     if (['rework', 'refund'].includes(settleMode) && !creditNoteNo.trim()) { setMsg(`Failed: a credit note number is required for ${settleMode}`); return }
+                    if (settleMode === 'replacement' && !expectedRepDate) { setMsg('Failed: an expected replacement landing date is required'); return }
+                    if (settleMode === 'refund') {
+                      if (creditNoteAmount === '' || !(parseFloat(creditNoteAmount) >= 0)) { setMsg('Failed: enter the credit note amount received for a refund'); return }
+                      if (!attachments.some(a => a.kind === 'credit_note')) { setMsg('Failed: attach the Credit Note file (Attachments) for a refund'); return }
+                    }
                     if (detail.rework_possible === true) {
                       if (!(parseFloat(reworkCost) > 0)) { setMsg('Failed: Rework cost is required (greater than 0) for a reworkable claim'); return }
                       if (!attachments.some(a => a.kind === 'cost_sheet')) { setMsg('Failed: upload a cost sheet (Attachments) for a reworkable claim'); return }
                     }
-                    run(() => buyingSubmitClaim(detail.claim_id, { penalty_amount: penaltyAmount, penalty_reason: penaltyReason, mode: settleMode, credit_note_no: creditNoteNo, settlement_remarks: settleRemarks, rework_cost: reworkCost, cost_sheet_note: costSheetNote }), 'Final claim submitted to Imports. Supplier, QA and warehouse notified.')
+                    run(() => buyingSubmitClaim(detail.claim_id, { penalty_amount: penaltyAmount, penalty_reason: penaltyReason, mode: settleMode, credit_note_no: creditNoteNo, settlement_remarks: settleRemarks, rework_cost: reworkCost, cost_sheet_note: costSheetNote, expected_replacement_date: expectedRepDate || null, credit_note_amount: settleMode === 'refund' ? creditNoteAmount : null }), 'Final claim submitted to Imports. Supplier, QA and warehouse notified.')
                   }}
                     style={{ padding: '9px 18px', borderRadius: '8px', background: settleMode ? '#0284c7' : '#94a3b8', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: settleMode ? 'pointer' : 'not-allowed', opacity: acting ? 0.7 : 1 }}>
                     {acting ? 'Processing…' : '📤 Submit Final Claim → Imports'}
@@ -966,6 +1095,41 @@ export default function ClaimsPage() {
                 </div>
                 <input value={returnRemarks} onChange={e => setReturnRemarks(e.target.value)} placeholder="Return remarks (required to return)…"
                   style={{ ...inputStyle, marginTop: '10px' }} />
+              </div>
+            )}
+
+            {/* Replacement tracking — buyer revises landing date / marks received */}
+            {detail.settlement_mode === 'replacement' && !detail.replacement_received_date && !['withdrawn'].includes(detail.status) && ['buying', 'warehouse', 'admin'].includes(role) && (
+              <div style={{ border: '1px solid #bae6fd', background: '#f0f9ff', borderRadius: '10px', padding: '16px', marginBottom: '14px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#075985', marginBottom: '4px' }}>🔄 Replacement Tracking</div>
+                <div style={{ fontSize: '12px', color: '#0c4a6e', marginBottom: '10px' }}>
+                  Expected landing: <strong>{detail.expected_replacement_date ? new Date(detail.expected_replacement_date).toLocaleDateString('en-GB') : '—'}</strong>
+                  {detail.expected_replacement_date && new Date(detail.expected_replacement_date) < new Date() && (
+                    <span style={{ color: '#dc2626', fontWeight: 700 }}> · ⏰ Overdue — auto-reminders active</span>
+                  )}
+                </div>
+                {['buying', 'admin'].includes(role) && (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '10px', flexWrap: 'wrap' }}>
+                    <label style={{ flex: '1 1 160px' }}>
+                      <span style={labelStyle}>Revise Expected Date</span>
+                      <input type="date" value={reviseDate} onChange={e => setReviseDate(e.target.value)} style={inputStyle} />
+                    </label>
+                    <button disabled={acting} onClick={() => {
+                      if (!reviseDate) { setMsg('Failed: pick a new date'); return }
+                      run(() => reviseReplacementDate(detail.claim_id, reviseDate), 'Landing date revised. Reminders reset.')
+                    }}
+                      style={{ padding: '9px 16px', borderRadius: '8px', background: '#0284c7', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer', opacity: acting ? 0.7 : 1 }}>
+                      Revise Date
+                    </button>
+                  </div>
+                )}
+                <button disabled={acting} onClick={() => {
+                  if (window.confirm('Mark the replacement as received in the warehouse? This stops the reminders.'))
+                    run(() => markReplacementReceived(detail.claim_id), 'Replacement marked received. Reminders stopped.')
+                }}
+                  style={{ padding: '9px 18px', borderRadius: '8px', background: '#059669', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer', opacity: acting ? 0.7 : 1 }}>
+                  ✓ Mark Replacement Received
+                </button>
               </div>
             )}
 

@@ -1009,12 +1009,12 @@ async function runMigrations() {
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS rework_cost NUMERIC(12,2)`, 'claim rework_cost');
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS cost_sheet_note TEXT`, 'claim cost_sheet_note');
 
-  // Claim attachments: defect images + cost sheet files
+  // Claim attachments: defect images + cost sheet + credit note files
   await safeQuery(`
     CREATE TABLE IF NOT EXISTS qc_inspection.defect_claim_attachment (
       attachment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       claim_id      UUID NOT NULL REFERENCES qc_inspection.defect_claim(claim_id) ON DELETE CASCADE,
-      kind          TEXT NOT NULL DEFAULT 'defect_image' CHECK (kind IN ('defect_image','cost_sheet')),
+      kind          TEXT NOT NULL DEFAULT 'defect_image' CHECK (kind IN ('defect_image','cost_sheet','credit_note')),
       file_name     TEXT NOT NULL,
       file_type     TEXT NOT NULL,
       file_size     INT,
@@ -1023,6 +1023,15 @@ async function runMigrations() {
       uploaded_at   TIMESTAMPTZ DEFAULT NOW()
     )
   `, 'defect_claim_attachment table');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim_attachment DROP CONSTRAINT IF EXISTS defect_claim_attachment_kind_check`, 'drop claim attachment kind check');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim_attachment ADD CONSTRAINT defect_claim_attachment_kind_check CHECK (kind IN ('defect_image','cost_sheet','credit_note'))`, 'add claim attachment kind check');
+
+  // Replacement / refund settlement handling
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS expected_replacement_date DATE`, 'claim expected_replacement_date');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS replacement_received_date DATE`, 'claim replacement_received_date');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS replacement_reminder_last_sent DATE`, 'claim replacement_reminder_last_sent');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS credit_note_amount NUMERIC(12,2)`, 'claim credit_note_amount');
+  await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS payment_hold BOOLEAN DEFAULT false`, 'claim payment_hold');
 
   console.log('✅ Migrations applied');
 }
