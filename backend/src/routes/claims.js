@@ -263,6 +263,10 @@ router.post('/:id/buying-submit', async (req, res) => {
     if (req.user.role === 'buying' && claim.po_buyer_id && claim.po_buyer_id !== req.user.user_id)
       return res.status(403).json({ error: 'This PO is assigned to a different buyer' });
 
+    // Rework settlement is only valid when QA marked the claim reworkable
+    if (claim.rework_possible === false && mode === 'rework')
+      return res.status(400).json({ error: 'Rework settlement is not allowed — QA marked this claim as not reworkable. Use replacement or refund.' });
+
     // Reworkable claims must carry a rework cost and an uploaded cost sheet
     if (claim.rework_possible === true) {
       if (reworkCost === null || reworkCost <= 0)

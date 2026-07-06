@@ -887,12 +887,15 @@ export default function ClaimsPage() {
                   <textarea rows={2} value={penaltyReason} onChange={e => setPenaltyReason(e.target.value)} placeholder="Why is the penalty applied?" style={{ ...inputStyle, resize: 'vertical' }} />
                 </label>
                 <span style={labelStyle}>Settlement Mode *</span>
+                {detail.rework_possible === false && (
+                  <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '6px' }}>QA marked this claim not reworkable — settle by replacement or refund.</div>
+                )}
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                   {[
                     { value: 'replacement', label: '🔄 Replacement', hint: 'Supplier replaces defective units' },
                     { value: 'rework',      label: '🔧 Rework',      hint: 'Repaired locally, cost charged back' },
                     { value: 'refund',      label: '💵 Refund',      hint: 'Supplier refunds the claim value' },
-                  ].map(m => (
+                  ].filter(m => !(m.value === 'rework' && detail.rework_possible === false)).map(m => (
                     <button key={m.value} type="button" title={m.hint} onClick={() => setSettleMode(m.value)}
                       style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
                         border: settleMode === m.value ? '2px solid #0284c7' : '1px solid #e2e8f0',
@@ -909,7 +912,7 @@ export default function ClaimsPage() {
                       style={{ ...inputStyle, border: !creditNoteNo.trim() ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
                   </label>
                 )}
-                {(() => {
+                {detail.rework_possible !== false && (() => {
                   const reworkable = detail.rework_possible === true
                   const hasCostSheet = attachments.some(a => a.kind === 'cost_sheet')
                   return (<>

@@ -450,6 +450,30 @@ test('claims: replacement needs no credit note', async () => {
   assert.equal(res.status, 200);
 });
 
+test('claims: rework settlement rejected when claim is not reworkable', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying', rework_possible: false })] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'rework', credit_note_no: 'CN-9' });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /not reworkable/i);
+});
+
+test('claims: not-reworkable claim settles by refund without rework cost', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying', rework_possible: false })] });
+  onQuery(t => t.includes("SET status = 'pending_imports'"),
+    { rows: [claimRow({ status: 'pending_imports', rework_possible: false })] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_imports', rework_possible: false })] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'refund', credit_note_no: 'CN-9' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'pending_imports');
+});
+
 test('claims: reworkable claim requires a rework cost at buying-submit', async () => {
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
     { rows: [claimRow({ status: 'pending_buying', rework_possible: true })] });
