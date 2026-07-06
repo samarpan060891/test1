@@ -43,7 +43,11 @@ const labelStyle = { fontSize: '13px', fontWeight: '600', color: '#374151', disp
 
 export default function ClaimsPage() {
   const { user } = useAuth()
-  const { formatAmount } = useCurrency()
+  const { formatFrom } = useCurrency()
+  // Claim monetary values are entered and stored in USD (PO/claim currency), so
+  // format them from USD into the viewer's display currency — NOT via formatAmount,
+  // which assumes an AED-stored base and would wrongly down-convert USD figures.
+  const fmt = (v) => formatFrom(v, 'USD')
   const role = user?.role
 
   const [claims, setClaims] = useState([])
@@ -205,7 +209,7 @@ export default function ClaimsPage() {
       if (!detail || detail.claim_id !== claim.claim_id) {
         atts = (await getClaimAttachments(claim.claim_id).catch(() => ({ data: [] }))).data || []
       }
-      await generateClaimReport(claim, atts, formatAmount,
+      await generateClaimReport(claim, atts, fmt,
         (aid) => `/api/claims/${claim.claim_id}/attachments/${aid}/file`)
     } catch (err) {
       setMsg('PDF failed: ' + (err.message || err))
@@ -339,11 +343,11 @@ export default function ClaimsPage() {
           <div style={{ display: 'flex', gap: '18px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Open Claim Value</div>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#c2410c' }}>{formatAmount(totalOpen)}</div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#c2410c' }}>{fmt(totalOpen)}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Settled Value</div>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#15803d' }}>{formatAmount(totalSettled)}</div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#15803d' }}>{fmt(totalSettled)}</div>
             </div>
             {['warehouse', 'admin'].includes(role) && (
               <button onClick={() => setShowCreate(true)}
@@ -377,12 +381,12 @@ export default function ClaimsPage() {
           <div style={{ display: 'flex', gap: '14px', marginBottom: '18px', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 200px', background: '#fff', border: '1px solid #bbf7d0', borderTop: '3px solid #16a34a', borderRadius: '12px', padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Surplus Claim (CN &gt; requested)</div>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#16a34a', marginTop: '3px' }}>{formatAmount(surplusTotal)}</div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#16a34a', marginTop: '3px' }}>{fmt(surplusTotal)}</div>
               <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{refundClaims.filter(c => varianceOf(c) > 0).length} credit note(s) over-received</div>
             </div>
             <div style={{ flex: '1 1 200px', background: '#fff', border: '1px solid #fecaca', borderTop: '3px solid #dc2626', borderRadius: '12px', padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Deficit Claim (CN &lt; requested)</div>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#dc2626', marginTop: '3px' }}>{formatAmount(deficitTotal)}</div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#dc2626', marginTop: '3px' }}>{fmt(deficitTotal)}</div>
               <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{refundClaims.filter(c => varianceOf(c) < 0).length} credit note(s) short</div>
             </div>
             <div style={{ flex: '1 1 200px', background: '#fff', border: '1px solid #fed7aa', borderTop: '3px solid #ea580c', borderRadius: '12px', padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
@@ -458,11 +462,11 @@ export default function ClaimsPage() {
                         <td style={tdStyle}>{c.item_name || c.item_code}</td>
                         <td style={tdStyle}>{c.supplier_name || c.supplier_code || '—'}</td>
                         <td style={{ ...tdStyle, textAlign: 'right' }}>{c.defect_qty ?? '—'}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatAmount(parseFloat(c.claim_amount || 0))}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(parseFloat(c.claim_amount || 0))}</td>
                         <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap', color: parseFloat(c.penalty_amount) > 0 ? '#c2410c' : '#94a3b8' }}>
-                          {parseFloat(c.penalty_amount) > 0 ? formatAmount(parseFloat(c.penalty_amount)) : '—'}
+                          {parseFloat(c.penalty_amount) > 0 ? fmt(parseFloat(c.penalty_amount)) : '—'}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: '700' }}>{formatAmount(parseFloat(c.total_amount || 0))}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: '700' }}>{fmt(parseFloat(c.total_amount || 0))}</td>
                         <td style={tdStyle}>
                           <span style={{ background: cst.bg, color: cst.color, padding: '3px 10px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: '700', whiteSpace: 'nowrap' }}>{cst.label}</span>
                         </td>
@@ -686,9 +690,9 @@ export default function ClaimsPage() {
             <div style={{ display: 'flex', gap: '18px', marginBottom: '18px', flexWrap: 'wrap' }}>
               {[
                 { label: 'Defect Qty', value: detail.defect_qty ?? '—' },
-                { label: 'Claim Amount', value: formatAmount(parseFloat(detail.claim_amount || 0)) },
-                { label: 'Penalty', value: parseFloat(detail.penalty_amount) > 0 ? formatAmount(parseFloat(detail.penalty_amount)) : '—', danger: parseFloat(detail.penalty_amount) > 0 },
-                { label: 'Total Claim', value: formatAmount(parseFloat(detail.claim_amount || 0) + parseFloat(detail.penalty_amount || 0)), big: true },
+                { label: 'Claim Amount', value: fmt(parseFloat(detail.claim_amount || 0)) },
+                { label: 'Penalty', value: parseFloat(detail.penalty_amount) > 0 ? fmt(parseFloat(detail.penalty_amount)) : '—', danger: parseFloat(detail.penalty_amount) > 0 },
+                { label: 'Total Claim', value: fmt(parseFloat(detail.claim_amount || 0) + parseFloat(detail.penalty_amount || 0)), big: true },
               ].map(f => (
                 <div key={f.label}>
                   <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{f.label}</div>
@@ -745,10 +749,10 @@ export default function ClaimsPage() {
                     const variance = parseFloat(detail.credit_note_amount) - requested
                     return (
                       <div style={{ fontSize: '13px', color: '#0c4a6e', marginTop: '2px' }}>
-                        <strong>Credit note amount:</strong> {formatAmount(parseFloat(detail.credit_note_amount))} vs requested {formatAmount(requested)}
+                        <strong>Credit note amount:</strong> {fmt(parseFloat(detail.credit_note_amount))} vs requested {fmt(requested)}
                         {variance !== 0 && (
                           <span style={{ fontWeight: 800, marginLeft: '6px', color: variance > 0 ? '#16a34a' : '#dc2626' }}>
-                            {variance > 0 ? `▲ Surplus ${formatAmount(variance)}` : `▼ Deficit ${formatAmount(-variance)}`}
+                            {variance > 0 ? `▲ Surplus ${fmt(variance)}` : `▼ Deficit ${fmt(-variance)}`}
                           </span>
                         )}
                         {variance === 0 && <span style={{ color: '#15803d', fontWeight: 700, marginLeft: '6px' }}>✓ Matches</span>}
@@ -762,7 +766,7 @@ export default function ClaimsPage() {
                   )}
                   {parseFloat(detail.penalty_amount) > 0 && (
                     <div style={{ fontSize: '13px', color: '#0c4a6e', marginTop: '2px' }}>
-                      <strong>Penalty:</strong> {formatAmount(parseFloat(detail.penalty_amount))}{detail.penalty_reason ? ` — ${detail.penalty_reason}` : ''}
+                      <strong>Penalty:</strong> {fmt(parseFloat(detail.penalty_amount))}{detail.penalty_reason ? ` — ${detail.penalty_reason}` : ''}
                     </div>
                   )}
                   <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{detail.buying_submitted_at ? new Date(detail.buying_submitted_at).toLocaleString() : ''}</div>
@@ -958,7 +962,7 @@ export default function ClaimsPage() {
                   </label>
                   <div style={{ flex: 1, alignSelf: 'flex-end' }}>
                     <div style={{ fontSize: '12px', color: '#64748b', paddingBottom: '9px' }}>
-                      Final total: <strong style={{ color: '#E8470F' }}>{formatAmount(parseFloat(detail.claim_amount || 0) + (parseFloat(penaltyAmount) || 0))}</strong>
+                      Final total: <strong style={{ color: '#E8470F' }}>{fmt(parseFloat(detail.claim_amount || 0) + (parseFloat(penaltyAmount) || 0))}</strong>
                     </div>
                   </div>
                 </div>
@@ -1019,10 +1023,10 @@ export default function ClaimsPage() {
                           style={{ ...inputStyle, border: cn == null ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
                       </label>
                       <div style={{ fontSize: '12px', color: '#475569', marginBottom: '8px' }}>
-                        Requested (claim + penalty): <strong>{formatAmount(requested)}</strong>
+                        Requested (claim + penalty): <strong>{fmt(requested)}</strong>
                         {variance != null && variance !== 0 && (
                           <span style={{ marginLeft: '10px', fontWeight: '800', color: variance > 0 ? '#16a34a' : '#dc2626' }}>
-                            {variance > 0 ? `▲ Surplus ${formatAmount(variance)}` : `▼ Deficit ${formatAmount(-variance)}`}
+                            {variance > 0 ? `▲ Surplus ${fmt(variance)}` : `▼ Deficit ${fmt(-variance)}`}
                           </span>
                         )}
                         {variance === 0 && <span style={{ marginLeft: '10px', fontWeight: '700', color: '#15803d' }}>✓ Matches requested</span>}
