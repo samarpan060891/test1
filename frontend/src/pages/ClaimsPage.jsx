@@ -687,9 +687,12 @@ export default function ClaimsPage() {
             )}
 
             {/* Amounts */}
-            <div style={{ display: 'flex', gap: '18px', marginBottom: '18px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '18px', marginBottom: '16px', flexWrap: 'wrap' }}>
               {[
+                { label: 'PO Qty', value: detail.po_qty ?? '—' },
                 { label: 'Defect Qty', value: detail.defect_qty ?? '—' },
+                { label: 'PO Value', value: detail.unit_price != null ? fmt(parseFloat(detail.po_value || 0)) : '—' },
+                { label: 'Defect Value', value: detail.unit_price != null ? fmt(parseFloat(detail.defect_value || 0)) : '—', danger: parseFloat(detail.defect_value) > 0 },
                 { label: 'Claim Amount', value: fmt(parseFloat(detail.claim_amount || 0)) },
                 { label: 'Penalty', value: parseFloat(detail.penalty_amount) > 0 ? fmt(parseFloat(detail.penalty_amount)) : '—', danger: parseFloat(detail.penalty_amount) > 0 },
                 { label: 'Total Claim', value: fmt(parseFloat(detail.claim_amount || 0) + parseFloat(detail.penalty_amount || 0)), big: true },
@@ -700,6 +703,36 @@ export default function ClaimsPage() {
                 </div>
               ))}
             </div>
+
+            {/* Key details & dates */}
+            {(() => {
+              const d = (v) => v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+              const rows = [
+                { label: 'Unit Price', value: detail.unit_price != null ? fmt(parseFloat(detail.unit_price)) : '—' },
+                { label: 'Checked Qty', value: detail.checked_qty ?? '—' },
+                { label: '% Defect', value: detail.checked_qty > 0 ? `${((detail.defect_qty / detail.checked_qty) * 100).toFixed(1)}%` : '—' },
+                { label: 'Country of Origin', value: detail.country_of_origin || detail.supplier_country || '—' },
+                { label: 'Trigger Point', value: detail.trigger_point || '—' },
+                { label: 'PO / Order Date', value: d(detail.po_order_date) },
+                { label: 'GRN Date', value: d(detail.grn_date) },
+                { label: 'Issue Trigger Date', value: d(detail.trigger_date) },
+                { label: 'QC Done Date', value: d(detail.qc_done_date) },
+                { label: 'Root Cause Date', value: d(detail.root_cause_date) },
+              ]
+              return (
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', marginBottom: '18px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b', marginBottom: '10px' }}>Key Details & Dates</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px 16px' }}>
+                    {rows.map(r => (
+                      <div key={r.label}>
+                        <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{r.label}</div>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', marginTop: '1px' }}>{r.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Workflow trail */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
