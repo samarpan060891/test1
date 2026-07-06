@@ -57,7 +57,7 @@ export default function InspectionCostPage() {
   const [activeFilter, setActiveFilter] = useState(null)
   const [advFilters, setAdvFilters] = useState({})
   // Resizable columns for main advice table (max 11 cols)
-  const { widths: advColWidths, getHandleProps: advHandleProps } = useResizableColumns([110, 130, 150, 140, 110, 110, 140, 170, 80, 110, 110])
+  const { widths: advColWidths, getHandleProps: advHandleProps } = useResizableColumns([110, 130, 150, 140, 110, 110, 140, 170, 80, 110, 110], 'inspection-costs')
 
   const [showContracts, setShowContracts] = useState(false)
   const [allContracts, setAllContracts]   = useState([])

@@ -495,7 +495,7 @@ export default function DashboardPage() {
   ]
   const JOB_WIDTHS = [120, 90, 120, 90, 100, 100, 160, 160, 100, 80]
   const { filters: jobFilters, setFilter: setJobFilter, filtered: filteredJobs, hasActive: hasJobFilter, clearFilters: clearJobFilters } = useColumnFilter(cardFilteredJobs, JOB_COLS)
-  const { widths: colWidths, getHandleProps } = useResizableColumns(JOB_WIDTHS)
+  const { widths: colWidths, getHandleProps } = useResizableColumns(JOB_WIDTHS, 'dashboard-jobs')
 
   const [downloading, setDownloading] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)

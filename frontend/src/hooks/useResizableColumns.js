@@ -1,23 +1,45 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 /**
- * Drag-to-resize column widths.
+ * Drag-to-resize column widths, optionally persisted per-table in localStorage.
  * @param {number[]} initialWidths  - default pixel widths for each column
+ * @param {string}  [storageKey]    - if given, widths are saved/restored under this key
  * @returns {{ widths, getHandleProps, resetWidths }}
  *
  * Usage:
- *   const { widths, getHandleProps } = useResizableColumns([120, 80, ...])
+ *   const { widths, getHandleProps } = useResizableColumns([120, 80, ...], 'wh-inspections')
  *
  *   <th style={{ width: widths[i], minWidth: widths[i], position: 'relative' }}>
  *     ...
  *     <div {...getHandleProps(i)} />
  *   </th>
  */
-export function useResizableColumns(initialWidths) {
-  const [widths, setWidths] = useState(initialWidths)
+export function useResizableColumns(initialWidths, storageKey) {
+  const readStored = () => {
+    if (!storageKey) return initialWidths
+    try {
+      const raw = localStorage.getItem(`colwidths_${storageKey}`)
+      if (!raw) return initialWidths
+      const saved = JSON.parse(raw)
+      // Only trust it if the column count still matches (schema changes reset it)
+      if (Array.isArray(saved) && saved.length === initialWidths.length &&
+          saved.every(n => typeof n === 'number' && n > 0)) {
+        return saved
+      }
+    } catch { /* ignore corrupt storage */ }
+    return initialWidths
+  }
+
+  const [widths, setWidths] = useState(readStored)
   const startX = useRef(0)
   const startW = useRef(0)
   const activeIdx = useRef(null)
+
+  // Persist whenever widths change (and a key is provided)
+  useEffect(() => {
+    if (!storageKey) return
+    try { localStorage.setItem(`colwidths_${storageKey}`, JSON.stringify(widths)) } catch { /* quota / private mode */ }
+  }, [widths, storageKey])
 
   const getHandleProps = (idx) => ({
     onMouseDown: (e) => {
@@ -55,7 +77,10 @@ export function useResizableColumns(initialWidths) {
     title: 'Drag to resize column',
   })
 
-  const resetWidths = () => setWidths(initialWidths)
+  const resetWidths = () => {
+    setWidths(initialWidths)
+    if (storageKey) { try { localStorage.removeItem(`colwidths_${storageKey}`) } catch { /* ignore */ } }
+  }
 
   return { widths, getHandleProps, resetWidths }
 }

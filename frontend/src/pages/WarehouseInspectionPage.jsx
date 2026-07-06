@@ -62,7 +62,7 @@ export default function WarehouseInspectionPage() {
   // Resizable columns: PO, Item, Stage, Inspector, Trigger, PO Qty, QC Check Qty,
   // Defect Qty, PO Value, Defect Value, Progress, Status, Date, Action
   const { widths: colWidths, getHandleProps, resetWidths } =
-    useResizableColumns([110, 160, 95, 115, 110, 80, 105, 90, 105, 110, 130, 130, 110, 90])
+    useResizableColumns([110, 160, 95, 115, 110, 80, 105, 90, 105, 110, 130, 130, 110, 90], 'wh-inspections')
   const [showCreate, setShowCreate] = useState(false)
   const [listError, setListError] = useState('')
 
