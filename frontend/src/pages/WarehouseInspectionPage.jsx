@@ -368,7 +368,7 @@ export default function WarehouseInspectionPage() {
             </div>
           ) : (
             <TableScrollWrap>
-              <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '100%' }}>
+              <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: colWidths.reduce((a, b) => a + b, 0) }}>
                 <colgroup>
                   {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
                 </colgroup>

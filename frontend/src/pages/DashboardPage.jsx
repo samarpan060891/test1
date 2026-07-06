@@ -719,7 +719,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <TableScrollWrap>
-                <table className="data-table" style={{ tableLayout: 'fixed', minWidth: '100%' }}>
+                <table className="data-table" style={{ tableLayout: 'fixed', width: colWidths.reduce((a, b) => a + b, 0) }}>
                   <colgroup>
                     {JOB_COLS.map((c, i) => <col key={i} style={{ width: colWidths[i] }} />)}
                   </colgroup>

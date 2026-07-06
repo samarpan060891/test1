@@ -501,7 +501,7 @@ export default function InspectionCostPage() {
               </div>
             </div>
             <TableScrollWrap>
-              <table className="data-table" style={{ fontSize: '12px', tableLayout: 'fixed', minWidth: '100%' }}>
+              <table className="data-table" style={{ fontSize: '12px', tableLayout: 'fixed', width: advColWidths.reduce((a, b) => a + b, 0) }}>
                 <colgroup>
                   {ADVICE_COLS.map((_, i) => <col key={i} style={{ width: advColWidths[i] || 110 }} />)}
                 </colgroup>
