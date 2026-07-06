@@ -12,6 +12,8 @@ export const withdrawClaim = (id) => client.post(`/claims/${id}/withdraw`)
 
 export const updateClaimDetails = (id, data) => client.patch(`/claims/${id}/details`, data)
 
+export const editClaim = (id, fields) => client.post(`/claims/${id}/edit`, { fields })
+
 export const reviseReplacementDate = (id, expected_replacement_date) =>
   client.patch(`/claims/${id}/replacement-date`, { expected_replacement_date })
 export const markReplacementReceived = (id) => client.post(`/claims/${id}/replacement-received`)

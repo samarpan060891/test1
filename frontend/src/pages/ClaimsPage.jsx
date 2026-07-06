@@ -9,7 +9,7 @@ import {
   listClaims, createClaim, qaSubmitClaim, returnClaim,
   buyingSubmitClaim, importsReviewClaim, accountsCloseClaim, withdrawClaim,
   getClaimAttachments, uploadClaimAttachment, deleteClaimAttachment, getClaimAttachmentFile,
-  updateClaimDetails, reviseReplacementDate, markReplacementReceived,
+  updateClaimDetails, reviseReplacementDate, markReplacementReceived, editClaim,
 } from '../api/claims.js'
 import { generateClaimReport } from '../utils/generateClaimReport.js'
 import client from '../api/client.js'
@@ -40,6 +40,48 @@ const inputStyle = {
   border: '1px solid #e2e8f0', fontSize: '13px', boxSizing: 'border-box',
 }
 const labelStyle = { fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '5px' }
+
+// Role-scoped editable fields — mirrors the backend edit route. Each stage edits
+// only its own fields; saving rewinds the claim to that stage for re-approval.
+const EDIT_CONFIG = {
+  warehouse: [
+    { key: 'defect_qty', label: 'Defect Qty', type: 'number' },
+    { key: 'checked_qty', label: 'QC Checked Qty', type: 'number' },
+    { key: 'claim_amount', label: 'Claim Amount (USD)', type: 'number' },
+    { key: 'country_of_origin', label: 'Country of Origin', type: 'text' },
+    { key: 'trigger_point', label: 'Trigger Point', type: 'text' },
+    { key: 'grn_date', label: 'PO / GRN Date', type: 'date' },
+    { key: 'trigger_date', label: 'Issue Trigger Date', type: 'date' },
+    { key: 'qc_done_date', label: 'QC Done Date', type: 'date' },
+    { key: 'description', label: 'Defect Description', type: 'textarea' },
+  ],
+  qa: [
+    { key: 'root_cause', label: 'Root Cause', type: 'textarea' },
+    { key: 'corrective_action', label: 'Corrective Action', type: 'textarea' },
+    { key: 'preventive_action', label: 'Preventive Action', type: 'textarea' },
+    { key: 'rework_scope', label: 'Scope of Rework', type: 'text' },
+    { key: 'rework_type', label: 'Rework Type', type: 'select', options: [['', '—'], ['full', 'Full Rework'], ['partial', 'Rework + Replacement']] },
+    { key: 'replacement_parts', label: 'Replacement Parts / Cartons', type: 'textarea' },
+    { key: 'root_cause_date', label: 'Root Cause Date', type: 'date' },
+  ],
+  buying: [
+    { key: 'penalty_amount', label: 'Penalty (USD)', type: 'number' },
+    { key: 'penalty_reason', label: 'Penalty Reason', type: 'textarea' },
+    { key: 'settlement_mode', label: 'Settlement Mode', type: 'select', options: [['', '—'], ['replacement', 'Replacement'], ['rework', 'Rework'], ['refund', 'Refund']] },
+    { key: 'credit_note_no', label: 'Credit Note No.', type: 'text' },
+    { key: 'credit_note_amount', label: 'Credit Note Amount (USD)', type: 'number' },
+    { key: 'expected_replacement_date', label: 'Expected Replacement Date', type: 'date' },
+    { key: 'rework_cost', label: 'Rework Cost (USD)', type: 'number' },
+    { key: 'cost_sheet_note', label: 'Cost Sheet Note', type: 'text' },
+    { key: 'settlement_remarks', label: 'Settlement Remarks', type: 'textarea' },
+  ],
+  imports: [{ key: 'imports_remarks', label: 'Remarks for Accounts', type: 'textarea' }],
+  accounts: [{ key: 'deduction_remarks', label: 'Deduction Remark', type: 'textarea' }],
+}
+const editConfigFor = (role) => role === 'admin'
+  ? [].concat(...Object.values(EDIT_CONFIG))
+  : (EDIT_CONFIG[role] || [])
+const REWIND_LABEL = { warehouse: 'QA', qa: 'Buying', buying: 'Imports', imports: 'Accounts', accounts: 'Accounts' }
 
 export default function ClaimsPage() {
   const { user } = useAuth()
@@ -103,6 +145,9 @@ export default function ClaimsPage() {
   const [expectedRepDate, setExpectedRepDate] = useState('')
   const [creditNoteAmount, setCreditNoteAmount] = useState('')
   const [reviseDate, setReviseDate] = useState('')
+  // Role-scoped edit (with re-approval rewind)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState({})
 
   const fetchClaims = () => {
     setLoading(true)
@@ -227,6 +272,38 @@ export default function ClaimsPage() {
       const r = await fn()
       afterAction(r.data)
       setMsg(successMsg)
+    } catch (err) {
+      setMsg('Failed: ' + (err.response?.data?.error || err.message))
+    } finally { setActing(false) }
+  }
+
+  function openEdit() {
+    const cfg = editConfigFor(role)
+    const seed = {}
+    cfg.forEach(f => {
+      let v = detail[f.key]
+      if (f.type === 'date') v = v ? String(v).slice(0, 10) : ''
+      else if (v === null || v === undefined) v = ''
+      else v = String(v)
+      seed[f.key] = v
+    })
+    setEditForm(seed)
+    setShowEdit(true)
+  }
+
+  async function handleEditSave() {
+    const cfg = editConfigFor(role)
+    const fields = {}
+    cfg.forEach(f => { fields[f.key] = editForm[f.key] === '' ? null : editForm[f.key] })
+    setActing(true); setMsg('')
+    try {
+      const r = await editClaim(detail.claim_id, fields)
+      afterAction(r.data)
+      setShowEdit(false)
+      const rewound = r.data.status !== detail.status
+      setMsg(rewound
+        ? `Saved. Claim rewound to ${STATUS_META[r.data.status]?.label || r.data.status} for re-approval.`
+        : 'Saved.')
     } catch (err) {
       setMsg('Failed: ' + (err.response?.data?.error || err.message))
     } finally { setActing(false) }
@@ -649,6 +726,42 @@ export default function ClaimsPage() {
         </div>
       )}
 
+      {/* ── Edit modal (role-scoped, rewinds for re-approval) ─────────────── */}
+      {showEdit && detail && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '560px', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <h2 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Edit Claim — {detail.claim_ref}</h2>
+            <div style={{ fontSize: '12px', color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px 12px', marginBottom: '16px' }}>
+              ⚠️ Saving a correction rewinds this claim to <b>{REWIND_LABEL[role] || 'the next stage'}</b> and it must be re-approved forward
+              up to whoever currently holds it{detail.status && STATUS_META[detail.status] ? ` (now ${STATUS_META[detail.status].label})` : ''}.
+            </div>
+            {editConfigFor(role).map(f => (
+              <label key={f.key} style={{ display: 'block', marginBottom: '12px' }}>
+                <span style={labelStyle}>{f.label}</span>
+                {f.type === 'textarea' ? (
+                  <textarea rows={2} value={editForm[f.key] ?? ''} onChange={e => setEditForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ ...inputStyle, resize: 'vertical' }} />
+                ) : f.type === 'select' ? (
+                  <select value={editForm[f.key] ?? ''} onChange={e => setEditForm(p => ({ ...p, [f.key]: e.target.value }))} style={inputStyle}>
+                    {f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                ) : (
+                  <input type={f.type} value={editForm[f.key] ?? ''} onChange={e => setEditForm(p => ({ ...p, [f.key]: e.target.value }))}
+                    min={f.type === 'number' ? '0' : undefined} step={f.type === 'number' ? '0.01' : undefined} style={inputStyle} />
+                )}
+              </label>
+            ))}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button type="button" onClick={() => setShowEdit(false)}
+                style={{ padding: '9px 18px', borderRadius: '8px', background: '#fff', color: '#475569', border: '1px solid #e2e8f0', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+              <button type="button" disabled={acting} onClick={handleEditSave}
+                style={{ padding: '9px 20px', borderRadius: '8px', background: '#1C1208', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: acting ? 'default' : 'pointer', opacity: acting ? 0.7 : 1 }}>
+                {acting ? 'Saving…' : 'Save Correction'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Detail drawer ────────────────────────────────────────────────── */}
       {detail && (
         <div onClick={() => setDetail(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1500 }} />
@@ -669,6 +782,12 @@ export default function ClaimsPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {detail.status !== 'withdrawn' && editConfigFor(role).length > 0 && (
+                <button onClick={openEdit} title="Correct this claim (rewinds for re-approval)"
+                  style={{ background: 'rgba(255,255,255,0.14)', border: 'none', color: '#fff', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                  ✏️ Edit
+                </button>
+              )}
               <button onClick={() => handleDownloadPdf(detail)} disabled={generating} title="Download one-pager PDF report"
                 style={{ background: '#E8470F', border: 'none', color: '#fff', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>
                 {generating ? '…' : '📄 PDF'}
@@ -833,6 +952,22 @@ export default function ClaimsPage() {
                     {detail.settled_at ? ` · ${new Date(detail.settled_at).toLocaleString()}` : ''}
                   </div>
                   {detail.credit_note_no && <div style={{ fontSize: '13px', color: '#166534', marginTop: '4px' }}><strong>Credit Note:</strong> {detail.credit_note_no}</div>}
+                </div>
+              )}
+
+              {/* Edit / re-approval history */}
+              {Array.isArray(detail.edit_log) && detail.edit_log.length > 0 && (
+                <div style={{ borderLeft: '3px solid #d97706', background: '#fffbeb', padding: '10px 14px', borderRadius: '0 8px 8px 0' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#b45309', marginBottom: '4px' }}>✏️ Edit &amp; Re-approval History</div>
+                  {detail.edit_log.map((e, i) => (
+                    <div key={i} style={{ fontSize: '12px', color: '#78350f', marginTop: '4px' }}>
+                      <strong>{e.by || '—'}</strong> ({e.role}) edited <em>{e.fields}</em>
+                      {e.to_status
+                        ? <span> — rewound {STATUS_META[e.from_status]?.label || e.from_status} → <b>{STATUS_META[e.to_status]?.label || e.to_status}</b> for re-approval</span>
+                        : <span> — no rewind (edited at current stage)</span>}
+                      <div style={{ fontSize: '10px', color: '#a16207' }}>{e.at ? new Date(e.at).toLocaleString() : ''}</div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

@@ -499,6 +499,39 @@ test('claims: not-reworkable claim settles by refund without rework cost', async
   assert.equal(res.body.status, 'pending_imports');
 });
 
+test('claims: warehouse edit at pending_qa does not rewind', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'), { rows: [claimRow({ status: 'pending_qa' })] });
+  onQuery(t => t.includes('UPDATE qc_inspection.defect_claim SET'), { rows: [{ claim_id: claimRow().claim_id }] });
+  onQuery(t => t.includes('claim_edit_log'), { rows: [] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'), { rows: [claimRow({ status: 'pending_qa', defect_qty: 25 })] });
+  const res = await request(app).post(`${CLAIM}/edit`)
+    .set('Authorization', `Bearer ${tokenFor('warehouse')}`)
+    .send({ fields: { defect_qty: 25 } });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'pending_qa');
+});
+
+test('claims: warehouse edit after later approvals rewinds to pending_qa', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'), { rows: [claimRow({ status: 'pending_accounts' })] });
+  onQuery(t => t.includes('UPDATE qc_inspection.defect_claim SET'), { rows: [{ claim_id: claimRow().claim_id }] });
+  onQuery(t => t.includes('claim_edit_log'), { rows: [] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'), { rows: [claimRow({ status: 'pending_qa' })] });
+  const res = await request(app).post(`${CLAIM}/edit`)
+    .set('Authorization', `Bearer ${tokenFor('warehouse')}`)
+    .send({ fields: { defect_qty: 30 } });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'pending_qa');
+});
+
+test('claims: a role cannot edit another stage\'s fields', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'), { rows: [claimRow({ status: 'pending_buying' })] });
+  const res = await request(app).post(`${CLAIM}/edit`)
+    .set('Authorization', `Bearer ${tokenFor('qa')}`)
+    .send({ fields: { defect_qty: 5 } });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /no editable fields/i);
+});
+
 test('claims: reworkable claim requires a rework cost at buying-submit', async () => {
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
     { rows: [claimRow({ status: 'pending_buying', rework_possible: true })] });

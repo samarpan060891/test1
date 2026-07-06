@@ -44,6 +44,7 @@ const EVENT_MESSAGES = {
   CLAIM_SETTLED:             'A defect claim has been settled.',
   CLAIM_PAYMENT_HOLD:        'Refund claim raised — hold immediate, ongoing and future payments to this supplier.',
   CLAIM_REPLACEMENT_DUE:     'A replacement is overdue — the expected landing date has passed.',
+  CLAIM_EDITED:              'A defect claim was edited and needs your re-approval.',
   JOB_MAPPED:              'A new inspection job has been mapped and assigned.',
   SUBMITTED_FOR_QA:        'An inspection checklist has been submitted and is pending QA review.',
   QA_APPROVED:             'The inspection has been approved by QA.',
@@ -308,6 +309,8 @@ function buildReadableMessage(eventType, extraMessage) {
       return `⏰ Replacement overdue — claim ${data.claim_ref || ''} (PO ${data.po_no || '—'}, ${data.item_name || '—'}). Expected landing ${data.expected_replacement_date ? new Date(data.expected_replacement_date).toLocaleDateString('en-GB') : '—'} has passed. Revise the date or mark received.`;
     case 'CLAIM_SETTLED':
       return `Defect claim ${data.claim_ref || ''} settled by ${data.settlement_mode || '—'} — PO ${data.po_no || '—'}. Total: $${parseFloat(data.total_amount || 0).toFixed(2)}.${data.credit_note_no ? ` Credit note: ${data.credit_note_no}.` : ''}`;
+    case 'CLAIM_EDITED':
+      return `✏️ Claim ${data.claim_ref || ''} (PO ${data.po_no || '—'}) was edited by ${data.edited_by_role || 'a stakeholder'} — fields: ${data.fields_changed || '—'}. It has rewound to your stage and needs re-approval.`;
     case 'JOB_DEVIATION_APPROVED':
       return `Deviation approved by Buying${jobRef ? ` — ${jobRef}` : ''}. Decided by ${data.buyer_name || '—'}. Awaiting final QA decision.${data.remarks ? ` Remarks: ${data.remarks}` : ''}`;
     case 'JOB_DEVIATION_REJECTED':

@@ -31,7 +31,16 @@ async function loadClaim(claimId) {
            (COALESCE(c.defect_qty,0) * COALESCE(p.unit_price,0))  AS defect_value,
            ru.name AS raised_by_name, qu.name AS qa_reviewed_by_name, bu.name AS buying_submitted_by_name,
            iu.name AS imports_reviewed_by_name, au.name AS accounts_closed_by_name,
-           (c.claim_amount + c.penalty_amount) AS total_amount
+           (c.claim_amount + c.penalty_amount) AS total_amount,
+           COALESCE((
+             SELECT json_agg(json_build_object(
+               'at', e.edited_at, 'by', eu.name, 'role', e.edited_by_role,
+               'fields', e.fields_changed, 'from_status', e.rewound_from, 'to_status', e.rewound_to
+             ) ORDER BY e.edited_at)
+             FROM qc_inspection.claim_edit_log e
+             LEFT JOIN qc_inspection.team_stakeholder eu ON eu.user_id = e.edited_by
+             WHERE e.claim_id = c.claim_id
+           ), '[]') AS edit_log
     FROM qc_inspection.defect_claim c
     LEFT JOIN qc_inspection.item_master im ON im.item_code = c.item_code
     LEFT JOIN qc_inspection.supplier_master s ON s.supplier_code = c.supplier_code
@@ -498,6 +507,111 @@ router.patch('/:id/details', async (req, res) => {
     res.json(await loadClaim(rows[0].claim_id));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+// POST /api/claims/:id/edit — role-scoped correction that rewinds re-approval
+// Each stage edits its own fields; the edit rewinds the claim to that stage and
+// re-climbs the chain up to whichever stakeholder currently holds it.
+const CLAIM_STAGE_ORDER = ['pending_qa', 'pending_buying', 'pending_imports', 'pending_accounts', 'closed'];
+const EDIT_FIELDS_BY_ROLE = {
+  warehouse: { defect_qty: 'int', checked_qty: 'int', claim_amount: 'money', description: 'text',
+    country_of_origin: 'text', trigger_point: 'text', grn_date: 'date', trigger_date: 'date', qc_done_date: 'date' },
+  qa: { root_cause: 'text', corrective_action: 'text', preventive_action: 'text', rework_possible: 'bool',
+    rework_scope: 'text', rework_type: 'text', replacement_parts: 'text', root_cause_date: 'date' },
+  buying: { penalty_amount: 'money', penalty_reason: 'text', settlement_mode: 'text', credit_note_no: 'text',
+    credit_note_amount: 'money', expected_replacement_date: 'date', rework_cost: 'money', cost_sheet_note: 'text', settlement_remarks: 'text' },
+  imports: { imports_remarks: 'text' },
+  accounts: { deduction_remarks: 'text' },
+};
+// Stage a role's edit rewinds to (where its downstream re-approval restarts)
+const REWIND_TO_BY_ROLE = {
+  warehouse: 'pending_qa', qa: 'pending_buying', buying: 'pending_imports',
+  imports: 'pending_accounts', accounts: 'pending_accounts',
+};
+const STAGE_ROLE = { pending_qa: 'qa', pending_buying: 'buying', pending_imports: 'imports', pending_accounts: 'accounts' };
+
+router.post('/:id/edit', async (req, res) => {
+  try {
+    const role = req.user.role;
+    if (!['warehouse', 'qa', 'buying', 'imports', 'accounts', 'admin'].includes(role))
+      return res.status(403).json({ error: 'Access denied' });
+
+    const claim = await loadClaim(req.params.id);
+    if (!claim) return res.status(404).json({ error: 'Not found' });
+    if (claim.status === 'withdrawn')
+      return res.status(400).json({ error: 'Cannot edit a withdrawn claim' });
+
+    const fields = req.body.fields || {};
+    // Admin may edit any field; otherwise the acting role's own fields only
+    const allowed = role === 'admin'
+      ? Object.assign({}, ...Object.values(EDIT_FIELDS_BY_ROLE))
+      : EDIT_FIELDS_BY_ROLE[role];
+
+    const sets = [], vals = [], changed = [];
+    for (const [key, type] of Object.entries(allowed)) {
+      if (!(key in fields)) continue;
+      let v = fields[key];
+      if (type === 'int' || type === 'money') {
+        v = (v === '' || v === null || v === undefined) ? null : (type === 'int' ? parseInt(v, 10) : parseFloat(v));
+        if (v !== null && (isNaN(v) || v < 0)) return res.status(400).json({ error: `${key} must be a non-negative number` });
+      } else if (type === 'bool') { v = (v === null || v === undefined) ? null : !!v; }
+      else if (type === 'text') { v = (v === null || v === undefined || String(v).trim() === '') ? null : String(v).trim(); }
+      else if (type === 'date') { v = v || null; }
+      vals.push(v);
+      sets.push(`${key} = $${vals.length}`);
+      changed.push(key);
+    }
+    if (!sets.length) return res.status(400).json({ error: 'No editable fields provided for your role' });
+
+    // Determine which stage this role's edit rewinds to, and whether a rewind is needed
+    const rewindTarget = role === 'admin'
+      ? lowestRewindForFields(changed)
+      : REWIND_TO_BY_ROLE[role];
+    const curIdx = CLAIM_STAGE_ORDER.indexOf(claim.status);
+    const targetIdx = CLAIM_STAGE_ORDER.indexOf(rewindTarget);
+    const willRewind = rewindTarget && curIdx > targetIdx;
+    const newStatus = willRewind ? rewindTarget : claim.status;
+
+    if (willRewind) { vals.push(newStatus); sets.push(`status = $${vals.length}`); }
+    vals.push(req.params.id);
+    const { rows } = await db.query(
+      `UPDATE qc_inspection.defect_claim SET ${sets.join(', ')} WHERE claim_id = $${vals.length} RETURNING claim_id`,
+      vals
+    );
+
+    await db.query(
+      `INSERT INTO qc_inspection.claim_edit_log (claim_id, edited_by, edited_by_role, fields_changed, rewound_from, rewound_to)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [req.params.id, req.user.user_id, role, changed.join(', '), willRewind ? claim.status : null, willRewind ? newStatus : null]
+    );
+
+    const updated = await loadClaim(rows[0].claim_id);
+
+    // Notify the stakeholder who now holds the claim that it needs re-approval
+    if (willRewind) {
+      const holderRole = STAGE_ROLE[newStatus];
+      if (holderRole) {
+        await notifyRole(holderRole, 'CLAIM_EDITED',
+          claimMsg(updated, { edited_by_role: role, fields_changed: changed.join(', ') }),
+          holderRole === 'buying' ? updated.po_buyer_id : null,
+          holderRole === 'buying' && updated.po_buyer_email ? [updated.po_buyer_email] : []);
+      }
+    }
+
+    res.json(updated);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+function lowestRewindForFields(changed) {
+  // For admin edits, rewind to the earliest stage among the affected field owners
+  let best = null, bestIdx = Infinity;
+  for (const [r, f] of Object.entries(EDIT_FIELDS_BY_ROLE)) {
+    if (!changed.some(k => k in f)) continue;
+    const target = REWIND_TO_BY_ROLE[r];
+    const idx = CLAIM_STAGE_ORDER.indexOf(target);
+    if (idx < bestIdx) { bestIdx = idx; best = target; }
+  }
+  return best;
+}
 
 // ── Attachments: defect images + cost sheets ─────────────────────────────────
 router.post('/:id/attachments', upload.single('file'), async (req, res) => {

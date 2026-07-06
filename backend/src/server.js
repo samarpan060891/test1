@@ -1033,6 +1033,20 @@ async function runMigrations() {
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS credit_note_amount NUMERIC(12,2)`, 'claim credit_note_amount');
   await safeQuery(`ALTER TABLE qc_inspection.defect_claim ADD COLUMN IF NOT EXISTS payment_hold BOOLEAN DEFAULT false`, 'claim payment_hold');
 
+  // Claim edit trail — records corrections and any re-approval rewind they triggered
+  await safeQuery(`
+    CREATE TABLE IF NOT EXISTS qc_inspection.claim_edit_log (
+      edit_id       SERIAL PRIMARY KEY,
+      claim_id      INTEGER NOT NULL REFERENCES qc_inspection.defect_claim(claim_id) ON DELETE CASCADE,
+      edited_by     INTEGER,
+      edited_by_role TEXT,
+      fields_changed TEXT,
+      rewound_from  TEXT,
+      rewound_to    TEXT,
+      edited_at     TIMESTAMPTZ DEFAULT now()
+    )
+  `, 'claim_edit_log table');
+
   console.log('✅ Migrations applied');
 }
 
