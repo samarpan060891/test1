@@ -254,6 +254,18 @@ router.post('/:id/buying-submit', async (req, res) => {
     if (req.user.role === 'buying' && claim.po_buyer_id && claim.po_buyer_id !== req.user.user_id)
       return res.status(403).json({ error: 'This PO is assigned to a different buyer' });
 
+    // Reworkable claims must carry a rework cost and an uploaded cost sheet
+    if (claim.rework_possible === true) {
+      if (reworkCost === null || reworkCost <= 0)
+        return res.status(400).json({ error: 'Rework cost (greater than 0) is required because this claim is marked reworkable' });
+      const { rows: cs } = await db.query(
+        `SELECT COUNT(*)::int AS n FROM qc_inspection.defect_claim_attachment WHERE claim_id = $1 AND kind = 'cost_sheet'`,
+        [req.params.id]
+      );
+      if (cs[0].n === 0)
+        return res.status(400).json({ error: 'A cost sheet must be uploaded (Attachments) because this claim is marked reworkable' });
+    }
+
     const { rows } = await db.query(`
       UPDATE qc_inspection.defect_claim
       SET status = 'pending_imports', penalty_amount = $1, penalty_reason = $2,

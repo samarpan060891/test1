@@ -416,6 +416,42 @@ test('claims: replacement needs no credit note', async () => {
   assert.equal(res.status, 200);
 });
 
+test('claims: reworkable claim requires a rework cost at buying-submit', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying', rework_possible: true })] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'rework', credit_note_no: 'CN-9' });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /rework cost/i);
+});
+
+test('claims: reworkable claim requires a cost sheet upload at buying-submit', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying', rework_possible: true })] });
+  onQuery(t => t.includes("kind = 'cost_sheet'"), { rows: [{ n: 0 }] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'rework', credit_note_no: 'CN-9', rework_cost: 250 });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /cost sheet/i);
+});
+
+test('claims: reworkable claim submits with cost + cost sheet present', async () => {
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_buying', rework_possible: true })] });
+  onQuery(t => t.includes("kind = 'cost_sheet'"), { rows: [{ n: 1 }] });
+  onQuery(t => t.includes("SET status = 'pending_imports'"),
+    { rows: [claimRow({ status: 'pending_imports', rework_possible: true })] });
+  onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
+    { rows: [claimRow({ status: 'pending_imports', rework_possible: true })] });
+  const res = await request(app).post(`${CLAIM}/buying-submit`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ mode: 'rework', credit_note_no: 'CN-9', rework_cost: 250 });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'pending_imports');
+});
+
 test('claims: wrong buyer cannot finalise', async () => {
   onQuery(t => t.includes('FROM qc_inspection.defect_claim c'),
     { rows: [claimRow({ status: 'pending_buying', po_buyer_id: '99999999-9999-4999-8999-999999999999' })] });

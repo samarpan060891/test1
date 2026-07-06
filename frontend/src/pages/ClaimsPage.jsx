@@ -846,21 +846,42 @@ export default function ClaimsPage() {
                       style={{ ...inputStyle, border: !creditNoteNo.trim() ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
                   </label>
                 )}
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-                  <label style={{ flex: 1 }}>
-                    <span style={labelStyle}>Rework Cost (USD)</span>
-                    <input type="number" min="0" step="0.01" value={reworkCost} onChange={e => setReworkCost(e.target.value)} placeholder="0.00" style={inputStyle} />
-                  </label>
-                  <label style={{ flex: 2 }}>
-                    <span style={labelStyle}>Cost Sheet Note</span>
-                    <input value={costSheetNote} onChange={e => setCostSheetNote(e.target.value)} placeholder="Cost breakdown summary / reference…" style={inputStyle} />
-                  </label>
-                </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>Attach a detailed cost sheet file from the Attachments section below.</div>
+                {(() => {
+                  const reworkable = detail.rework_possible === true
+                  const hasCostSheet = attachments.some(a => a.kind === 'cost_sheet')
+                  return (<>
+                    {reworkable && (
+                      <div style={{ fontSize: '12px', fontWeight: '700', color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px' }}>
+                        ⚠️ This claim is marked <b>Reworkable</b> — Rework Cost and a Cost Sheet upload are required.
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                      <label style={{ flex: 1 }}>
+                        <span style={labelStyle}>Rework Cost (USD){reworkable ? ' *' : ''}</span>
+                        <input type="number" min="0" step="0.01" value={reworkCost} onChange={e => setReworkCost(e.target.value)} placeholder="0.00"
+                          style={{ ...inputStyle, border: reworkable && !(parseFloat(reworkCost) > 0) ? '1.5px solid #f59e0b' : '1px solid #e2e8f0' }} />
+                      </label>
+                      <label style={{ flex: 2 }}>
+                        <span style={labelStyle}>Cost Sheet Note</span>
+                        <input value={costSheetNote} onChange={e => setCostSheetNote(e.target.value)} placeholder="Cost breakdown summary / reference…" style={inputStyle} />
+                      </label>
+                    </div>
+                    <div style={{ fontSize: '12px', color: reworkable && !hasCostSheet ? '#b45309' : '#64748b', marginBottom: '12px' }}>
+                      {reworkable && !hasCostSheet
+                        ? '⚠️ Upload the cost sheet file from the Attachments section above (+ Cost Sheet).'
+                        : 'Attach a detailed cost sheet file from the Attachments section above.'}
+                      {hasCostSheet && <span style={{ color: '#15803d', fontWeight: '700' }}> ✓ Cost sheet attached.</span>}
+                    </div>
+                  </>)
+                })()}
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <button disabled={acting || !settleMode} onClick={() => {
                     if (!settleMode) { setMsg('Failed: choose a settlement mode'); return }
                     if (['rework', 'refund'].includes(settleMode) && !creditNoteNo.trim()) { setMsg(`Failed: a credit note number is required for ${settleMode}`); return }
+                    if (detail.rework_possible === true) {
+                      if (!(parseFloat(reworkCost) > 0)) { setMsg('Failed: Rework cost is required (greater than 0) for a reworkable claim'); return }
+                      if (!attachments.some(a => a.kind === 'cost_sheet')) { setMsg('Failed: upload a cost sheet (Attachments) for a reworkable claim'); return }
+                    }
                     run(() => buyingSubmitClaim(detail.claim_id, { penalty_amount: penaltyAmount, penalty_reason: penaltyReason, mode: settleMode, credit_note_no: creditNoteNo, settlement_remarks: settleRemarks, rework_cost: reworkCost, cost_sheet_note: costSheetNote }), 'Final claim submitted to Imports. Supplier, QA and warehouse notified.')
                   }}
                     style={{ padding: '9px 18px', borderRadius: '8px', background: settleMode ? '#0284c7' : '#94a3b8', color: '#fff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: settleMode ? 'pointer' : 'not-allowed', opacity: acting ? 0.7 : 1 }}>
