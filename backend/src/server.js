@@ -94,6 +94,12 @@ async function runMigrations() {
   await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS invoice_file_type TEXT`, 'invoice_file_type');
   await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS invoice_uploaded_at TIMESTAMPTZ`, 'invoice_uploaded_at');
   await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS invoice_uploaded_by UUID REFERENCES qc_inspection.team_stakeholder(user_id)`, 'invoice_uploaded_by');
+
+  // Payment transaction details — filled by Accounts only, at final payment
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS payment_mode TEXT`, 'advice payment_mode');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS payment_reference TEXT`, 'advice payment_reference');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS payment_date DATE`, 'advice payment_date');
+  await safeQuery(`ALTER TABLE qc_inspection.inspection_charges_advice ADD COLUMN IF NOT EXISTS payment_bank_name TEXT`, 'advice payment_bank_name');
   await safeQuery(`ALTER TABLE qc_inspection.inspection_job ADD COLUMN IF NOT EXISTS contract_id UUID REFERENCES qc_inspection.agency_contract(contract_id)`, 'job contract_id');
   await safeQuery(`ALTER TABLE qc_inspection.notification_event ADD COLUMN IF NOT EXISTS agency_code TEXT`, 'notification agency_code');
   await safeQuery(`ALTER TABLE qc_inspection.notification_event ADD COLUMN IF NOT EXISTS supplier_code TEXT`, 'notification supplier_code');

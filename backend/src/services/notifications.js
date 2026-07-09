@@ -334,7 +334,7 @@ function buildReadableMessage(eventType, extraMessage) {
     case 'CHARGES_IMPORTS_APPROVED':
       return `Charges approved by Imports — ${ref}. Amount: ${data.currency || 'USD'} ${parseFloat(data.amt || 0).toFixed(2)}. Pending Accounts payment.`;
     case 'CHARGES_PAID':
-      return `Charges payment confirmed — ${ref}. Amount: ${data.currency || 'USD'} ${parseFloat(data.amt || 0).toFixed(2)}.`;
+      return `Charges payment confirmed — ${ref}. Amount: ${data.currency || 'USD'} ${parseFloat(data.amt || 0).toFixed(2)}.${data.payment_mode ? ` Mode: ${data.payment_mode}.` : ''}${data.payment_reference ? ` Ref: ${data.payment_reference}.` : ''}`;
     case 'CHARGES_REJECTED':
       return `Charges rejected — ${ref}. Rejected by ${data.rejected_by || '—'}.${data.reason ? ` Reason: ${data.reason}` : ''}`;
     case 'REMARK_POSTED':

@@ -54,6 +54,11 @@ export default function InspectionCostPage() {
   const [invoiceUploading, setInvoiceUploading] = useState(false)
   const [invoiceMsg, setInvoiceMsg]     = useState('')
   const [actionSaving, setActionSaving] = useState(false)
+  // Payment transaction details — Accounts only, at final payment approval
+  const [paymentMode, setPaymentMode] = useState('')
+  const [paymentReference, setPaymentReference] = useState('')
+  const [paymentDate, setPaymentDate] = useState('')
+  const [paymentBank, setPaymentBank] = useState('')
   const [activeFilter, setActiveFilter] = useState(null)
   const [advFilters, setAdvFilters] = useState({})
   // Resizable columns for main advice table (max 11 cols)
@@ -216,13 +221,25 @@ export default function InspectionCostPage() {
 
   const handleAction = async () => {
     if (!showApprove) return
-    if (showApprove.action === 'approve' && !actionNote.trim()) { setActionMsg('Transaction Reference is required'); return }
     if (showApprove.action === 'reject' && !actionNote.trim()) { setActionMsg('Please provide rejection reason'); return }
+    if (showApprove.action === 'approve' && role === 'accounts') {
+      if (!paymentMode.trim()) { setActionMsg('Payment mode is required'); return }
+      if (!paymentReference.trim()) { setActionMsg('Transaction reference is required'); return }
+      if (!paymentDate) { setActionMsg('Payment date is required'); return }
+    }
     setActionSaving(true); setActionMsg('')
     try {
-      if (showApprove.action === 'approve') await approveAdvice(showApprove.advice.advice_id, actionNote)
-      else await rejectAdvice(showApprove.advice.advice_id, actionNote)
-      setShowApprove(null); setActionNote(''); load()
+      if (showApprove.action === 'approve') {
+        const payment = role === 'accounts'
+          ? { payment_mode: paymentMode, payment_reference: paymentReference, payment_date: paymentDate, payment_bank_name: paymentBank || null }
+          : null
+        await approveAdvice(showApprove.advice.advice_id, actionNote, payment)
+      } else {
+        await rejectAdvice(showApprove.advice.advice_id, actionNote)
+      }
+      setShowApprove(null); setActionNote('')
+      setPaymentMode(''); setPaymentReference(''); setPaymentDate(''); setPaymentBank('')
+      load()
     } catch (err) {
       setActionMsg(err?.response?.data?.error || 'Action failed')
       load()
@@ -250,6 +267,10 @@ export default function InspectionCostPage() {
       'Imports Approved By':  a.imports_user_name ?? '',
       'Accounts Approved By': a.accounts_user_name ?? '',
       'Accounts Remarks':     a.accounts_notes ?? '',
+      'Payment Mode':         a.payment_mode ?? '',
+      'Payment Reference':    a.payment_reference ?? '',
+      'Payment Date':         a.payment_date ? new Date(a.payment_date).toLocaleDateString() : '',
+      'Payment Bank':         a.payment_bank_name ?? '',
       'Rejection Reason':     a.rejection_reason ?? '',
       'Created By':      a.created_by_name,
       'Created At':      new Date(a.created_at).toLocaleDateString(),
@@ -566,6 +587,7 @@ export default function InspectionCostPage() {
                           {a.buying_user_name   && <span>✅ Buying: <strong>{a.buying_user_name}</strong></span>}
                           {a.imports_user_name  && <span>✅ Imports: <strong>{a.imports_user_name}</strong></span>}
                           {a.accounts_user_name && <span style={{ color: '#15803d', fontWeight: '700' }}>💰 <strong>{a.accounts_user_name}</strong></span>}
+                          {a.payment_reference && <span style={{ color: '#15803d' }}>Txn: <strong>{a.payment_reference}</strong>{a.payment_mode ? ` (${a.payment_mode})` : ''}{a.payment_date ? ` · ${new Date(a.payment_date).toLocaleDateString('en-GB')}` : ''}</span>}
                           {a.accounts_notes && <span style={{ color: '#15803d', fontStyle: 'italic' }}>{a.accounts_notes}</span>}
                           {a.status === 'rejected' && <span style={{ color: '#991b1b' }}>❌ {a.rejection_reason}</span>}
                           {!a.contract_name && !a.qa_user_name && !a.buying_user_name && !a.imports_user_name && !a.accounts_user_name && !a.rejection_reason && <span style={{ color: '#cbd5e1' }}>—</span>}
@@ -591,7 +613,7 @@ export default function InspectionCostPage() {
                         <td style={{ whiteSpace: 'nowrap' }}>
                           {canApprove(a) ? (
                             <div style={{ display: 'flex', gap: '5px' }}>
-                              <button onClick={() => { setShowApprove({ advice: a, action: 'approve' }); setActionNote(''); setActionMsg('') }}
+                              <button onClick={() => { setShowApprove({ advice: a, action: 'approve' }); setActionNote(''); setActionMsg(''); setPaymentMode(''); setPaymentReference(''); setPaymentDate(''); setPaymentBank('') }}
                                 style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                 {role === 'accounts' ? t('costs_paid_confirm') : t('costs_approve')}
                               </button>
@@ -907,20 +929,49 @@ export default function InspectionCostPage() {
               </div>
             )}
 
-            <div className="field">
-              <label>
-                {showApprove.action === 'approve'
-                  ? <>Transaction Reference <span style={{ color: '#dc2626' }}>*</span></>
-                  : t('costs_rejection_reason')}
-              </label>
-              <textarea
-                value={actionNote}
-                onChange={e => setActionNote(e.target.value)}
-                rows={3}
-                placeholder={showApprove.action === 'approve' ? 'e.g. TXN-20260701-001' : t('costs_rejection_placeholder')}
-                className="textarea"
-              />
-            </div>
+            {/* Accounts, on approval, records the actual payment transaction — every other
+                stage (QA/Buying/Imports) only approves/rejects with an optional remark. */}
+            {showApprove.action === 'approve' && role === 'accounts' ? (
+              <>
+                <div className="field">
+                  <label>Payment Mode <span style={{ color: '#dc2626' }}>*</span></label>
+                  <select value={paymentMode} onChange={e => setPaymentMode(e.target.value)} style={inputSt}>
+                    <option value="">Select…</option>
+                    {['Bank Transfer', 'Cheque', 'Wire Transfer', 'Cash', 'Other'].map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Transaction Reference / UTR <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input type="text" value={paymentReference} onChange={e => setPaymentReference(e.target.value)}
+                    placeholder="e.g. UTR / TXN-20260701-001" style={inputSt} />
+                </div>
+                <div className="field">
+                  <label>Payment Date <span style={{ color: '#dc2626' }}>*</span></label>
+                  <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} style={inputSt} />
+                </div>
+                <div className="field">
+                  <label>Bank Name (optional)</label>
+                  <input type="text" value={paymentBank} onChange={e => setPaymentBank(e.target.value)} style={inputSt} />
+                </div>
+                <div className="field">
+                  <label>Remarks (optional)</label>
+                  <textarea value={actionNote} onChange={e => setActionNote(e.target.value)} rows={2} className="textarea" />
+                </div>
+              </>
+            ) : (
+              <div className="field">
+                <label>
+                  {showApprove.action === 'approve' ? 'Remarks (optional)' : t('costs_rejection_reason')}
+                </label>
+                <textarea
+                  value={actionNote}
+                  onChange={e => setActionNote(e.target.value)}
+                  rows={3}
+                  placeholder={showApprove.action === 'approve' ? 'Optional remarks…' : t('costs_rejection_placeholder')}
+                  className="textarea"
+                />
+              </div>
+            )}
 
             {actionMsg && <div className="alert alert-error mb-4">{actionMsg}</div>}
 

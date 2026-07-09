@@ -316,8 +316,13 @@ router.post('/', authorize('agency_user'), upload.single('invoice'), async (req,
 
 // PUT /:id/approve — multi-step: QA → Buying → Imports → Accounts (paid)
 router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), async (req, res) => {
-  const { notes } = req.body;
+  const { notes, payment_mode, payment_reference, payment_date, payment_bank_name } = req.body;
   const { role, user_id } = req.user;
+  if (role === 'accounts') {
+    if (!payment_mode || !String(payment_mode).trim()) return res.status(400).json({ error: 'Payment mode is required' });
+    if (!payment_reference || !String(payment_reference).trim()) return res.status(400).json({ error: 'Transaction reference is required' });
+    if (!payment_date) return res.status(400).json({ error: 'Payment date is required' });
+  }
   try {
     const cur = await db.query('SELECT * FROM qc_inspection.inspection_charges_advice WHERE advice_id = $1', [req.params.id]);
     if (cur.rows.length === 0) return res.status(404).json({ error: 'Advice not found' });
@@ -383,12 +388,13 @@ router.put('/:id/approve', authorize('qa', 'buying', 'imports', 'accounts'), asy
       if (advice.status !== 'pending_accounts') return res.status(400).json({ error: 'Not pending Accounts payment' });
       update = await db.query(
         `UPDATE qc_inspection.inspection_charges_advice
-         SET status = 'paid', accounts_user_id = $1, accounts_approved_at = NOW(), accounts_notes = $2
-         WHERE advice_id = $3 RETURNING *`,
-        [user_id, notes || null, req.params.id]
+         SET status = 'paid', accounts_user_id = $1, accounts_approved_at = NOW(), accounts_notes = $2,
+             payment_mode = $3, payment_reference = $4, payment_date = $5, payment_bank_name = $6
+         WHERE advice_id = $7 RETURNING *`,
+        [user_id, notes || null, payment_mode, payment_reference, payment_date, payment_bank_name || null, req.params.id]
       );
-      sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'agency_user', agencyEmails, chargesMsg(), ctx?.advice_id || null, advice.agency_code);
-      if (buyer) sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'buying', buyerEmails, chargesMsg(), ctx?.advice_id || null, null, null, buyer.buyer_id);
+      sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'agency_user', agencyEmails, chargesMsg({ payment_mode, payment_reference }), ctx?.advice_id || null, advice.agency_code);
+      if (buyer) sendNotification(ctx?.first_job_id || null, 'CHARGES_PAID', 'buying', buyerEmails, chargesMsg({ payment_mode, payment_reference }), ctx?.advice_id || null, null, null, buyer.buyer_id);
     }
 
     res.json(update.rows[0]);

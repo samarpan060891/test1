@@ -10,7 +10,7 @@ export const createAdvice = (data, invoiceFile) => {
   })
   return client.post('/inspection-costs', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
-export const approveAdvice = (id, notes) => client.put(`/inspection-costs/${id}/approve`, { notes })
+export const approveAdvice = (id, notes, payment) => client.put(`/inspection-costs/${id}/approve`, { notes, ...(payment || {}) })
 export const rejectAdvice = (id, reason) => client.put(`/inspection-costs/${id}/reject`, { reason })
 
 export const getContracts = () => client.get('/inspection-costs/contracts')

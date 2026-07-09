@@ -703,6 +703,58 @@ test('scorecard: supplier_user is scoped by their own supplier (user_id passed t
   assert.ok(lookupParams && lookupParams[0], 'supplier lookup must receive the user_id, not undefined');
 });
 
+// ── Payment advice (inspection charges) — approval chain ─────────────────────
+
+const ADVICE_ID = '44444444-4444-4444-8444-444444444444';
+const adviceRow = (over = {}) => ({
+  advice_id: ADVICE_ID, advice_ref: 'ICA-2026-0001', agency_code: 'AG1',
+  status: 'pending_qa', total_cost: 500, currency: 'USD', cost_bearer: 'company', ...over,
+});
+
+test('inspection-costs: QA approval needs no transaction details', async () => {
+  onQuery(t => t.includes('SELECT * FROM qc_inspection.inspection_charges_advice'), { rows: [adviceRow({ status: 'pending_qa' })] });
+  onQuery(t => t.includes("SET status = 'pending_buying'"), { rows: [adviceRow({ status: 'pending_buying' })] });
+  const res = await request(app).put(`/api/inspection-costs/${ADVICE_ID}/approve`)
+    .set('Authorization', `Bearer ${tokenFor('qa')}`)
+    .send({});
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'pending_buying');
+});
+
+test('inspection-costs: buying/imports approval accepts an optional remark only', async () => {
+  onQuery(t => t.includes('SELECT * FROM qc_inspection.inspection_charges_advice'), { rows: [adviceRow({ status: 'pending_buying' })] });
+  onQuery(t => t.includes("SET status = 'pending_imports'"), { rows: [adviceRow({ status: 'pending_imports' })] });
+  const res = await request(app).put(`/api/inspection-costs/${ADVICE_ID}/approve`)
+    .set('Authorization', `Bearer ${tokenFor('buying')}`)
+    .send({ notes: 'looks fine' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'pending_imports');
+});
+
+test('inspection-costs: accounts approval requires payment mode, reference and date', async () => {
+  const res = await request(app).put(`/api/inspection-costs/${ADVICE_ID}/approve`)
+    .set('Authorization', `Bearer ${tokenFor('accounts')}`)
+    .send({ notes: 'paid' });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /payment mode/i);
+});
+
+test('inspection-costs: accounts approval succeeds and persists transaction details', async () => {
+  onQuery(t => t.includes('SELECT * FROM qc_inspection.inspection_charges_advice'), { rows: [adviceRow({ status: 'pending_accounts' })] });
+  let updateParams = null;
+  onQuery(t => t.includes("SET status = 'paid'"), (t, params) => {
+    updateParams = params;
+    return { rows: [adviceRow({ status: 'paid', payment_mode: 'Bank Transfer', payment_reference: 'TXN-1', payment_date: '2026-07-09' })] };
+  });
+  const res = await request(app).put(`/api/inspection-costs/${ADVICE_ID}/approve`)
+    .set('Authorization', `Bearer ${tokenFor('accounts')}`)
+    .send({ payment_mode: 'Bank Transfer', payment_reference: 'TXN-1', payment_date: '2026-07-09' });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, 'paid');
+  assert.ok(updateParams.includes('Bank Transfer'));
+  assert.ok(updateParams.includes('TXN-1'));
+});
+
 // ── Auth basics ──────────────────────────────────────────────────────────────
 
 test('login requires email and password', async () => {
